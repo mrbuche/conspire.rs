@@ -405,11 +405,10 @@ fn terms(
         .min_by(|a, b| a.1.jacobian.total_cmp(&b.1.jacobian))
         .map(|(point, frame)| (point, frame.jacobian))
         .unwrap();
-    let (s, lowest_sj) = frames
+    let lowest_sj = frames
         .iter()
-        .enumerate()
-        .min_by(|a, b| a.1.scaled.total_cmp(&b.1.scaled))
-        .map(|(point, frame)| (point, frame.scaled))
+        .map(|frame| frame.scaled)
+        .min_by(|a, b| a.total_cmp(b))
         .unwrap();
     let mut slopes = CoordinateList::default();
     if lowest_j <= Quantity::default() {
@@ -426,25 +425,33 @@ fn terms(
         (lowest_j / scale - theta * scale * scale, slopes)
     } else if lowest_sj <= theta {
         let area = scale * scale;
-        if derivative {
-            let frame = &frames[s];
-            let u: DirectionList<3, 3> = frame
-                .edges
-                .iter()
-                .map(|edge| edge.clone().normalized())
-                .collect();
-            let g = (0..3)
-                .map(|i| {
-                    let c = u[(i + 1) % 3].cross(&u[(i + 2) % 3]);
-                    let along = &c * &u[i];
-                    let slope: TensorRank1<3, Reference, ReciprocalLength> =
-                        ((c - &u[i] * along) / frame.lengths[i]).with_unit();
-                    (slope * area).with_unit()
-                })
-                .collect();
-            scatter(&POINTS[s], &g, &mut slopes)
-        }
-        ((lowest_sj - theta) * area, slopes)
+        let mut value = Quantity::<Area>::default();
+        frames
+            .iter()
+            .zip(POINTS.iter())
+            .filter(|(frame, _)| frame.scaled <= theta)
+            .for_each(|(frame, weights)| {
+                let short = theta - frame.scaled;
+                value -= area * (short * short);
+                if derivative {
+                    let u: DirectionList<3, 3> = frame
+                        .edges
+                        .iter()
+                        .map(|edge| edge.clone().normalized())
+                        .collect();
+                    let g = (0..3)
+                        .map(|i| {
+                            let c = u[(i + 1) % 3].cross(&u[(i + 2) % 3]);
+                            let along = &c * &u[i];
+                            let slope: TensorRank1<3, Reference, ReciprocalLength> =
+                                ((c - &u[i] * along) / frame.lengths[i]).with_unit();
+                            (slope * area).with_unit() * (short * 2.0).value()
+                        })
+                        .collect();
+                    scatter(weights, &g, &mut slopes)
+                }
+            });
+        (value, slopes)
     } else {
         (Quantity::default(), slopes)
     }

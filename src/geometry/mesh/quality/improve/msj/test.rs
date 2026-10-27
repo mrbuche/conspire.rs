@@ -91,6 +91,34 @@ fn gradient_matches_finite_difference_on_the_scaled_branch() {
 }
 
 #[test]
+fn gradient_matches_finite_difference_with_some_points_above_theta() {
+    let nodes = distorted(0.25, 1.0);
+    let coordinates = typed(&nodes);
+    let mut scaled: Vec<Scalar> = POINTS
+        .iter()
+        .map(|weights| Frame::new(weights, &coordinates).scaled.value())
+        .collect();
+    scaled.sort_by(Scalar::total_cmp);
+    check(0.5 * (scaled[4] + scaled[5]), nodes)
+}
+
+#[test]
+fn sums_the_squared_shortfall_of_every_point_below_theta() {
+    let nodes = distorted(0.25, 1.0);
+    let coordinates = typed(&nodes);
+    let theta = 0.9;
+    let expected = -1.3
+        * 1.3
+        * POINTS
+            .iter()
+            .map(|weights| Frame::new(weights, &coordinates).scaled.value())
+            .filter(|&scaled| scaled <= theta)
+            .map(|scaled| (theta - scaled).powi(2))
+            .sum::<Scalar>();
+    assert!((energy(theta, &nodes) - expected).abs() < 1.0e-12)
+}
+
+#[test]
 fn gradient_matches_finite_difference_on_the_jacobian_branch() {
     let mut nodes = UNIT;
     nodes[6] = [0.2, 0.3, 0.4];
@@ -265,7 +293,7 @@ fn one_sweep_stops_on_the_budget() {
     let (mut mesh, tessellation) = buffered_torus();
     let error = improve(&mut mesh, &tessellation, 1);
     assert!(
-        matches!(error, MeshError::Budget { sweeps: 1, theta } if (theta - 0.28).abs() < 1.0e-9)
+        matches!(error, MeshError::Budget { sweeps: 1, theta } if (theta - 0.29).abs() < 1.0e-9)
     );
 }
 
@@ -274,7 +302,7 @@ fn the_full_budget_stops_on_a_stall() {
     let mut mesh = grid(2, 0.9);
     let error = improve(&mut mesh, &cube(), SWEEPS);
     assert!(
-        matches!(error, MeshError::Stall { sweeps: 2, theta } if (theta - 0.72).abs() < 1.0e-9)
+        matches!(error, MeshError::Stall { sweeps: 11, theta } if (theta - 1.0).abs() < 1.0e-9)
     );
 }
 
