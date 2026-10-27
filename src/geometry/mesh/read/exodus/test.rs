@@ -544,3 +544,27 @@ fn reads_bare_pyramid() {
         _ => panic!("expected Pyramidal block"),
     }
 }
+
+#[test]
+fn reads_bare_hex() {
+    let path = "target/read_exodus_bare_hex.exo";
+    std::fs::write(path, nul_terminated_exo_bytes(b"HEX", 8)).unwrap();
+    let read = Mesh::<3>::try_from(Input::Exodus(path)).unwrap();
+    match &read.connectivities()[0] {
+        Connectivity::Hexahedral(hexes) => {
+            assert!(hexes.iter().eq([[0, 1, 2, 3, 4, 5, 6, 7]].iter()))
+        }
+        _ => panic!("expected Hexahedral block"),
+    }
+}
+
+#[test]
+fn reads_bare_wedge() {
+    let path = "target/read_exodus_bare_wedge.exo";
+    std::fs::write(path, nul_terminated_exo_bytes(b"WEDGE", 6)).unwrap();
+    let read = Mesh::<3>::try_from(Input::Exodus(path)).unwrap();
+    match &read.connectivities()[0] {
+        Connectivity::Wedge(wedges) => assert!(wedges.iter().eq([[0, 1, 2, 3, 4, 5]].iter())),
+        _ => panic!("expected Wedge block"),
+    }
+}
