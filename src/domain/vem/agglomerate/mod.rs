@@ -86,8 +86,13 @@ impl<S: ElementsFaces> Candidates<S> {
     pub fn number_of_elements(&self) -> usize {
         self.boundary.number_of_elements()
     }
+    /// The fastest time scale of the union of the elements, zero if it is inverted.
     pub fn time_scale(&self, elements: &[usize]) -> Result<Quantity<Time>, String> {
-        let (stiffnesses, masses) = self.matrices(elements)?;
+        let (element, coordinates) = self.element(elements)?;
+        if mean_volume(&element) <= 0.0 {
+            return Ok(Time::seconds(0.0));
+        }
+        let (stiffnesses, masses) = self.matrices_of(&element, &coordinates)?;
         Ok(fastest_time_scale(&stiffnesses, &masses))
     }
     pub fn time_scales(&self) -> Result<Vec<Quantity<Time>>, String> {
@@ -117,11 +122,7 @@ impl<S: ElementsFaces> Candidates<S> {
         }
         self.boundary.surface(elements)?.ensure_sphere()?;
         let (element, _) = self.element(elements)?;
-        let volumes = element
-            .tetrahedra()
-            .iter()
-            .map(|tetrahedron| tetrahedron.volume().value())
-            .collect::<Vec<_>>();
+        let volumes = volumes(&element);
         let mean = volumes.iter().sum::<Scalar>() / volumes.len() as Scalar;
         if mean > 0.0
             && volumes
@@ -138,11 +139,18 @@ impl<S: ElementsFaces> Candidates<S> {
         elements: &[usize],
     ) -> Result<(ElementNodalStiffnessesSolid, ElementNodalLumpedMasses), String> {
         let (element, coordinates) = self.element(elements)?;
+        self.matrices_of(&element, &coordinates)
+    }
+    fn matrices_of(
+        &self,
+        element: &Element,
+        coordinates: &NodalReferenceCoordinates,
+    ) -> Result<(ElementNodalStiffnessesSolid, ElementNodalLumpedMasses), String> {
         let stiffnesses = element
             .nodal_stiffnesses(&self.material, &coordinates.clone().into())
             .map_err(|error| format!("{error:?}"))?;
         let masses =
-            element.nodal_lumped_masses(Density::kilograms_per_cubic_meter(1.0), &coordinates);
+            element.nodal_lumped_masses(Density::kilograms_per_cubic_meter(1.0), coordinates);
         Ok((stiffnesses, masses))
     }
     fn element(&self, elements: &[usize]) -> Result<(Element, NodalReferenceCoordinates), String> {
@@ -171,4 +179,17 @@ impl<S: ElementsFaces> Candidates<S> {
             .collect::<NodalReferenceCoordinates>();
         Ok((element, coordinates))
     }
+}
+
+fn volumes(element: &Element) -> Vec<Scalar> {
+    element
+        .tetrahedra()
+        .iter()
+        .map(|tetrahedron| tetrahedron.volume().value())
+        .collect()
+}
+
+fn mean_volume(element: &Element) -> Scalar {
+    let volumes = volumes(element);
+    volumes.iter().sum::<Scalar>() / volumes.len() as Scalar
 }

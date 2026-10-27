@@ -61,6 +61,25 @@ fn every_element_has_a_time_scale() {
 }
 
 #[test]
+fn an_inverted_tetrahedron_has_no_time_scale() {
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(
+            vec![[0, 2, 1, 3], [0, 2, 1, 4]].into(),
+        )],
+        Coordinates::from(vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.3, 0.3, 0.1],
+            [0.3, 0.3, -1.0],
+        ]),
+    ));
+    let scales = candidates(&mesh).time_scales().unwrap();
+    assert_eq!(scales[0].value(), 0.0);
+    assert!(scales[1].value() > 0.0 && scales[1].value().is_finite());
+}
+
+#[test]
 fn a_hexahedron_has_a_finite_time_scale() {
     let mesh = Mesh::from((
         vec![Connectivity::Hexahedral(
