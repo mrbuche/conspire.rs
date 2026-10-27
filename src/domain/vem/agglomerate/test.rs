@@ -213,15 +213,14 @@ fn elements_in_different_blocks_are_not_joined() {
 #[test]
 fn a_union_whose_mean_is_outside_is_not_star_shaped() {
     let mesh = side_by_side([2.0, 2.0, 1.0], [2.0, 2.0, -1.0]);
-    assert_eq!(
-        candidates(&mesh).check(&[0, 1], 0.01),
-        Err("the element is not star-shaped about the mean of its nodes".to_string())
-    );
+    let reason = candidates(&mesh).check(&[0, 1], 0.01).unwrap_err();
+    assert!(reason.starts_with("the element is not star-shaped about the mean of its nodes"));
 }
 
 #[test]
 fn the_volume_floor_rejects_a_small_sub_tetrahedron() {
     let mesh = side_by_side([0.3, 0.3, 1.0], [0.3, 0.3, -1.0]);
     assert!(candidates(&mesh).check(&[0, 1], 0.01).is_ok());
-    assert!(candidates(&mesh).check(&[0, 1], 100.0).is_err());
+    let reason = candidates(&mesh).check(&[0, 1], 100.0).unwrap_err();
+    assert!(reason.starts_with("a tetrahedron of the element is smaller than the minimum volume"));
 }

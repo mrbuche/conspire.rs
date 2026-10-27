@@ -129,7 +129,8 @@ impl<S: ElementsFaces> Candidates<S> {
     ///
     /// It must lie in one block, have a boundary that is one closed surface of genus zero, and
     /// be star-shaped about the mean of its nodes, with every one of the element's tetrahedra
-    /// at least `minimum_volume` times the mean volume of them.
+    /// at least `minimum_volume` times the mean volume of them. The reason says which of those
+    /// two it is, with how many tetrahedra have no volume or how small the smallest one is.
     pub fn check(&self, elements: &[usize], minimum_volume: Scalar) -> Result<(), String> {
         if elements
             .iter()
@@ -140,15 +141,21 @@ impl<S: ElementsFaces> Candidates<S> {
         self.boundary.surface(elements)?.ensure_sphere()?;
         let (element, _) = self.element(elements)?;
         let volumes = volumes(&element);
+        let negative = volumes.iter().filter(|&&volume| volume <= 0.0).count();
+        if negative > 0 {
+            return Err(format!(
+                "the element is not star-shaped about the mean of its nodes: {negative} of {} tetrahedra have no volume",
+                volumes.len()
+            ));
+        }
         let mean = volumes.iter().sum::<Scalar>() / volumes.len() as Scalar;
-        if mean > 0.0
-            && volumes
-                .iter()
-                .all(|&volume| volume >= minimum_volume * mean)
-        {
-            Ok(())
+        let smallest = volumes.iter().copied().fold(Scalar::INFINITY, Scalar::min) / mean;
+        if smallest < minimum_volume {
+            Err(format!(
+                "a tetrahedron of the element is smaller than the minimum volume: {smallest:.3e} of the mean"
+            ))
         } else {
-            Err("the element is not star-shaped about the mean of its nodes".to_string())
+            Ok(())
         }
     }
     fn matrices(
