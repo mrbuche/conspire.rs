@@ -8046,7 +8046,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
             linear_solver: Direct,
             ..Default::default()
         },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(true),
     )?;
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
@@ -8063,7 +8063,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
             cut_back: 5e-1,
             max_steps: 25,
         }),
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(true),
     )?;
     println!("Done ({:?}).", time.elapsed());
     Assert {
@@ -8129,7 +8129,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
             linear_solver: Direct,
             ..Default::default()
         },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(true),
     )?;
     println!("Done ({:?}).", time.elapsed());
     Assert {
@@ -8424,7 +8424,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
             &conditions,
             &(),
             &times,
-            SolveStrategy::Monolithic { elimination },
+            SolveStrategy::monolithic(elimination),
             Dimensionless::of(1e-3),
         )?;
         assert_same_plastic_solution(&reference, &solution, 1e-8)?;
@@ -8573,7 +8573,7 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
             &conditions,
             &(),
             &times,
-            SolveStrategy::Monolithic { elimination },
+            SolveStrategy::monolithic(elimination),
             Dimensionless::of(1e-3),
         )?;
         assert_same_plastic_solution(&reference, &solution, tol)?;

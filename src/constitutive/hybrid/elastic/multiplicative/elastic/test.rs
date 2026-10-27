@@ -264,21 +264,21 @@ fn rooted(
 
 #[test]
 fn root_1() -> Result<(), AssertionError> {
-    rooted(SolveStrategy::Monolithic { elimination: false })?;
+    rooted(SolveStrategy::monolithic(false))?;
     Ok(())
 }
 
 #[test]
 fn root_1_elimination() -> Result<(), AssertionError> {
-    let (f, f_2) = rooted(SolveStrategy::Monolithic { elimination: false })?;
-    let (f_elim, f_2_elim) = rooted(SolveStrategy::Monolithic { elimination: true })?;
+    let (f, f_2) = rooted(SolveStrategy::monolithic(false))?;
+    let (f_elim, f_2_elim) = rooted(SolveStrategy::monolithic(true))?;
     Assert::default().eq_within_tols(&f_elim, &f)?;
     Assert::default().eq_within_tols(&f_2_elim, &f_2)
 }
 
 #[test]
 fn root_1_condensed() -> Result<(), AssertionError> {
-    let (f, f_2) = rooted(SolveStrategy::Monolithic { elimination: false })?;
+    let (f, f_2) = rooted(SolveStrategy::monolithic(false))?;
     let (f_cond, f_2_cond) = rooted(SolveStrategy::Condensed(NewtonRaphson::default()))?;
     Assert::default().eq_within_tols(&f_cond, &f)?;
     Assert::default().eq_within_tols(&f_2_cond, &f_2)

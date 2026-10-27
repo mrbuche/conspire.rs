@@ -1277,28 +1277,56 @@ mod block {
         assert.eq_within_tols(&reference.0, &other.0)?;
         assert.eq_within_tols(&reference.1, &other.1)
     }
+    fn arctangent_local(
+        local_solver: NewtonRaphson<Direct, impl ResidualMerit>,
+    ) -> Result<(Vector, Vector), OptimizationError> {
+        NewtonRaphson::default().root_block(
+            |u: &Vector, _: &Vector| Ok(Vector::from(vec![u[0] - 1.0])),
+            |_: &Vector, v: &Vector| Ok(Vector::from(vec![v[0].atan()])),
+            |_: &Vector, v: &Vector| {
+                let mut kvv = Matrix::zero(1, 1);
+                kvv[0][0] = 1.0 / (1.0 + v[0] * v[0]);
+                let mut kuu = Matrix::zero(1, 1);
+                kuu[0][0] = 1.0;
+                Ok((kuu, Matrix::zero(1, 1), Matrix::zero(1, 1), kvv))
+            },
+            (Vector::zero(1), Vector::from(vec![2.0])),
+            (CscMatrix::from_pattern(0, 1, Vec::new()), Vector::zero(0)),
+            (CscMatrix::from_pattern(0, 1, Vec::new()), Vector::zero(0)),
+            None,
+            SolveStrategy::Condensed(local_solver),
+        )
+    }
+    #[test]
+    fn the_local_solve_is_searched_along_its_step() {
+        assert!(arctangent_local(NewtonRaphson::default()).is_err());
+        let searched = arctangent_local(NewtonRaphson::default().with_line_search(Residual {
+            control: 1e-3,
+            cut_back: 5e-1,
+            max_steps: 100,
+        }))
+        .unwrap();
+        assert!(searched.1[0].abs() < 1e-6);
+    }
     #[test]
     fn dense_strategies_agree_and_satisfy_the_constraint() -> Result<(), AssertionError> {
-        let full = dense(SolveStrategy::Monolithic { elimination: false })?;
+        let full = dense(SolveStrategy::monolithic(false))?;
         Assert::default().eq_within_tols(full.0[0], &0.3)?;
         assert!(full.1.iter().any(|entry| entry.abs() > 1e-3));
-        agree(
-            &full,
-            &dense(SolveStrategy::Monolithic { elimination: true })?,
-        )
+        agree(&full, &dense(SolveStrategy::monolithic(true))?)
     }
     #[test]
     fn sparse_elimination_matches_dense_elimination() -> Result<(), AssertionError> {
         agree(
-            &dense(SolveStrategy::Monolithic { elimination: true })?,
-            &sparse(SolveStrategy::Monolithic { elimination: true })?,
+            &dense(SolveStrategy::monolithic(true))?,
+            &sparse(SolveStrategy::monolithic(true))?,
         )
     }
     #[test]
     fn sparse_elimination_matches_the_sparse_full_system() -> Result<(), AssertionError> {
         agree(
-            &sparse(SolveStrategy::Monolithic { elimination: false })?,
-            &sparse(SolveStrategy::Monolithic { elimination: true })?,
+            &sparse(SolveStrategy::monolithic(false))?,
+            &sparse(SolveStrategy::monolithic(true))?,
         )
     }
 }
@@ -1493,7 +1521,7 @@ mod adaptive_block {
             none(1),
             none(1),
             None,
-            SolveStrategy::Monolithic { elimination: true },
+            SolveStrategy::monolithic(true),
         )
     }
     #[test]

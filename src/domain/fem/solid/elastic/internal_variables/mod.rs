@@ -297,7 +297,7 @@ where
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<NodalCoordinates<D>, OptimizationError>;
 }
 
@@ -315,7 +315,7 @@ where
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         let equality_constraint = conditions.constraint();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];

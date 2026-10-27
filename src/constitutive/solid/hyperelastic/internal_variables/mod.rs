@@ -10,7 +10,7 @@ use crate::{
     },
     math::{
         Quantity, Tensor, TensorArray,
-        optimize::{OptimizationBlock, SolveStrategy},
+        optimize::{OptimizationBlock, ResidualMerit, SolveStrategy},
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
@@ -60,7 +60,7 @@ where
             Self::TangentUv,
             Self::TangentVv,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
@@ -83,7 +83,7 @@ where
             Self::TangentUv,
             Self::TangentVv,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (constraint_external, constraint_internal) = bcs_block(self, applied_load);
         solver

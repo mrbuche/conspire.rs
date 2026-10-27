@@ -267,7 +267,7 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
              + LoadStiffnessAt<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
          ),
         times: &[Quantity<Time>],
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
         abs_tol: Quantity,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
 }
@@ -433,7 +433,7 @@ where
              + LoadStiffnessAt<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
          ),
         times: &[Quantity<Time>],
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
         abs_tol: Quantity,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
         let mut nodal_coordinates: NodalCoordinates<D> = self.coordinates().clone().into();

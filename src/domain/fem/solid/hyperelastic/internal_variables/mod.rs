@@ -13,7 +13,9 @@ use crate::{
     },
     math::{
         Quantity, Scalar, Tensor, Vector,
-        optimize::{Optimization, OptimizationError, OptimizationIncremental, SolveStrategy},
+        optimize::{
+            Optimization, OptimizationError, OptimizationIncremental, ResidualMerit, SolveStrategy,
+        },
     },
     units::Energy,
 };
@@ -65,7 +67,7 @@ where
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<NodalCoordinates<D>, OptimizationError>;
 }
 
@@ -88,7 +90,7 @@ where
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         let equality_constraint = conditions.constraint();
         let initial = self.internal_variables_initial();

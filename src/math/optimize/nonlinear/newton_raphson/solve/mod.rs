@@ -263,7 +263,7 @@ where
         constraint_global: (CscMatrix, Vector),
         constraint_local: (CscMatrix, Vector),
         sparse: Option<SparseSolver>,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<(U, V), OptimizationError> {
         blocked(
             self,
@@ -315,7 +315,7 @@ where
         constraint_global: (CscMatrix, Vector),
         constraint_local: (CscMatrix, Vector),
         sparse: Option<SparseSolver>,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<(U, V), OptimizationError> {
         let function = move |global: &U, local: &V| function(global, local).map(|v| *v.erase());
         blocked(

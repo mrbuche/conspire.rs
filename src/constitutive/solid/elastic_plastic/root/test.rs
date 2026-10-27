@@ -181,8 +181,7 @@ fn strategies_agree() -> Result<(), AssertionError> {
         )
     };
     let (_, gradients, states) = run(SolveStrategy::Condensed(NewtonRaphson::default()))?;
-    let (_, gradients_monolithic, states_monolithic) =
-        run(SolveStrategy::Monolithic { elimination: true })?;
+    let (_, gradients_monolithic, states_monolithic) = run(SolveStrategy::monolithic(true))?;
     let assert = Assert {
         abs_tol: 1e-6,
         rel_tol: 1e-6,

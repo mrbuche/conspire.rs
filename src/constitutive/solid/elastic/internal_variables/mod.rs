@@ -8,7 +8,7 @@ use crate::{
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, Hessian, HessianBlock, IDENTITY,
         Jacobian, Matrix, Rank2, Tensor, TensorArray, Vector,
-        optimize::{RootFindingBlock, SolveStrategy},
+        optimize::{ResidualMerit, RootFindingBlock, SolveStrategy},
         sparse::CscMatrix,
     },
     mechanics::{
@@ -210,7 +210,7 @@ where
             Self::TangentUv,
             Self::TangentVv,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
@@ -232,7 +232,7 @@ where
             Self::TangentUv,
             Self::TangentVv,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (constraint_global, constraint_local) = bcs_block(self, applied_load);
         solver

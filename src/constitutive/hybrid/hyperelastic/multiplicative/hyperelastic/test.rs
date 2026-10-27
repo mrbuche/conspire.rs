@@ -68,21 +68,21 @@ fn check(f: &DeformationGradient, f_2: &DeformationGradient2) -> Result<(), Asse
 
 #[test]
 fn minimize_monolithic() -> Result<(), AssertionError> {
-    blocked(SolveStrategy::Monolithic { elimination: false })?;
+    blocked(SolveStrategy::monolithic(false))?;
     Ok(())
 }
 
 #[test]
 fn minimize_monolithic_elimination() -> Result<(), AssertionError> {
-    let (f, f_2) = blocked(SolveStrategy::Monolithic { elimination: false })?;
-    let (f_elim, f_2_elim) = blocked(SolveStrategy::Monolithic { elimination: true })?;
+    let (f, f_2) = blocked(SolveStrategy::monolithic(false))?;
+    let (f_elim, f_2_elim) = blocked(SolveStrategy::monolithic(true))?;
     Assert::default().eq_within_tols(&f, &f_elim)?;
     Assert::default().eq_within_tols(&f_2, &f_2_elim)
 }
 
 #[test]
 fn minimize_condensed() -> Result<(), AssertionError> {
-    let (f, f_2) = blocked(SolveStrategy::Monolithic { elimination: false })?;
+    let (f, f_2) = blocked(SolveStrategy::monolithic(false))?;
     let (f_condensed, f_2_condensed) = blocked(SolveStrategy::Condensed(NewtonRaphson::default()))?;
     Assert::default().eq_within_tols(&f, &f_condensed)?;
     Assert::default().eq_within_tols(&f_2, &f_2_condensed)
@@ -91,7 +91,7 @@ fn minimize_condensed() -> Result<(), AssertionError> {
 #[test]
 fn minimize_trust_region_adaptive() -> Result<(), AssertionError> {
     use crate::constitutive::solid::hyperelastic::internal_variables::Minimize;
-    let strategy = SolveStrategy::Monolithic { elimination: true };
+    let strategy = SolveStrategy::monolithic(true);
     let (f_plain, f_2_plain) = blocked(strategy.clone())?;
     for radius in [1.0, 1e-2] {
         let (f, f_2) = model().minimize(
@@ -137,8 +137,8 @@ fn searched(
 #[test]
 fn minimize_line_search() -> Result<(), AssertionError> {
     for strategy in [
-        SolveStrategy::Monolithic { elimination: false },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(false),
+        SolveStrategy::monolithic(true),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         searched(
@@ -211,8 +211,8 @@ fn far_searched(
 #[test]
 fn root_residual_search_is_what_the_trust_region_was() -> Result<(), AssertionError> {
     for strategy in [
-        SolveStrategy::Monolithic { elimination: false },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(false),
+        SolveStrategy::monolithic(true),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         far_searched(
@@ -235,10 +235,10 @@ fn root_trust_region() -> Result<(), AssertionError> {
             radius: 5e-1,
             norm: Norm::Chebyshev,
         },
-        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::monolithic(false),
     )?;
     for strategy in [
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(true),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         let (f_other, f_2_other) = far(
@@ -257,8 +257,8 @@ fn root_trust_region() -> Result<(), AssertionError> {
 #[test]
 fn root_trust_region_needed() {
     for strategy in [
-        SolveStrategy::Monolithic { elimination: false },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(false),
+        SolveStrategy::monolithic(true),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         assert!(far(TrustRegion::None, strategy).is_err())
@@ -269,8 +269,8 @@ fn root_trust_region_needed() {
 fn root_line_search_error() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::Root;
     for strategy in [
-        SolveStrategy::Monolithic { elimination: false },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(false),
+        SolveStrategy::monolithic(true),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         let (f, f_2) = model().root(
@@ -294,8 +294,8 @@ fn root_line_search_error() -> Result<(), AssertionError> {
 fn root_line_search_residual() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::Root;
     for strategy in [
-        SolveStrategy::Monolithic { elimination: false },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(false),
+        SolveStrategy::monolithic(true),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     ] {
         let (f, f_2) = model().root(
@@ -327,7 +327,7 @@ fn minimize_line_search_wolfe() {
             max_steps: 100,
             strong: true,
         },
-        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::monolithic(false),
     )
     .unwrap();
 }
@@ -373,7 +373,7 @@ fn root_biaxial() -> Result<(), AssertionError> {
     let (f, f_2) = model().root(
         AppliedLoad::BiaxialStress(STRETCH, STRETCH_2),
         NewtonRaphson::default(),
-        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::monolithic(false),
     )?;
     Assert::default().zero_within_tols(&model().internal_variables_residual(&f, &f_2)?)?;
     Assert::default().eq_within_tols(

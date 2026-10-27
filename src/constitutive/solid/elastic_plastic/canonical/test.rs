@@ -215,7 +215,7 @@ fn hill_strategies_agree_under_non_proportional_loading() -> Result<(), Assertio
         let (_, gradients, states) = model.root(
             load(),
             NewtonRaphson::default(),
-            SolveStrategy::Monolithic { elimination },
+            SolveStrategy::monolithic(elimination),
             TOLERANCE,
         )?;
         Assert {
@@ -445,8 +445,8 @@ fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
     let reference_strain = reference_states.as_slice().last().unwrap().1;
     assert!(reference_strain.value() > 0.0);
     for strategy in [
-        SolveStrategy::Monolithic { elimination: false },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(false),
+        SolveStrategy::monolithic(true),
     ] {
         let (_, gradients, states) = model.root(
             AppliedLoad::UniaxialStress(ramp, &steps),
@@ -482,7 +482,7 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
     let (_, _, states) = model.root(
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
         solver,
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(true),
         TOLERANCE,
     )?;
     assert!(states.as_slice().last().unwrap().1.value() > 0.0);
@@ -783,8 +783,8 @@ fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
     let reference_state = reference_states.as_slice().last().unwrap();
     assert!(reference_state.1.value() > 0.0);
     for strategy in [
-        SolveStrategy::Monolithic { elimination: false },
-        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::monolithic(false),
+        SolveStrategy::monolithic(true),
     ] {
         let (_, gradients, states) =
             model.root(load(), NewtonRaphson::default(), strategy, TOLERANCE)?;

@@ -137,7 +137,7 @@ pub trait RootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
         constraint_global: (CscMatrix, Vector),
         constraint_local: (CscMatrix, Vector),
         sparse: Option<SparseSolver>,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<(U, V), OptimizationError>;
 }
 
@@ -154,7 +154,7 @@ pub trait OptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
         constraint_global: (CscMatrix, Vector),
         constraint_local: (CscMatrix, Vector),
         sparse: Option<SparseSolver>,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<(U, V), OptimizationError>;
 }
 

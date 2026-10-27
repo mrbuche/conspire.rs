@@ -1,7 +1,7 @@
 use crate::math::{
     HessianBlock, Jacobian, LuDecomposition, Matrix, Scalar, Solution, SquareMatrix, Tensor,
     Vector,
-    optimize::{Direct, OptimizationError, SolveStrategy, TrustRegion},
+    optimize::{Direct, OptimizationError, ResidualMerit, SolveStrategy, TrustRegion},
     sparse::{CscMatrix, SparseSolver},
 };
 use std::{fmt::Display, ops::Mul};
@@ -14,7 +14,7 @@ use super::kkt::{converge_local, eliminate_blocks, kkt_block, kkt_entry, kkt_res
 use super::penalty::{backtrack_penalty, merit_slope, raise_penalty, violation};
 
 #[expect(clippy::too_many_arguments)]
-pub(super) fn blocked<B, S, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
+pub(super) fn blocked<B, S, T, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     newton_raphson: &NewtonRaphson<Direct, S>,
     search: B,
     mut function: impl FnMut(&U, &V) -> Result<Scalar, String>,
@@ -25,11 +25,12 @@ pub(super) fn blocked<B, S, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     constraint_global: (CscMatrix, Vector),
     constraint_local: (CscMatrix, Vector),
     sparse: Option<SparseSolver>,
-    strategy: SolveStrategy,
+    strategy: SolveStrategy<T>,
 ) -> Result<(U, V), OptimizationError>
 where
     B: Backtrack,
     S: Display,
+    T: ResidualMerit,
     U: Solution,
     V: Solution,
     Ru: Jacobian,
