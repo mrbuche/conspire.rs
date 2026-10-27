@@ -8,7 +8,6 @@ REPOS = [
     "mrbuche/conspire",
     "mrbuche/conspire.rs",
     "mrbuche/conspire.py",
-    "mrbuche/conspire.jl",
 ]
 
 AVATAR_SIZE = 64

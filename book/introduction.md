@@ -14,7 +14,6 @@ c o n s p i r e
 
 ## Reference Guide
 
-- [Julia interface](julia.md)
 - [Python interface](python.md)
 - [Rust interface](rust.md)
 

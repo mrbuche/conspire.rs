@@ -74,7 +74,6 @@
 
 # Reference Guide
 
-- [Julia interface](julia.md)
 - [Python interface](python.md)
 - [Rust interface](rust.md)
 
