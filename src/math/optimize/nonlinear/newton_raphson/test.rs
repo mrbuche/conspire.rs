@@ -724,6 +724,43 @@ mod direct {
     }
 }
 
+mod units {
+    use super::*;
+    use crate::{
+        math::Quantity,
+        units::{Energy, Force, ForcePerLength, Length},
+    };
+    const STIFFNESS: f64 = 100.0;
+    fn well(search: impl ObjectiveMerit) -> Result<Quantity<Length>, OptimizationError> {
+        NewtonRaphson::default().with_line_search(search).minimize(
+            |x: &Quantity<Length>| {
+                Ok(Quantity::<Energy>::new(
+                    STIFFNESS * ((x.value() - 1.0).cosh() - 1.0),
+                ))
+            },
+            |x: &Quantity<Length>| Ok(Quantity::<Force>::new(STIFFNESS * (x.value() - 1.0).sinh())),
+            |x: &Quantity<Length>| {
+                Ok(Quantity::<ForcePerLength>::new(
+                    STIFFNESS * (x.value() - 1.0).cosh(),
+                ))
+            },
+            Quantity::<Length>::new(7.0),
+            vec![EqualityConstraint::None],
+            None,
+        )
+    }
+    #[test]
+    fn an_energy_is_searched_over_without_a_unit_being_stripped() {
+        let minimum = well(Armijo::default()).unwrap();
+        assert!((minimum.value() - 1.0).abs() < 1e-6)
+    }
+    #[test]
+    fn it_finds_the_same_minimum_without_a_search() {
+        let minimum = well(NoSearch).unwrap();
+        assert!((minimum.value() - 1.0).abs() < 1e-6)
+    }
+}
+
 mod prescribed {
     use super::*;
     use crate::math::{

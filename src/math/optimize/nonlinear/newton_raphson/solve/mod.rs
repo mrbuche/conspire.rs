@@ -46,7 +46,7 @@ where
         iterate(
             self,
             Residually(&self.line_search),
-            no_objective,
+            no_objective::<X, Scalar>,
             function,
             jacobian,
             no_update,
@@ -78,7 +78,7 @@ where
         iterate_linear(
             self,
             Residually(&self.line_search),
-            no_objective,
+            no_objective::<X, Scalar>,
             function,
             jacobian,
             no_update,
@@ -112,7 +112,7 @@ where
         iterate(
             self,
             Residually(&self.line_search),
-            no_objective,
+            no_objective::<X, Scalar>,
             function,
             jacobian,
             update,
@@ -130,11 +130,7 @@ where
     J: ContractWith<X, Output = Quantity<U>>,
     Dimensionless: UnitMul<U, Output = U>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X>,
-    F: Erase<Erased = Scalar> + Tensor,
-    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
-    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
-    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
-        Is<<F as Tensor>::Unit>,
+    F: Erase<Erased = Scalar> + Into<Quantity<U>> + Tensor,
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
@@ -146,14 +142,13 @@ where
 {
     fn minimize(
         &self,
-        mut function: impl FnMut(&X) -> Result<F, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        let function = move |argument: &X| function(argument).map(|value| *value.erase());
         iterate(
             self,
             Objective(&self.line_search),
@@ -176,11 +171,7 @@ where
     Dimensionless: UnitMul<U, Output = U>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X>,
     L: LinearSolver<Tangent = H, Residual = J, Decrement = X>,
-    F: Erase<Erased = Scalar> + Tensor,
-    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
-    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
-    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
-        Is<<F as Tensor>::Unit>,
+    F: Erase<Erased = Scalar> + Into<Quantity<U>> + Tensor,
     J: Jacobian,
     X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
@@ -188,14 +179,13 @@ where
 {
     fn minimize(
         &self,
-        mut function: impl FnMut(&X) -> Result<F, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        let function = move |argument: &X| function(argument).map(|value| *value.erase());
         iterate_linear(
             self,
             Objective(&self.line_search),
@@ -215,11 +205,7 @@ where
     J: ContractWith<X, Output = Quantity<U>>,
     Dimensionless: UnitMul<U, Output = U>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X>,
-    F: Erase<Erased = Scalar> + Tensor,
-    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
-    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
-    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
-        Is<<F as Tensor>::Unit>,
+    F: Erase<Erased = Scalar> + Into<Quantity<U>> + Tensor,
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
@@ -231,7 +217,7 @@ where
 {
     fn minimize_incremental(
         &self,
-        mut function: impl FnMut(&X) -> Result<F, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
@@ -239,7 +225,6 @@ where
         equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        let function = move |argument: &X| function(argument).map(|value| *value.erase());
         iterate(
             self,
             Objective(&self.line_search),
@@ -355,10 +340,10 @@ pub(super) fn no_update<X>(_: &X, _: &Vector, _: Scalar, _: bool) -> Result<(), 
 }
 
 #[expect(clippy::too_many_arguments)]
-pub(super) fn iterate<B, S, J, H, X>(
+pub(super) fn iterate<B, S, J, H, X, V>(
     newton_raphson: &NewtonRaphson<Direct, S>,
     search: B,
-    objective: impl FnMut(&X) -> Result<Scalar, String>,
+    mut objective: impl FnMut(&X) -> Result<V, String>,
     jacobian: impl FnMut(&X) -> Result<J, String>,
     hessian: impl FnMut(&X) -> Result<H, String>,
     update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
@@ -368,7 +353,8 @@ pub(super) fn iterate<B, S, J, H, X>(
     lent: bool,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack + Gradient<X, J, X>,
+    B: Backtrack + Gradient<X, J, X, V>,
+    V: Erase<Erased = Scalar>,
     S: Display,
     H: Hessian,
     J: Jacobian,
@@ -395,7 +381,7 @@ where
         (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
             newton_raphson,
             search,
-            objective,
+            |argument: &X| objective(argument).map(|value| *value.erase()),
             jacobian,
             hessian,
             update,
@@ -408,7 +394,7 @@ where
         (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
             newton_raphson,
             search,
-            objective,
+            |argument: &X| objective(argument).map(|value| *value.erase()),
             jacobian,
             hessian,
             update,
@@ -439,10 +425,10 @@ where
 }
 
 #[expect(clippy::too_many_arguments)]
-pub(super) fn iterate_linear<B, L, S, J, H, X>(
+pub(super) fn iterate_linear<B, L, S, J, H, X, V>(
     newton_raphson: &NewtonRaphson<L, S>,
     search: B,
-    objective: impl FnMut(&X) -> Result<Scalar, String>,
+    objective: impl FnMut(&X) -> Result<V, String>,
     jacobian: impl FnMut(&X) -> Result<J, String>,
     hessian: impl FnMut(&X) -> Result<H, String>,
     update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
@@ -450,7 +436,8 @@ pub(super) fn iterate_linear<B, L, S, J, H, X>(
     equality_constraint: EqualityConstraints,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack + Gradient<X, J, X>,
+    B: Backtrack + Gradient<X, J, X, V>,
+    V: Erase<Erased = Scalar>,
     L: LinearSolver<Tangent = H, Residual = J, Decrement = X>,
     S: Display,
     J: Jacobian,

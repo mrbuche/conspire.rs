@@ -48,17 +48,21 @@ mod vetting {
     }
     #[test]
     fn a_step_of_no_size_is_refused() {
-        assert!(matches!(
-            armijo(Ok(1.0), 1.0, 0.0),
-            Err(LineSearchError::NegativeStepSize(..))
-        ))
+        match armijo(Ok(1.0), 1.0, 0.0) {
+            Err(LineSearchError::NegativeStepSize(_, refused)) => {
+                assert_eq!(refused.value(), 0.0)
+            }
+            _ => panic!("expected the step to be refused"),
+        }
     }
     #[test]
     fn a_negative_step_is_refused() {
-        assert!(matches!(
-            armijo(Ok(1.0), 1.0, -1.0),
-            Err(LineSearchError::NegativeStepSize(..))
-        ))
+        match armijo(Ok(1.0), 1.0, -1.0) {
+            Err(LineSearchError::NegativeStepSize(_, refused)) => {
+                assert_eq!(refused.value(), -1.0)
+            }
+            _ => panic!("expected the step to be refused"),
+        }
     }
     #[test]
     fn a_flat_direction_is_not_a_descent() {

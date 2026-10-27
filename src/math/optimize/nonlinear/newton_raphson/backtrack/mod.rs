@@ -37,10 +37,10 @@ pub(super) trait Backtrack {
 /// needs to contract the gradient with the step, which the pair of them name a
 /// unit for. The objective here is a bare scalar, as the merits are, so it takes
 /// the unit the slope along the step has.
-pub(super) trait Gradient<X, J, D>: Backtrack {
+pub(super) trait Gradient<X, J, D, V>: Backtrack {
     fn gradient(
         &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
+        function: impl FnMut(&X, Scalar) -> Result<V, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
@@ -73,9 +73,10 @@ where
     }
 }
 
-impl<S, X, J, D, U> Gradient<X, J, D> for Objective<'_, S>
+impl<S, X, J, D, U, V> Gradient<X, J, D, V> for Objective<'_, S>
 where
     S: ObjectiveMerit,
+    V: Into<Quantity<U>>,
     J: ContractWith<D, Output = Quantity<U>>,
     Dimensionless: UnitMul<U, Output = U>,
     X: Solution,
@@ -83,7 +84,7 @@ where
 {
     fn gradient(
         &self,
-        mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
+        mut function: impl FnMut(&X, Scalar) -> Result<V, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
@@ -94,7 +95,7 @@ where
         self.0
             .search(
                 |n: Quantity<Dimensionless>| {
-                    function(&(decrement * -n + argument), n.into()).map(Quantity::new)
+                    function(&(decrement * -n + argument), n.into()).map(Into::into)
                 },
                 |n: Quantity<Dimensionless>| {
                     if n == Quantity::new(0.0) {
@@ -127,13 +128,13 @@ where
     }
 }
 
-impl<S, X, J, D> Gradient<X, J, D> for Residually<'_, S>
+impl<S, X, J, D, V> Gradient<X, J, D, V> for Residually<'_, S>
 where
     S: ResidualMerit,
 {
     fn gradient(
         &self,
-        _function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
+        _function: impl FnMut(&X, Scalar) -> Result<V, String>,
         _jacobian: impl FnMut(&X) -> Result<J, String>,
         _argument: &X,
         _jacobian0: &J,

@@ -23,7 +23,7 @@ impl ObjectiveMerit for NoSearch {
         _value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
         _slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
         step_size: Quantity<W>,
-    ) -> Result<Quantity<W>, LineSearchError>
+    ) -> Result<Quantity<W>, LineSearchError<W>>
     where
         W: UnitMul<U, Output = V>,
     {

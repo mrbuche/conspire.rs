@@ -14,17 +14,17 @@ use super::backtrack::{Backtrack, Gradient, half_square_norm, residual_step, sea
 use super::convergence::shorten;
 use super::verify::not_minimum;
 
-pub(super) fn unconstrained<B, S, J, H, X>(
+pub(super) fn unconstrained<B, S, J, H, X, V>(
     newton_raphson: &NewtonRaphson<Direct, S>,
     search: B,
-    mut function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut function: impl FnMut(&X) -> Result<V, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
     sparse: Option<SparseSolver>,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack + Gradient<X, J, X>,
+    B: Backtrack + Gradient<X, J, X, V>,
     S: Display,
     H: Hessian,
     J: Jacobian,

@@ -82,3 +82,14 @@ fn the_ratio_of_two_pairs_has_no_unit() {
         .ratio(Quantity::<(Length, Temperature)>::new(8.0));
     assert_eq!(ratio.value(), 0.125)
 }
+
+#[test]
+fn a_quantity_is_a_hessian_of_one_entry() {
+    use crate::math::{Hessian, SquareMatrix};
+    use crate::units::ForcePerLength;
+    let stiffness = Quantity::<ForcePerLength>::new(7.0);
+    assert_eq!(Hessian::entry(&stiffness, 0, 0), 7.0);
+    let mut matrix = SquareMatrix::zero(1);
+    Hessian::fill_into(stiffness, &mut matrix);
+    assert_eq!(matrix[0][0], 7.0)
+}

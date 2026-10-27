@@ -689,10 +689,10 @@ impl<U> Hessian for Quantity<U> {
         self.0 * vector[0] * vector[0]
     }
     fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
-        unimplemented!()
+        self.0
     }
-    fn fill_into(self, _square_matrix: &mut SquareMatrix) {
-        unimplemented!()
+    fn fill_into(self, square_matrix: &mut SquareMatrix) {
+        square_matrix[0][0] = self.0
     }
 }
 

@@ -17,7 +17,7 @@ pub use wolfe::Wolfe;
 
 use crate::{
     math::{Quantity, Scalar, Style, StyledError, styled_error},
-    units::UnitMul,
+    units::{Dimensionless, UnitMul},
 };
 use std::fmt::{Debug, Display};
 
@@ -37,7 +37,7 @@ pub trait ObjectiveMerit: Clone + Debug + Display {
         value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
         slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
         step_size: Quantity<W>,
-    ) -> Result<Quantity<W>, LineSearchError>
+    ) -> Result<Quantity<W>, LineSearchError<W>>
     where
         W: UnitMul<U, Output = V>;
     /// Backtrack on a merit function of the step size alone.
@@ -76,7 +76,7 @@ pub trait ResidualMerit: Clone + Debug + Display {
     ) -> Result<Scalar, LineSearchError>;
 }
 
-fn exhausted(search: &impl Debug, max_steps: usize) -> LineSearchError {
+fn exhausted<W>(search: &impl Debug, max_steps: usize) -> LineSearchError<W> {
     LineSearchError::MaximumStepsReached(format!("{search:?}"), max_steps)
 }
 
@@ -86,11 +86,11 @@ fn start<W, U, V>(
     value: &mut impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
     slope: &mut impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
     step_size: Quantity<W>,
-) -> Result<(Quantity<V>, Quantity<U>), LineSearchError> {
+) -> Result<(Quantity<V>, Quantity<U>), LineSearchError<W>> {
     if step_size <= Quantity::new(0.0) {
         return Err(LineSearchError::NegativeStepSize(
             format!("{search:?}"),
-            step_size.value(),
+            step_size,
         ));
     }
     let (Ok(value), Ok(slope)) = (value(Quantity::new(0.0)), slope(Quantity::new(0.0))) else {
@@ -115,7 +115,7 @@ fn backtrack<W, U, V>(
     mut slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
     step_size: Quantity<W>,
     accepted: impl Fn(Quantity<V>, Quantity<V>) -> bool,
-) -> Result<Quantity<W>, LineSearchError>
+) -> Result<Quantity<W>, LineSearchError<W>>
 where
     W: UnitMul<U, Output = V>,
 {
@@ -148,7 +148,7 @@ fn backtrack_merit(
     if step_size <= 0.0 {
         return Err(LineSearchError::NegativeStepSize(
             format!("{search:?}"),
-            step_size,
+            Quantity::new(step_size),
         ));
     }
     if slope <= 0.0 {
@@ -168,14 +168,14 @@ fn backtrack_merit(
 }
 
 /// Possible errors encountered during line search.
-pub enum LineSearchError {
+pub enum LineSearchError<W = Dimensionless> {
     InvalidStartingPoint(String),
     MaximumStepsReached(String, usize),
-    NegativeStepSize(String, Scalar),
+    NegativeStepSize(String, Quantity<W>),
     NotDescentDirection(String),
 }
 
-impl StyledError for LineSearchError {
+impl<W> StyledError for LineSearchError<W> {
     fn message(&self, style: &Style) -> String {
         let (h, c) = (style.headline, style.frame);
         match self {
@@ -199,4 +199,4 @@ impl StyledError for LineSearchError {
     }
 }
 
-styled_error!(LineSearchError);
+styled_error!(<W> LineSearchError<W>);

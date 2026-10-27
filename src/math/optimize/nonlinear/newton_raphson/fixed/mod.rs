@@ -11,10 +11,10 @@ use super::convergence::shorten;
 use super::verify::not_minimum;
 
 #[expect(clippy::too_many_arguments)]
-pub(super) fn constrained_fixed<B, L, S, J, H, X>(
+pub(super) fn constrained_fixed<B, L, S, J, H, X, V>(
     newton_raphson: &NewtonRaphson<L, S>,
     search: B,
-    mut function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut function: impl FnMut(&X) -> Result<V, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
@@ -24,7 +24,7 @@ pub(super) fn constrained_fixed<B, L, S, J, H, X>(
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack + Gradient<X, J, X>,
+    B: Backtrack + Gradient<X, J, X, V>,
     S: Display,
     J: Jacobian,
     X: Jacobian + Solution,
