@@ -393,10 +393,10 @@ fn round_trip_primitive_and_polyhedral_blocks() {
             ],
             vec![3, 7],
         )),
-        mixed_coordinates(12).into(),
+        mixed_coordinates(12),
     ));
     let read = write_and_read(&original, "target/read_exodus_primitive_and_polyhedral.exo");
-    assert_eq!(read.connectivities.numbers(), Some([3, 7].as_slice()));
+    assert_eq!(read.connectivities.labels(), Some([3, 7].as_slice()));
     assert_eq!(read.coordinates(), original.coordinates());
     match &read.connectivities()[0] {
         Connectivity::Tetrahedral(tets) => assert!(tets.iter().eq([[0, 1, 2, 3]].iter())),
@@ -442,7 +442,7 @@ fn face_blocks_are_numbered_among_the_face_blocks() {
             ],
             vec![4, 5, 6],
         )),
-        mixed_coordinates(20).into(),
+        mixed_coordinates(20),
     ))
     .write(Output::Exodus(ExodusFormat::Classic(file)))
     .unwrap();

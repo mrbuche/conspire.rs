@@ -20,7 +20,7 @@ impl<const M: usize, const N: usize> PrimitiveConnectivity<M, N> {
         self.0.iter()
     }
     pub fn element(&self, element: usize) -> &[usize; N] {
-        &self.0.members()[element]
+        &self.0[element]
     }
 }
 

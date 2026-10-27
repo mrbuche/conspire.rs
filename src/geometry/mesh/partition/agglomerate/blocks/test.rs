@@ -1,9 +1,6 @@
-use crate::{
-    geometry::{
-        Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh, Partition},
-    },
-    math::Set,
+use crate::geometry::{
+    Coordinates,
+    mesh::{Connectivities, Connectivity, Mesh, Partition},
 };
 
 fn star() -> Vec<[usize; 4]> {
@@ -26,7 +23,7 @@ fn mesh(blocks: Vec<Connectivity>, numbers: Option<Vec<usize>>) -> Mesh<3> {
         Some(numbers) => Connectivities::from((blocks, numbers)),
         None => Connectivities::from(blocks),
     };
-    (connectivities, Set::from(star_coordinates())).into()
+    (connectivities, star_coordinates()).into()
 }
 
 fn tets(elements: Vec<[usize; 4]>) -> Connectivity {
@@ -76,7 +73,7 @@ fn nothing_merged_gives_back_the_same_blocks() {
         .unwrap();
     assert_eq!(blocks(&result), [("tetrahedra", 4)]);
     assert_eq!(result.number_of_nodes(), 5);
-    assert!(result.blocks().is_none());
+    assert!(result.block_labels().is_none());
 }
 
 #[test]
@@ -92,7 +89,7 @@ fn each_block_gets_its_own_polyhedral_block_and_the_numbers_follow() {
         .agglomerate_blocks(&mesh)
         .unwrap();
     assert_eq!(blocks(&result), [("polyhedra", 1), ("tetrahedra", 2)]);
-    assert_eq!(result.blocks(), Some(&[8, 7][..]));
+    assert_eq!(result.block_labels(), Some(&[8, 7][..]));
 }
 
 #[test]
@@ -108,7 +105,7 @@ fn every_block_with_merges_takes_the_next_number_in_turn() {
         .agglomerate_blocks(&mesh)
         .unwrap();
     assert_eq!(blocks(&result), [("polyhedra", 1), ("polyhedra", 1)]);
-    assert_eq!(result.blocks(), Some(&[8, 9][..]));
+    assert_eq!(result.block_labels(), Some(&[8, 9][..]));
 }
 
 #[test]
@@ -118,7 +115,7 @@ fn a_block_with_some_merged_elements_keeps_its_number_and_the_polyhedra_get_a_ne
         .agglomerate_blocks(&mesh)
         .unwrap();
     assert_eq!(blocks(&result), [("tetrahedra", 2), ("polyhedra", 1)]);
-    assert_eq!(result.blocks(), Some(&[5, 6][..]));
+    assert_eq!(result.block_labels(), Some(&[5, 6][..]));
 }
 
 #[test]
@@ -150,7 +147,7 @@ fn hexahedra_alone_stay_hexahedra_and_a_pair_becomes_a_polyhedron() {
             })
             .collect::<Vec<_>>(),
     );
-    let mesh: Mesh<3> = (Connectivities::from(vec![hexes]), Set::from(coordinates)).into();
+    let mesh: Mesh<3> = (Connectivities::from(vec![hexes]), coordinates).into();
     let alone = Partition::new(&mesh, vec![0, 1])
         .agglomerate_blocks(&mesh)
         .unwrap();

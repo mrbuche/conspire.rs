@@ -2,10 +2,7 @@
 mod test;
 
 use super::{super::Partition, compact, polyhedra};
-use crate::{
-    geometry::mesh::{Boundary, Connectivities, Connectivity, Mesh, PrimitiveConnectivity},
-    math::Set,
-};
+use crate::geometry::mesh::{Boundary, Connectivities, Connectivity, Mesh, PrimitiveConnectivity};
 
 impl Partition {
     /// Agglomerates each part of more than one element into a polyhedron, leaving the others.
@@ -26,13 +23,13 @@ impl Partition {
         }
         let alone = |element: usize| self.part_elements(self.part_of(element)).len() == 1;
         let mut next = mesh
-            .blocks()
+            .block_labels()
             .map_or(0, |numbers| numbers.iter().max().map_or(0, |max| max + 1));
         let mut blocks = Vec::new();
         let mut numbers = Vec::new();
         let mut offset = 0;
         for (index, block) in mesh.iter().enumerate() {
-            let number = mesh.blocks().map(|numbers| numbers[index]);
+            let number = mesh.block_labels().map(|numbers| numbers[index]);
             let parts = (0..self.number_of_parts())
                 .filter(|&part| {
                     self.part_elements(part)
@@ -63,12 +60,12 @@ impl Partition {
             offset += block.number_of_elements();
         }
         let (blocks, coordinates) = compact(mesh, blocks);
-        let connectivities = if mesh.blocks().is_some() {
+        let connectivities = if mesh.block_labels().is_some() {
             Connectivities::from((blocks, numbers))
         } else {
             Connectivities::from(blocks)
         };
-        Ok((connectivities, Set::from(coordinates)).into())
+        Ok((connectivities, coordinates).into())
     }
 }
 
