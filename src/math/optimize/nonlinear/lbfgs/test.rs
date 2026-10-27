@@ -1,11 +1,9 @@
-use super::{
-    super::{EqualityConstraint, LineSearch, Optimization, OptimizationError, Tolerances},
-    LimitedMemoryBFGS,
-};
+use super::LimitedMemoryBFGS;
 use crate::{
     math::{
         Matrix, Quantity, Reference, Scalar, Tensor, TensorRank1Vec, Vector,
         assert::{Assert, AssertionError},
+        optimize::{EqualityConstraint, NoSearch, Optimization, OptimizationError, Tolerances},
     },
     units::{Area, Length},
 };
@@ -183,10 +181,7 @@ fn relative_tolerance_is_read_against_the_initial_gradient() -> Result<(), Optim
 
 #[test]
 fn takes_whole_steps_without_a_line_search() -> Result<(), OptimizationError> {
-    let solver = LimitedMemoryBFGS {
-        line_search: LineSearch::None,
-        ..solver()
-    };
+    let solver = solver().with_line_search(NoSearch);
     let descent = solver.descend(bowl, bowl_gradient, Vector::from([3.0, 3.0]), Vec::new())?;
     assert!(descent.converged);
     Ok(())

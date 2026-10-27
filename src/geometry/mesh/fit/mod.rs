@@ -13,7 +13,7 @@ use crate::{
     math::{
         ContractWith, CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1,
         TensorRank1List, TensorRank1Vec,
-        optimize::{LimitedMemoryBFGS, LineSearch, Tolerances},
+        optimize::{Armijo, LimitedMemoryBFGS, Tolerances},
     },
     units::{Area, Dimensionless, Length, ReciprocalLength},
 };
@@ -56,7 +56,7 @@ fn solver(typical: Scalar, residual: Scalar) -> LimitedMemoryBFGS {
             residual,
         },
         history: HISTORY,
-        line_search: LineSearch::Armijo {
+        line_search: Armijo {
             control: 1.0e-4,
             cut_back: 0.5,
             max_steps: BACKTRACKS,

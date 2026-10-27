@@ -1,10 +1,13 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    super::{Erase, FlatView, Is, Scalar, Solution, Tensor, Vector, sparse::SparseSolver},
-    EqualityConstraint, EqualityConstraints, LineSearch, Optimization, OptimizationError,
-    Tolerances,
+use crate::math::{
+    Erase, FlatView, Is, Scalar, Solution, Tensor, Vector,
+    optimize::{
+        Armijo, EqualityConstraint, EqualityConstraints, ObjectiveMerit, Optimization,
+        OptimizationError, Tolerances,
+    },
+    sparse::SparseSolver,
 };
 use crate::units::{UnitMul, UnitSum};
 use std::{collections::VecDeque, mem::swap};
@@ -15,13 +18,13 @@ const CURVATURE_FLOOR: Scalar = 1.0e-12;
 ///
 /// [^1]: D.C. Liu and J. Nocedal, [Math. Program. **45**, 503 (1989)](https://doi.org/10.1007/BF01589116).
 #[derive(Clone, Debug)]
-pub struct LimitedMemoryBFGS {
+pub struct LimitedMemoryBFGS<S = Armijo> {
     /// Absolute error tolerances, the residual being the length of the gradient.
     pub abs_tol: Tolerances,
     /// Number of corrections kept.
     pub history: usize,
     /// Line search algorithm.
-    pub line_search: LineSearch,
+    pub line_search: S,
     /// Maximum number of steps.
     pub max_steps: usize,
     /// Relative error tolerance, on the length of the gradient at the initial guess.
@@ -45,12 +48,12 @@ pub struct Descent<F, X> {
     pub value: F,
 }
 
-impl Default for LimitedMemoryBFGS {
+impl Default for LimitedMemoryBFGS<Armijo> {
     fn default() -> Self {
         Self {
             abs_tol: Tolerances::default(),
             history: 10,
-            line_search: LineSearch::Armijo {
+            line_search: Armijo {
                 control: 1.0e-4,
                 cut_back: 0.5,
                 max_steps: 40,
@@ -62,8 +65,9 @@ impl Default for LimitedMemoryBFGS {
     }
 }
 
-impl<F, J, X> Optimization<F, J, (), X> for LimitedMemoryBFGS
+impl<S, F, J, X> Optimization<F, J, (), X> for LimitedMemoryBFGS<S>
 where
+    S: ObjectiveMerit,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
@@ -97,7 +101,24 @@ where
     }
 }
 
-impl LimitedMemoryBFGS {
+impl<S> LimitedMemoryBFGS<S> {
+    /// The same solver, searching along each direction with another line search.
+    pub fn with_line_search<T>(self, line_search: T) -> LimitedMemoryBFGS<T> {
+        LimitedMemoryBFGS {
+            abs_tol: self.abs_tol,
+            history: self.history,
+            line_search,
+            max_steps: self.max_steps,
+            rel_tol: self.rel_tol,
+            typical: self.typical,
+        }
+    }
+}
+
+impl<S> LimitedMemoryBFGS<S>
+where
+    S: ObjectiveMerit,
+{
     /// Descends until the tolerances are met, no step decreases the function,
     /// or the step budget is spent, returning where it got to in any case.
     pub fn descend<F, J, X>(
@@ -193,14 +214,18 @@ impl LimitedMemoryBFGS {
                 accepted = Some((candidate, step));
                 Ok(merit)
             };
-            let search = match self.line_search {
-                LineSearch::None => merit(1.0).map_err(OptimizationError::from),
-                _ => self
-                    .line_search
-                    .backtrack_merit(&mut merit, *value.erase(), -slope, 1.0)
-                    .map_err(|error| OptimizationError::upstream(error, self)),
-            };
-            let Some((candidate, step)) = accepted.filter(|_| search.is_ok()) else {
+            let searched = self
+                .line_search
+                .search_merit(&mut merit, *value.erase(), -slope, 1.0)
+                .map_err(|error| OptimizationError::upstream(error, self))
+                .and_then(|step| {
+                    if S::SEARCHES {
+                        Ok(())
+                    } else {
+                        merit(step).map(drop).map_err(OptimizationError::from)
+                    }
+                });
+            let Some((candidate, step)) = accepted.filter(|_| searched.is_ok()) else {
                 if history.is_empty() {
                     break;
                 }
