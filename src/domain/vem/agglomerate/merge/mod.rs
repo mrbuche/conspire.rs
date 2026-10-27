@@ -62,7 +62,18 @@ where
         self.candidates.time_scale_exceeds(elements, self.threshold)
     }
     fn valid(&self, elements: &[usize]) -> bool {
-        self.candidates.check(elements, self.minimum_volume).is_ok()
+        let result = self.candidates.check(elements, self.minimum_volume);
+        // TEMPORARY: report why a union with an inverted element is rejected
+        if let Err(reason) = &result
+            && elements.iter().any(|&element| {
+                self.candidates
+                    .time_scale(&[element])
+                    .is_ok_and(|scale| scale.value() == 0.0)
+            })
+        {
+            eprintln!("rejected {elements:?}: {reason}");
+        }
+        result.is_ok()
     }
 }
 
