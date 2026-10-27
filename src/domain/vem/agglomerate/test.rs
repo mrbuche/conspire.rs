@@ -79,29 +79,41 @@ fn an_inverted_tetrahedron_has_no_time_scale() {
     assert!(scales[1].value() > 0.0 && scales[1].value().is_finite());
 }
 
+fn cube(corner: [f64; 3]) -> Mesh<3> {
+    (
+        vec![Connectivity::Hexahedral(
+            vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
+        )],
+        vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 1.0],
+            corner,
+            [0.0, 1.0, 1.0],
+        ]
+        .into(),
+    )
+        .into()
+}
+
+fn alone(corner: [f64; 3]) -> f64 {
+    candidates(&cube(corner)).time_scale(&[0]).unwrap().value()
+}
+
 #[test]
 fn a_hexahedron_inverted_at_a_corner_has_no_time_scale() {
-    let cube = |corner: [f64; 3]| {
-        Mesh::from((
-            vec![Connectivity::Hexahedral(
-                vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
-            )],
-            Coordinates::from(vec![
-                [0.0, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-                [1.0, 1.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.0, 0.0, 1.0],
-                [1.0, 0.0, 1.0],
-                corner,
-                [0.0, 1.0, 1.0],
-            ]),
-        ))
-    };
-    let scale = |corner| candidates(&cube(corner)).time_scale(&[0]).unwrap().value();
-    assert!(scale([1.0, 1.0, 1.0]) > 0.0);
-    assert_eq!(scale([0.2, 0.2, 0.2]), 0.0);
-    assert_eq!(scale([1.0, 1.0, -0.3]), 0.0);
+    assert!(alone([1.0, 1.0, 1.0]) > 0.0);
+    assert_eq!(alone([0.2, 0.2, 0.2]), 0.0);
+    assert_eq!(alone([1.0, 1.0, -0.3]), 0.0);
+}
+
+#[test]
+fn a_hexahedron_alone_is_judged_as_a_finite_element() {
+    let fe = 0.21199729539505735;
+    assert!((alone([0.6, 0.6, 0.6]) / fe - 1.0).abs() < 1e-9);
 }
 
 #[test]

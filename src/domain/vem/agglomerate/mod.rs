@@ -1,9 +1,11 @@
+mod finite;
 mod merge;
 
 pub use merge::{Agglomerated, Agglomeration, Reference};
 #[cfg(test)]
 mod test;
 
+use self::finite::Primitive;
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     domain::{block::element::solid::elastic::ElasticElement, fem::block::element::FiniteElement},
@@ -25,6 +27,7 @@ use crate::{
 pub struct Candidates<S = Vec<Vec<Vec<usize>>>> {
     boundary: Boundary<S>,
     elements_blocks: Vec<usize>,
+    primitives: Vec<Primitive>,
     coordinates: NodalReferenceCoordinates,
     material: NeoHookean,
     stabilization: Scalar,
@@ -40,6 +43,7 @@ impl Candidates {
         Ok(Self::assemble(
             Boundary::try_from(mesh)?,
             mesh.elements_blocks(),
+            Primitive::from_mesh(mesh),
             mesh.coordinates().clone(),
             poisson,
             stabilization,
@@ -60,6 +64,7 @@ impl<S: ElementsFaces> Candidates<S> {
         Self::assemble(
             boundary,
             elements_blocks,
+            Vec::new(),
             coordinates,
             poisson,
             stabilization,
@@ -68,6 +73,7 @@ impl<S: ElementsFaces> Candidates<S> {
     fn assemble(
         boundary: Boundary<S>,
         elements_blocks: Vec<usize>,
+        primitives: Vec<Primitive>,
         coordinates: NodalReferenceCoordinates,
         poisson: Scalar,
         stabilization: Scalar,
@@ -75,6 +81,7 @@ impl<S: ElementsFaces> Candidates<S> {
         Self {
             boundary,
             elements_blocks,
+            primitives,
             coordinates,
             material: NeoHookean {
                 bulk_modulus: Stress::pascals(1.0 / (3.0 * (1.0 - 2.0 * poisson))),
@@ -89,10 +96,13 @@ impl<S: ElementsFaces> Candidates<S> {
     /// The fastest time scale of the union of the elements, zero if any part of it is inverted.
     pub fn time_scale(&self, elements: &[usize]) -> Result<Quantity<Time>, String> {
         let (element, coordinates) = self.element(elements)?;
-        if volumes(&element).iter().any(|&volume| volume <= 0.0) {
+        if inverted(&element) {
             return Ok(Time::seconds(0.0));
         }
-        let (stiffnesses, masses) = self.matrices_of(&element, &coordinates)?;
+        if let Some(time_scale) = self.finite_time_scale(elements) {
+            return time_scale;
+        }
+        let (stiffnesses, masses) = self.matrices(&element, &coordinates)?;
         Ok(fastest_time_scale(&stiffnesses, &masses))
     }
     pub fn time_scales(&self) -> Result<Vec<Quantity<Time>>, String> {
@@ -105,7 +115,14 @@ impl<S: ElementsFaces> Candidates<S> {
         elements: &[usize],
         minimum: Quantity<Time>,
     ) -> Result<bool, String> {
-        let (stiffnesses, masses) = self.matrices(elements)?;
+        let (element, coordinates) = self.element(elements)?;
+        if inverted(&element) {
+            return Ok(false);
+        }
+        if let Some(exceeds) = self.finite_time_scale_exceeds(elements, minimum) {
+            return exceeds;
+        }
+        let (stiffnesses, masses) = self.matrices(&element, &coordinates)?;
         Ok(time_scale_exceeds(&stiffnesses, &masses, minimum))
     }
     /// Whether the union of the elements can be one virtual element, else the reason it cannot.
@@ -135,13 +152,6 @@ impl<S: ElementsFaces> Candidates<S> {
         }
     }
     fn matrices(
-        &self,
-        elements: &[usize],
-    ) -> Result<(ElementNodalStiffnessesSolid, ElementNodalLumpedMasses), String> {
-        let (element, coordinates) = self.element(elements)?;
-        self.matrices_of(&element, &coordinates)
-    }
-    fn matrices_of(
         &self,
         element: &Element,
         coordinates: &NodalReferenceCoordinates,
@@ -179,6 +189,10 @@ impl<S: ElementsFaces> Candidates<S> {
             .collect::<NodalReferenceCoordinates>();
         Ok((element, coordinates))
     }
+}
+
+fn inverted(element: &Element) -> bool {
+    volumes(element).iter().any(|&volume| volume <= 0.0)
 }
 
 fn volumes(element: &Element) -> Vec<Scalar> {
