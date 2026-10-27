@@ -16,7 +16,7 @@ use crate::{
         subdomain::{DirichletLocal, Subdomain},
     },
     geometry::mesh::Partition,
-    math::{SquareMatrix, Tensor, Vector},
+    math::{Quantity, SquareMatrix, Tensor, Vector},
 };
 use std::{
     collections::HashSet,
@@ -341,7 +341,7 @@ fn a_nonsymmetric_tangent_is_solved_end_to_end_through_the_dual_problem() {
         &setup.coarse,
         &dual_rhs,
         Preconditioner::Dirichlet,
-        1e-14,
+        Quantity::new(1e-14),
         GMRES,
     )
     .unwrap();

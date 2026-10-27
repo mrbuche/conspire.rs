@@ -26,3 +26,13 @@ fn a_tensor_vector_of_scalars_converts_in_order() {
     let tensor_vector: TensorVector<Scalar> = a.iter().copied().collect();
     assert_eq!(Vector::from(tensor_vector), a);
 }
+
+#[test]
+fn contract_with() {
+    let a = Vector::from([1.0, 2.0, 3.0]);
+    let b = Vector::from([4.0, 5.0, 6.0]);
+    assert_eq!(
+        crate::math::ContractWith::contract_with(&a, &b).value(),
+        32.0
+    );
+}

@@ -103,7 +103,7 @@ fn solver(residual: f64) -> NewtonRaphson {
             constraint: 1e-12,
             residual,
         },
-        rel_tol: Some(1e-6),
+        rel_tol: Some(Quantity::new(1e-6)),
         ..Default::default()
     }
 }

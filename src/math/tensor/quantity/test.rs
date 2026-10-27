@@ -56,3 +56,40 @@ mod constitutive_law {
         assert_eq!(rate.norm(), StrainRate::identity().norm() / 2.0)
     }
 }
+
+#[test]
+fn contract_with_has_the_product_unit() {
+    use crate::units::{Dimensionless, Length, ReciprocalLength};
+    let length = Quantity::<Length>::new(3.0);
+    let reciprocal = Quantity::<ReciprocalLength>::new(4.0);
+    let product: Quantity<Dimensionless> =
+        crate::math::ContractWith::contract_with(&length, &reciprocal);
+    assert_eq!(product.value(), 12.0);
+}
+
+#[test]
+fn the_ratio_of_two_lengths_has_no_unit() {
+    use crate::units::{Dimensionless, Length};
+    let ratio: Quantity<Dimensionless> =
+        Quantity::<Length>::new(3.0).ratio(Quantity::<Length>::new(4.0));
+    assert_eq!(ratio.value(), 0.75)
+}
+
+#[test]
+fn the_ratio_of_two_pairs_has_no_unit() {
+    use crate::units::{Dimensionless, Length, Temperature};
+    let ratio: Quantity<Dimensionless> = Quantity::<(Length, Temperature)>::new(1.0)
+        .ratio(Quantity::<(Length, Temperature)>::new(8.0));
+    assert_eq!(ratio.value(), 0.125)
+}
+
+#[test]
+fn a_quantity_is_a_hessian_of_one_entry() {
+    use crate::math::{Hessian, SquareMatrix};
+    use crate::units::ForcePerLength;
+    let stiffness = Quantity::<ForcePerLength>::new(7.0);
+    assert_eq!(Hessian::entry(&stiffness, 0, 0), 7.0);
+    let mut matrix = SquareMatrix::zero(1);
+    Hessian::fill_into(stiffness, &mut matrix);
+    assert_eq!(matrix[0][0], 7.0)
+}

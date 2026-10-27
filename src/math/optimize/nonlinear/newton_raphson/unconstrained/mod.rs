@@ -1,6 +1,6 @@
 use crate::math::{
-    Erase, Hessian, Jacobian, Scalar, Solution, SquareMatrix, Tensor, Vector,
-    optimize::{Direct, OptimizationError, StepSize, TrustRegion},
+    Hessian, Jacobian, Scalar, Solution, SquareMatrix, Tensor, Vector,
+    optimize::{Direct, OptimizationError, StepSize},
     sparse::SparseSolver,
 };
 use crate::units::UnitRatio;
@@ -10,27 +10,26 @@ use std::{
 };
 
 use super::NewtonRaphson;
-use super::backtrack::{Backtrack, half_square_norm, residual_step, searched};
+use super::backtrack::{Backtrack, Gradient, half_square_norm, residual_step, searched};
+use super::convergence::shorten;
 use super::verify::not_minimum;
 
-pub(super) fn unconstrained<B, S, J, H, X, E>(
+pub(super) fn unconstrained<B, S, J, H, X, V>(
     newton_raphson: &NewtonRaphson<Direct, S>,
     search: B,
-    mut function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut function: impl FnMut(&X) -> Result<V, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
     sparse: Option<SparseSolver>,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack,
+    B: Backtrack + Gradient<X, J, X, V>,
     S: Display,
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
-    J: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
 {
@@ -75,14 +74,7 @@ where
             } else {
                 &residual / hessian(&solution)?
             };
-            let mut fraction = 1.0;
-            if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
-                let size = norm.measure(&decrement);
-                if size > radius {
-                    decrement *= radius / size;
-                    fraction = radius / size
-                }
-            }
+            let fraction = shorten(newton_raphson, &mut decrement);
             step_size = if !B::SEARCHES {
                 1.0
             } else if B::OBJECTIVE {

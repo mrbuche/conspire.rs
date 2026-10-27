@@ -21,12 +21,12 @@ pub use dual_primal::BoundaryConditions;
 pub use pcg::Preconditioner;
 
 #[cfg(feature = "fem")]
-use crate::domain::NodalCoordinates;
+use crate::domain::{NodalCoordinates, solid::NodalForcesSolid};
 #[cfg(feature = "fem")]
 use crate::{
     geometry::mesh::Partition,
     math::{
-        Scalar, Vector,
+        Quantity, Vector,
         optimize::{Krylov, KrylovMethod, LinearSolver},
     },
 };
@@ -95,7 +95,7 @@ pub struct Feti {
     pub method: KrylovMethod,
     pub partition: Partition,
     pub preconditioner: Preconditioner,
-    pub rel_tol: Scalar,
+    pub rel_tol: Quantity,
 }
 
 #[cfg(feature = "fem")]
@@ -150,25 +150,28 @@ impl Feti {
 #[cfg(feature = "fem")]
 impl LinearSolver for Feti {
     type Tangent = ElementSystems;
+    type Residual = NodalForcesSolid<3>;
+    type Decrement = NodalCoordinates<3>;
     fn solve(
         &self,
         tangent: ElementSystems,
-        retained: &[usize],
-        _residual: &Vector,
-    ) -> Result<Vector, String> {
-        let mut fixed = vec![true; 3 * tangent.positions().len()];
-        retained.iter().for_each(|&dof| fixed[dof] = false);
+        fixed: &[usize],
+        _residual: &NodalForcesSolid<3>,
+    ) -> Result<NodalCoordinates<3>, String> {
+        let mut pinned = vec![false; 3 * tangent.positions().len()];
+        fixed.iter().for_each(|&dof| pinned[dof] = true);
         let boundary_conditions = BoundaryConditions::new(
-            fixed
+            pinned
                 .iter()
                 .enumerate()
                 .filter(|&(_, &pinned)| pinned)
                 .map(|(dof, _)| (dof / 3, dof % 3))
                 .collect(),
         );
-        let solution = self
+        let mut decrement = self
             .solve_systems(&tangent, &boundary_conditions)
             .map_err(|error| error.to_string())?;
-        Ok(retained.iter().map(|&dof| solution[dof]).collect())
+        fixed.iter().for_each(|&dof| decrement[dof] = 0.0);
+        Ok(decrement.into())
     }
 }

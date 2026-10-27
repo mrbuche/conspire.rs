@@ -6,6 +6,7 @@ use conspire::{
         Minimize, Model, NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions as Conditions, Constrain, ConstrainAt, Displacement, Solid},
+        solid::NodalForcesSolid,
     },
     feti::{Feti, Formulation, GMRES},
     geometry::{
@@ -330,7 +331,7 @@ fn benchmark_scaling_24() {
 fn the_linear_solver_path_reproduces_the_block_solve() {
     use conspire::{
         feti::{BoundaryConditions, DecomposableElements},
-        math::{Vector, optimize::LinearSolver},
+        math::optimize::LinearSolver,
     };
     let nel = [6; 3];
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
@@ -358,25 +359,23 @@ fn the_linear_solver_path_reproduces_the_block_solve() {
             &BoundaryConditions::new(fixed.iter().map(|&dof| (dof / 3, dof % 3)).collect()),
         )
         .unwrap_or_else(|error| panic!("{error}"));
-    let retained: Vec<usize> = (0..3 * coordinates.len())
-        .filter(|dof| !fixed.contains(dof))
-        .collect();
     let solution = LinearSolver::solve(
         &feti,
         block.element_systems(&current).unwrap(),
-        &retained,
-        &Vector::zero(retained.len()),
+        &fixed,
+        &NodalForcesSolid::<3>::from(vec![[0.0; 3]; coordinates.len()]),
     )
     .unwrap_or_else(|error| panic!("{error}"));
+    let entry = |dof: usize| solution[dof / 3][dof % 3].value();
     let scale = expected.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
-    let difference = retained
-        .iter()
-        .zip(solution.iter())
-        .fold(0.0_f64, |m, (&dof, &v)| m.max((expected[dof] - v).abs()));
+    let difference = (0..3 * coordinates.len())
+        .filter(|dof| !fixed.contains(dof))
+        .fold(0.0_f64, |m, dof| m.max((expected[dof] - entry(dof)).abs()));
     assert!(
         difference < 1e-8 * scale,
         "differ by {difference:e} of {scale:e}"
     );
+    assert!(fixed.iter().all(|&dof| entry(dof) == 0.0));
 }
 
 #[test]

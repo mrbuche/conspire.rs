@@ -2,6 +2,7 @@ use crate::math::{
     Current, HessianBlock, Quantity, Reference, SquareMatrix, Tensor, TensorArray, TensorRank1,
     TensorRank2, TensorRank4, Transposed,
 };
+use crate::units::Force;
 use crate::units::{Dimensionless, Rate, Stress, Viscosity};
 
 type Deformation = TensorRank2<3, Current, Reference, Dimensionless>;
@@ -157,4 +158,13 @@ mod flat_entries {
         assert_eq!(solution[1].0[1].value(), 1.5);
         assert_eq!(solution[0].1.value(), 0.0);
     }
+}
+
+#[test]
+fn a_contraction_over_a_length_of_the_unit_is_a_number() {
+    let a = TensorRank1::<3, Current, Force>::from([1.0, 2.0, 3.0]);
+    let b = TensorRank1::<3, Current, Force>::from([4.0, 5.0, 6.0]);
+    let over = a.contraction_over(&b, Quantity::<Force>::new(2.0));
+    assert_eq!(over.value(), 32.0 / 4.0);
+    let _: Quantity<Dimensionless> = over;
 }

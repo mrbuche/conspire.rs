@@ -1,5 +1,8 @@
 use super::{LineSearchError, ObjectiveMerit, backtrack, backtrack_merit};
-use crate::math::{Erase, Jacobian, Quantity, Scalar, Solution, Tensor};
+use crate::{
+    math::{Quantity, Scalar},
+    units::UnitMul,
+};
 use std::{
     fmt::{self, Display, Formatter},
     ops::Mul,
@@ -29,33 +32,33 @@ impl Display for Armijo {
     }
 }
 
-impl ObjectiveMerit for Armijo {
-    fn search<X, J, D, W, E>(
-        &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        _jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
+impl Armijo {
+    fn accepts<T>(&self, decrease: T, n_slope: T) -> bool
     where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+        T: PartialOrd + Mul<Scalar, Output = T>,
+    {
+        decrease >= n_slope * self.control
+    }
+}
+
+impl ObjectiveMerit for Armijo {
+    fn search<W, U, V>(
+        &self,
+        value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
+        slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
+        step_size: Quantity<W>,
+    ) -> Result<Quantity<W>, LineSearchError<W>>
+    where
+        W: UnitMul<U, Output = V>,
     {
         backtrack(
             self,
             self.cut_back,
             self.max_steps,
-            function,
-            argument,
-            jacobian0,
-            decrement,
+            value,
+            slope,
             step_size,
-            |decrease, n, slope| decrease >= n * self.control * slope,
+            |decrease, n_slope| self.accepts(decrease, n_slope),
         )
     }
     fn search_merit(
@@ -73,7 +76,7 @@ impl ObjectiveMerit for Armijo {
             value,
             slope,
             step_size,
-            |decrease, n, slope| decrease >= n * self.control * slope,
+            |decrease, n_slope| self.accepts(decrease, n_slope),
         )
     }
 }

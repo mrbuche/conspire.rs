@@ -6,9 +6,10 @@ pub(crate) mod list;
 pub(crate) mod vec;
 
 use crate::math::{
-    Differentiable, Erase, Jacobian, Quantity, Scalar, Solution, Tensor, TensorRank0, Vector,
+    ContractWith, Differentiable, Erase, Jacobian, Quantity, Scalar, Solution, Tensor, TensorRank0,
+    Vector,
 };
-use crate::units::UnitHalves;
+use crate::units::{UnitHalves, UnitSum};
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -76,6 +77,23 @@ where
     fn div(self, quantity: Quantity<V>) -> Self::Output {
         let (first, second) = quantity.halves();
         TensorTuple(self.0 / first, self.1 / second)
+    }
+}
+
+impl<T1, T2, V1, V2, A, B> ContractWith<TensorTuple<V1, V2>> for TensorTuple<T1, T2>
+where
+    T1: ContractWith<V1, Output = Quantity<A>> + Tensor,
+    T2: ContractWith<V2, Output = Quantity<B>> + Tensor,
+    V1: Tensor,
+    V2: Tensor,
+    (A, B): UnitSum,
+{
+    type Output = Quantity<<(A, B) as UnitSum>::Output>;
+    fn contract_with(&self, tensor_tuple: &TensorTuple<V1, V2>) -> Self::Output {
+        Quantity::new(
+            self.0.contract_with(&tensor_tuple.0).value()
+                + self.1.contract_with(&tensor_tuple.1).value(),
+        )
     }
 }
 

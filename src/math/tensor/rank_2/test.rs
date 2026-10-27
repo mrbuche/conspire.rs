@@ -1287,6 +1287,34 @@ fn retain_from_filters_entries() {
 }
 
 #[test]
+fn a_vector_takes_the_layout_that_filling_one_gives() {
+    use super::super::{Jacobian, Vector};
+    let tensor = TensorRank2::<3, Current, Current>::from(get_array_dim_3());
+    let mut flat = Vector::zero(9);
+    Jacobian::fill_into(&tensor, &mut flat);
+    let rebuilt = TensorRank2::<3, Current, Current>::from(flat);
+    Assert::default().eq_within_tols(&rebuilt, &tensor).unwrap()
+}
+
+#[test]
+fn zero_out_clears_the_entries_that_are_fixed_and_no_others() {
+    use super::super::{Jacobian, Vector};
+    let retained = [true, false, true, false, true, true, false, true, false];
+    let mut tensor = TensorRank2::<3, Current, Current>::from(get_array_dim_3());
+    let fixed: Vec<usize> = (0..9).filter(|&index| !retained[index]).collect();
+    Jacobian::zero_out(&mut tensor, &fixed);
+    let mut flat = Vector::zero(9);
+    Jacobian::fill_into(&tensor, &mut flat);
+    let full = Vector::from(get_array_dim_3().as_flattened());
+    (0..9)
+        .for_each(|index| assert_eq!(flat[index], if retained[index] { full[index] } else { 0.0 }));
+    assert_eq!(
+        Jacobian::retain_from(tensor, &retained).len(),
+        retained.iter().filter(|&&kept| kept).count()
+    )
+}
+
+#[test]
 fn decrement_from_retained_skips_fixed_entries() {
     use super::super::{Solution, Vector};
     let retained = [true, false, true, false, true, true, false, true, false];

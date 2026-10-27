@@ -20,7 +20,7 @@ use crate::{
     domain::ElementModelError,
     geometry::mesh::Partition,
     math::{
-        Scalar, SquareMatrix, Style, StyledError, Vector,
+        Quantity, Scalar, SquareMatrix, Style, StyledError, Vector,
         optimize::{KrylovError, KrylovMethod},
         styled_error,
     },
@@ -128,7 +128,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
     local_forces: Vec<Vector>,
     positions: &[[f64; D]],
     preconditioner: Preconditioner,
-    rel_tol: Scalar,
+    rel_tol: Quantity,
     method: KrylovMethod,
     formulation: Formulation,
 ) -> Result<Vector, SolveError> {

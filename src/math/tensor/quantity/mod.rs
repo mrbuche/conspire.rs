@@ -6,11 +6,13 @@ pub(crate) mod sparse_vec_2d;
 pub(crate) mod vec;
 
 use super::{
-    Differentiable, Erase, Hessian, HessianBlock, Jacobian, Solution, SquareMatrix, Tensor,
-    TensorArray, Vector, rank_0::TensorRank0,
+    ContractWith, Differentiable, Erase, Hessian, HessianBlock, Jacobian, Solution, SquareMatrix,
+    Tensor, TensorArray, Vector, rank_0::TensorRank0,
 };
 use crate::math::{TensorList, assert::FiniteDifference};
-use crate::units::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul, UnitRoot};
+use crate::units::{
+    Dimensionless, IsDimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul, UnitRoot,
+};
 use std::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},
@@ -88,6 +90,11 @@ impl<U> Quantity<U> {
     /// Returns the greater of two quantities of the same unit.
     pub fn max(self, quantity: Self) -> Self {
         Self::new(self.0.max(quantity.0))
+    }
+    /// Returns the length of the hypotenuse of two legs of the same unit,
+    /// which leaves the unit alone.
+    pub fn hypot(self, quantity: Self) -> Self {
+        Self::new(self.0.hypot(quantity.0))
     }
 }
 
@@ -382,6 +389,16 @@ impl Mul<Quantity<Dimensionless>> for &TensorRank0 {
     }
 }
 
+impl<U, V> ContractWith<Quantity<V>> for Quantity<U>
+where
+    U: UnitMul<V>,
+{
+    type Output = Quantity<<U as UnitMul<V>>::Output>;
+    fn contract_with(&self, quantity: &Quantity<V>) -> Self::Output {
+        Quantity::new(self.0 * quantity.0)
+    }
+}
+
 impl<U, V> Mul<Quantity<V>> for Quantity<U>
 where
     U: UnitMul<V>,
@@ -672,10 +689,10 @@ impl<U> Hessian for Quantity<U> {
         self.0 * vector[0] * vector[0]
     }
     fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
-        unimplemented!()
+        self.0
     }
-    fn fill_into(self, _square_matrix: &mut SquareMatrix) {
-        unimplemented!()
+    fn fill_into(self, square_matrix: &mut SquareMatrix) {
+        square_matrix[0][0] = self.0
     }
 }
 
@@ -722,6 +739,21 @@ impl<U> Sub<&Vector> for Quantity<U> {
     type Output = Self;
     fn sub(self, vector: &Vector) -> Self::Output {
         Self::new(self.0 - vector[0])
+    }
+}
+
+impl<U> From<Quantity<U>> for TensorRank0
+where
+    U: IsDimensionless,
+{
+    fn from(quantity: Quantity<U>) -> Self {
+        quantity.value()
+    }
+}
+
+impl From<TensorRank0> for Quantity<Dimensionless> {
+    fn from(tensor_rank_0: TensorRank0) -> Self {
+        Self::new(tensor_rank_0)
     }
 }
 

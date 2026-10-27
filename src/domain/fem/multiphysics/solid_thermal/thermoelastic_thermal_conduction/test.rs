@@ -889,7 +889,7 @@ mod dynamics {
                     constraint: 1e-12,
                     residual: 1e-3,
                 },
-                rel_tol: Some(1e-10),
+                rel_tol: Some(Quantity::new(1e-10)),
                 ..Default::default()
             }
         }
@@ -1254,7 +1254,7 @@ mod quasistatic {
                 residual: 1e-6,
             },
             max_steps,
-            rel_tol: Some(1e-12),
+            rel_tol: Some(Quantity::new(1e-12)),
             ..Default::default()
         }
     }

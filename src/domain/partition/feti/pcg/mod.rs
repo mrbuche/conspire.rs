@@ -9,7 +9,7 @@ use crate::{
         subdomain::Subdomain,
     },
     math::{
-        Scalar, Tensor, Vector,
+        Quantity, Tensor, Vector,
         optimize::{Krylov, KrylovError, KrylovMethod},
     },
 };
@@ -62,7 +62,7 @@ pub(crate) fn projected_pcg_with<B>(
     coarse: &Coarse,
     rhs: &Vector,
     preconditioner: Preconditioner,
-    rel_tol: Scalar,
+    rel_tol: Quantity,
     method: KrylovMethod,
 ) -> Result<Vector, KrylovError>
 where
@@ -98,7 +98,7 @@ pub(crate) fn rigid_projected_pcg<B>(
     d: &Vector,
     e: &Vector,
     preconditioner: Preconditioner,
-    rel_tol: Scalar,
+    rel_tol: Quantity,
     method: KrylovMethod,
 ) -> Result<(Vector, Vector), KrylovError>
 where
