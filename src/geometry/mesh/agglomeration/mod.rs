@@ -74,6 +74,17 @@ impl Merging {
                     .into_iter()
                     .filter_map(|neighbor| {
                         let union = [groups[seed].as_slice(), groups[neighbor].as_slice()].concat();
+                        // TEMPORARY: trace what happens to a seed with a score of zero
+                        if scores[seed] == 0.0 {
+                            let valid = criterion.valid(&union);
+                            eprintln!(
+                                "seed {:?} + neighbor {:?}: valid {valid}, score {:?}, bar {:e}",
+                                groups[seed],
+                                groups[neighbor],
+                                criterion.score(&union),
+                                self.minimum_improvement * scores[seed].min(scores[neighbor])
+                            );
+                        }
                         criterion
                             .valid(&union)
                             .then(|| criterion.score(&union).map(|score| (neighbor, score)))
