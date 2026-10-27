@@ -18,7 +18,7 @@ mod verify;
 pub(crate) use convergence::{converged, limit_decrement};
 
 use crate::math::{
-    Norm, Scalar,
+    Norm, Quantity,
     optimize::{BacktrackingLineSearch, Direct, NoSearch, ObjectiveMerit, Tolerances, TrustRegion},
 };
 use std::fmt::{self, Debug, Display, Formatter};
@@ -37,7 +37,7 @@ pub struct NewtonRaphson<L = Direct, S = NoSearch> {
     /// Maximum number of steps.
     pub max_steps: usize,
     /// Relative error tolerance.
-    pub rel_tol: Option<Scalar>,
+    pub rel_tol: Option<Quantity>,
     /// How far the step is trusted.
     pub trust_region: TrustRegion,
 }

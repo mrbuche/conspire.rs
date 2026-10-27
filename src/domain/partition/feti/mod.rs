@@ -26,7 +26,7 @@ use crate::domain::{NodalCoordinates, solid::NodalForcesSolid};
 use crate::{
     geometry::mesh::Partition,
     math::{
-        Scalar, Vector,
+        Quantity, Vector,
         optimize::{Krylov, KrylovMethod, LinearSolver},
     },
 };
@@ -95,7 +95,7 @@ pub struct Feti {
     pub method: KrylovMethod,
     pub partition: Partition,
     pub preconditioner: Preconditioner,
-    pub rel_tol: Scalar,
+    pub rel_tol: Quantity,
 }
 
 #[cfg(feature = "fem")]

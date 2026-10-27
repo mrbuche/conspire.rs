@@ -1,9 +1,9 @@
 use super::{Krylov, KrylovMethod};
-use crate::math::{SquareMatrix, Vector, assert::Assert, optimize::Preconditioning};
+use crate::math::{Quantity, SquareMatrix, Vector, assert::Assert, optimize::Preconditioning};
 
 fn krylov() -> Krylov {
     Krylov {
-        rel_tol: 1e-15,
+        rel_tol: Quantity::new(1e-15),
         ..Default::default()
     }
 }
@@ -11,7 +11,7 @@ fn krylov() -> Krylov {
 fn minres() -> Krylov {
     Krylov {
         method: KrylovMethod::Minres,
-        rel_tol: 1e-15,
+        rel_tol: Quantity::new(1e-15),
         ..Default::default()
     }
 }
@@ -101,7 +101,7 @@ fn minres_serves_the_indefinite_system() {
 fn gmres(restart: usize) -> Krylov {
     Krylov {
         method: KrylovMethod::Gmres(restart),
-        rel_tol: 1e-14,
+        rel_tol: Quantity::new(1e-14),
         ..Default::default()
     }
 }
@@ -247,10 +247,10 @@ mod typed {
     }
     #[test]
     fn refuses_a_nonpositive_curvature() {
-        assert!(matches!(
-            krylov().solve(stiffness(indefinite()), jacobi(coupled()), &load()),
-            Err(KrylovError::NotPositiveDefinite(_))
-        ))
+        match krylov().solve(stiffness(indefinite()), jacobi(coupled()), &load()) {
+            Err(KrylovError::NotPositiveDefinite(curvature)) => assert!(curvature <= 0.0),
+            _ => panic!("expected the curvature to be refused"),
+        }
     }
     #[test]
     fn a_zero_right_hand_side_gives_a_zero_solution() {
@@ -267,7 +267,7 @@ mod typed {
     fn running_out_of_steps_reports_the_relative_residual() {
         let one_step = Krylov {
             max_steps: 1,
-            rel_tol: 1e-15,
+            rel_tol: Quantity::new(1e-15),
             ..Default::default()
         };
         match one_step.solve(stiffness(coupled()), jacobi(coupled()), &load()) {
@@ -324,10 +324,12 @@ mod typed {
         let negative = |load: &Load| -> Displacement {
             Displacement::from([-load[0].value(), -load[1].value(), -load[2].value()])
         };
-        assert!(matches!(
-            minres().solve(stiffness(coupled()), negative, &load()),
-            Err(KrylovError::PreconditionerNotPositiveDefinite(_))
-        ))
+        match minres().solve(stiffness(coupled()), negative, &load()) {
+            Err(KrylovError::PreconditionerNotPositiveDefinite(squared)) => {
+                assert_eq!(squared.value(), -1.0)
+            }
+            _ => panic!("expected the preconditioner to be refused"),
+        }
     }
     #[test]
     fn minres_gives_a_zero_solution_for_a_zero_load() {
@@ -416,7 +418,7 @@ mod typed {
         let short = Krylov {
             max_steps: 1,
             method: KrylovMethod::Gmres(30),
-            rel_tol: 1e-15,
+            rel_tol: Quantity::new(1e-15),
         };
         match short.solve(stiffness(nonsymmetric()), jacobi(coupled()), &load()) {
             Err(KrylovError::MaximumStepsReached(1, relative)) => {
@@ -430,7 +432,7 @@ mod typed {
         let one_cycle = Krylov {
             max_steps: 3,
             method: KrylovMethod::Gmres(30),
-            rel_tol: 1e-12,
+            rel_tol: Quantity::new(1e-12),
         };
         let solution = one_cycle
             .solve(stiffness(nonsymmetric()), jacobi(coupled()), &load())
@@ -447,7 +449,7 @@ mod typed {
         let one_cycle = Krylov {
             max_steps: 3,
             method: KrylovMethod::Gmres(30),
-            rel_tol: 1e-12,
+            rel_tol: Quantity::new(1e-12),
         };
         let solution = one_cycle
             .solve(
@@ -470,7 +472,7 @@ mod typed {
         let exact = Krylov {
             max_steps: 3,
             method: KrylovMethod::Minres,
-            rel_tol: 1e-12,
+            rel_tol: Quantity::new(1e-12),
         };
         let solution = exact
             .solve(stiffness(indefinite()), jacobi(coupled()), &load())
@@ -502,10 +504,10 @@ mod typed {
                 sign * load[2].value(),
             ])
         };
-        assert!(matches!(
-            minres().solve(stiffness(coupled()), fading, &load()),
-            Err(KrylovError::PreconditionerNotPositiveDefinite(_))
-        ))
+        match minres().solve(stiffness(coupled()), fading, &load()) {
+            Err(KrylovError::PreconditionerNotPositiveDefinite(squared)) => assert!(squared < 0.0),
+            _ => panic!("expected the preconditioner to be refused"),
+        }
     }
 }
 
@@ -620,7 +622,7 @@ mod nodal {
                 .find(|&max_steps| {
                     let solver = Krylov {
                         max_steps,
-                        rel_tol: 1e-10,
+                        rel_tol: Quantity::new(1e-10),
                         ..Default::default()
                     };
                     if preconditioned {
@@ -656,7 +658,7 @@ mod nodal {
     fn running_out_of_steps_is_reported() {
         let short = Krylov {
             max_steps: 1,
-            rel_tol: 1e-15,
+            rel_tol: Quantity::new(1e-15),
             ..Default::default()
         };
         assert!(matches!(

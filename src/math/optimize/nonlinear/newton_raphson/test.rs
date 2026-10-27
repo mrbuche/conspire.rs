@@ -205,7 +205,7 @@ mod root {
 
 mod constrained {
     use super::*;
-    use crate::math::{Matrix, SquareMatrix, Vector, optimize::Tolerances};
+    use crate::math::{Matrix, Quantity, SquareMatrix, Vector, optimize::Tolerances};
     fn constraint() -> EqualityConstraint {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][0] = 1.0;
@@ -285,7 +285,7 @@ mod constrained {
         )?;
         Assert::default().eq_within_tols(&result, &Vector::from([1.0, 1.0]))
     }
-    fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
+    fn scaled(rel_tol: Option<Quantity>) -> Result<Vector, OptimizationError> {
         const SCALE: Scalar = 1e12;
         NewtonRaphson {
             abs_tol: Tolerances {
@@ -307,7 +307,10 @@ mod constrained {
     }
     #[test]
     fn relative() -> Result<(), AssertionError> {
-        Assert::default().eq_within_tols(&scaled(Some(1e-8))?, &Vector::from([1.0, 1.0]))
+        Assert::default().eq_within_tols(
+            &scaled(Some(Quantity::new(1e-8)))?,
+            &Vector::from([1.0, 1.0]),
+        )
     }
     #[test]
     fn relative_is_what_absolute_cannot_be() {

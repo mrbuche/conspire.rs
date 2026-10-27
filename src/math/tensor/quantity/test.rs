@@ -66,3 +66,19 @@ fn contract_with_has_the_product_unit() {
         crate::math::ContractWith::contract_with(&length, &reciprocal);
     assert_eq!(product.value(), 12.0);
 }
+
+#[test]
+fn the_ratio_of_two_lengths_has_no_unit() {
+    use crate::units::{Dimensionless, Length};
+    let ratio: Quantity<Dimensionless> =
+        Quantity::<Length>::new(3.0).ratio(Quantity::<Length>::new(4.0));
+    assert_eq!(ratio.value(), 0.75)
+}
+
+#[test]
+fn the_ratio_of_two_pairs_has_no_unit() {
+    use crate::units::{Dimensionless, Length, Temperature};
+    let ratio: Quantity<Dimensionless> = Quantity::<(Length, Temperature)>::new(1.0)
+        .ratio(Quantity::<(Length, Temperature)>::new(8.0));
+    assert_eq!(ratio.value(), 0.125)
+}

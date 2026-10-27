@@ -2,7 +2,7 @@ use super::super::super::{Formulation, dual_primal::BoundaryConditions, pcg::Pre
 use super::{SolveError, solve_local_systems};
 use crate::{
     geometry::mesh::Partition,
-    math::{SquareMatrix, Tensor, Vector, optimize::KrylovMethod},
+    math::{Quantity, SquareMatrix, Tensor, Vector, optimize::KrylovMethod},
 };
 
 fn identity(len: usize) -> SquareMatrix {
@@ -29,7 +29,7 @@ fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating
         local_forces,
         &positions,
         Preconditioner::Dirichlet,
-        1e-8,
+        Quantity::new(1e-8),
         KrylovMethod::default(),
         Formulation::DualPrimal,
     );
@@ -77,7 +77,7 @@ fn a_subdomain_with_a_singular_interior_is_refused_though_its_dual_block_is_not(
         vec![Vector::zero(18), Vector::zero(15)],
         &positions,
         Preconditioner::Dirichlet,
-        1e-8,
+        Quantity::new(1e-8),
         KrylovMethod::default(),
         Formulation::DualPrimal,
     );
@@ -160,7 +160,7 @@ fn classical_reproduces_a_dense_solve_of_the_assembled_truss() {
         forces,
         &TRUSS,
         Preconditioner::Dirichlet,
-        1e-12,
+        Quantity::new(1e-12),
         KrylovMethod::default(),
         Formulation::Classical,
     )

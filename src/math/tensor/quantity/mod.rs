@@ -91,6 +91,11 @@ impl<U> Quantity<U> {
     pub fn max(self, quantity: Self) -> Self {
         Self::new(self.0.max(quantity.0))
     }
+    /// Returns the length of the hypotenuse of two legs of the same unit,
+    /// which leaves the unit alone.
+    pub fn hypot(self, quantity: Self) -> Self {
+        Self::new(self.0.hypot(quantity.0))
+    }
 }
 
 impl<U> Quantity<U>

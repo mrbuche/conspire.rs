@@ -59,6 +59,7 @@ fn rosenbrock_with(conjugacy: Conjugacy, max_steps: usize) -> Result<Vector, Opt
 
 mod minimize {
     use super::*;
+    use crate::math::Quantity;
     #[test]
     fn quadratic_anisotropic() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&minimized(
@@ -134,7 +135,7 @@ mod minimize {
             ..ConjugateGradient::default()
         };
         assert!(minimized(&solver(None), EqualityConstraint::None).is_err());
-        assert!(minimized(&solver(Some(0.5)), EqualityConstraint::None).is_ok());
+        assert!(minimized(&solver(Some(Quantity::new(0.5))), EqualityConstraint::None).is_ok());
     }
     #[test]
     fn quadratic_in_three_steps() -> Result<(), AssertionError> {

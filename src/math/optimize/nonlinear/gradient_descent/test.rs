@@ -238,6 +238,6 @@ mod tolerance {
             ..GradientDescent::default()
         };
         assert!(held(solver(None)).is_err());
-        assert!(held(solver(Some(0.99))).is_ok())
+        assert!(held(solver(Some(Quantity::new(0.99)))).is_ok())
     }
 }

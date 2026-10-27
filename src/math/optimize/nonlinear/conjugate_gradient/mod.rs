@@ -10,7 +10,7 @@ use crate::math::{
     },
     sparse::SparseSolver,
 };
-use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitRatio};
+use crate::units::{Dimensionless, UnitDiv, UnitMul};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
@@ -31,7 +31,7 @@ pub struct ConjugateGradient<S = NoSearch, Q = BarzilaiBorwein> {
     /// Maximum number of steps.
     pub max_steps: usize,
     /// Relative error tolerance.
-    pub rel_tol: Option<Scalar>,
+    pub rel_tol: Option<Quantity>,
     /// Step size estimator.
     pub step_estimator: Q,
 }
@@ -149,7 +149,6 @@ where
     A: UnitDiv<A, Output = Dimensionless>,
     StepSize<J, X>: Mul<Quantity<Dimensionless>, Output = StepSize<J, X>>,
     X: Jacobian + Solution + SecantWith<J, Step = StepSize<J, X>>,
-    <J as Tensor>::Unit: UnitRatio,
     <X as Tensor>::Unit: UnitDiv<<J as Tensor>::Unit>,
     <<X as Tensor>::Unit as UnitDiv<<J as Tensor>::Unit>>::Output: UnitMul<A>,
 {
@@ -207,7 +206,6 @@ where
     A: UnitDiv<A, Output = Dimensionless>,
     StepSize<F, X>: Mul<Quantity<Dimensionless>, Output = StepSize<F, X>>,
     X: Jacobian + Solution + SecantWith<F, Step = StepSize<F, X>>,
-    <F as Tensor>::Unit: UnitRatio,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     <<X as Tensor>::Unit as UnitDiv<<F as Tensor>::Unit>>::Output: UnitMul<A>,
 {
@@ -231,7 +229,7 @@ where
         if residual_norm < conjugate_gradient.abs_tol.residual() {
             return Ok(solution);
         } else if let Some(rel_tol) = conjugate_gradient.rel_tol
-            && Scalar::from(residual_norm / scale) < rel_tol
+            && residual_norm.ratio(scale) < rel_tol
         {
             return Ok(solution);
         } else if steps == conjugate_gradient.max_steps {

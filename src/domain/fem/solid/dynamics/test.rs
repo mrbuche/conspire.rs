@@ -387,7 +387,7 @@ mod integrate_implicit {
                 constraint: 1e-12,
                 residual: 1.0,
             },
-            rel_tol: Some(1e-6),
+            rel_tol: Some(Quantity::new(1e-6)),
             ..Default::default()
         }
     }

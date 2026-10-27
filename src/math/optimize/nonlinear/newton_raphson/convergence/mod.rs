@@ -33,7 +33,7 @@ pub(crate) fn converged<L, S>(
         norm < abs_tol
             || newton_raphson
                 .rel_tol
-                .is_some_and(|rel_tol| norm / scale < rel_tol)
+                .is_some_and(|rel_tol| Quantity::new(norm / scale) < rel_tol)
     };
     met(norms.0, scales.0, newton_raphson.abs_tol.residual)
         && met(norms.1, scales.1, newton_raphson.abs_tol.constraint)
