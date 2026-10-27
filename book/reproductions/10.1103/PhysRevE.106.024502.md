@@ -24,12 +24,8 @@ Analytical relations for the mechanical response of single polymer chains are va
 ```python
 {{#include PhysRevE.106.024502/figure_1.py:snippet}}
 ```
-```julia
-{{#include PhysRevE.106.024502/figure_1.jl:snippet}}
-```
 ```rust
 {{#rustdoc_include PhysRevE.106.024502/figure_1.rs:snippet}}
 ```
 
 <!-- langtabs-end -->
-
