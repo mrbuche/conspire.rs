@@ -86,10 +86,10 @@ impl<S: ElementsFaces> Candidates<S> {
     pub fn number_of_elements(&self) -> usize {
         self.boundary.number_of_elements()
     }
-    /// The fastest time scale of the union of the elements, zero if it is inverted.
+    /// The fastest time scale of the union of the elements, zero if any part of it is inverted.
     pub fn time_scale(&self, elements: &[usize]) -> Result<Quantity<Time>, String> {
         let (element, coordinates) = self.element(elements)?;
-        if mean_volume(&element) <= 0.0 {
+        if volumes(&element).iter().any(|&volume| volume <= 0.0) {
             return Ok(Time::seconds(0.0));
         }
         let (stiffnesses, masses) = self.matrices_of(&element, &coordinates)?;
@@ -187,9 +187,4 @@ fn volumes(element: &Element) -> Vec<Scalar> {
         .iter()
         .map(|tetrahedron| tetrahedron.volume().value())
         .collect()
-}
-
-fn mean_volume(element: &Element) -> Scalar {
-    let volumes = volumes(element);
-    volumes.iter().sum::<Scalar>() / volumes.len() as Scalar
 }

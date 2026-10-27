@@ -80,6 +80,31 @@ fn an_inverted_tetrahedron_has_no_time_scale() {
 }
 
 #[test]
+fn a_hexahedron_inverted_at_a_corner_has_no_time_scale() {
+    let cube = |corner: [f64; 3]| {
+        Mesh::from((
+            vec![Connectivity::Hexahedral(
+                vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
+            )],
+            Coordinates::from(vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [1.0, 0.0, 1.0],
+                corner,
+                [0.0, 1.0, 1.0],
+            ]),
+        ))
+    };
+    let scale = |corner| candidates(&cube(corner)).time_scale(&[0]).unwrap().value();
+    assert!(scale([1.0, 1.0, 1.0]) > 0.0);
+    assert_eq!(scale([0.2, 0.2, 0.2]), 0.0);
+    assert_eq!(scale([1.0, 1.0, -0.3]), 0.0);
+}
+
+#[test]
 fn a_hexahedron_has_a_finite_time_scale() {
     let mesh = Mesh::from((
         vec![Connectivity::Hexahedral(
