@@ -1,12 +1,12 @@
-use super::{Frame, POINTS, terms};
+use super::{Energy, Frame, Gradient, POINTS, SERIAL, scales, terms};
 use crate::{
     geometry::{
         Coordinate, CoordinateList,
         mesh::{Connectivity, Dualization, Fitting, Mesh, MeshError, Tessellation, Verdict},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
-    math::{Quantity, Scalar, Tensor},
-    units::Dimensionless,
+    math::{Quantity, Scalar, Tensor, TensorListVec},
+    units::{Area, Dimensionless},
 };
 use std::{collections::BTreeSet, f64::consts::TAU, time::Instant};
 
@@ -450,4 +450,49 @@ fn keeps_the_creases_of_a_skewed_box() {
         .for_each(|(node, (before, after))| {
             assert!(after >= before, "node {node}: {before} -> {after}")
         });
+}
+
+#[test]
+fn parallel_evaluation_matches_the_serial_sum_exactly() {
+    let mesh = grid(11, 0.9);
+    let hexes: Vec<[usize; 8]> = mesh
+        .iter()
+        .flat_map(|block| match block {
+            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
+            _ => unreachable!(),
+        })
+        .collect();
+    assert!(hexes.len() > 2 * SERIAL);
+    let coordinates = mesh.coordinates().clone();
+    let scales = scales(&hexes, &coordinates);
+    let theta = Quantity::new(0.3);
+    let mut total = Quantity::<Area>::default();
+    let mut gradient = Gradient::zero(coordinates.len());
+    hexes.iter().zip(&scales).for_each(|(hex, &scale)| {
+        let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
+        let (value, slopes) = terms(theta, scale, &nodes, true);
+        total -= value;
+        hex.iter()
+            .zip(slopes)
+            .for_each(|(&node, slope)| gradient[node] -= slope)
+    });
+    let energy = Energy {
+        boundary: &[],
+        hexes: &hexes,
+        lambda: TensorListVec::default(),
+        planes: Vec::new(),
+        rho: Quantity::new(1.0),
+        scales,
+        theta,
+    };
+    let mut parallel = Gradient::zero(coordinates.len());
+    let value = energy.evaluate(&coordinates, Some(&mut parallel));
+    assert_eq!(value.value().to_bits(), total.value().to_bits());
+    gradient.iter().zip(parallel.iter()).for_each(|(a, b)| {
+        (0..3).for_each(|i| assert_eq!(a[i].value().to_bits(), b[i].value().to_bits()))
+    });
+    assert_eq!(
+        energy.evaluate(&coordinates, None).value().to_bits(),
+        total.value().to_bits()
+    );
 }

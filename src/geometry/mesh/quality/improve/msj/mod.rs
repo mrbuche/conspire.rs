@@ -15,12 +15,18 @@ use crate::{
     },
     units::{Area, Dimensionless, Length, ReciprocalLength, Volume},
 };
-use std::{array::from_fn, iter::once, sync::LazyLock};
+use std::{
+    array::from_fn,
+    iter::once,
+    sync::LazyLock,
+    thread::{available_parallelism, scope},
+};
 
 type Gradient = TensorRank1Vec<3, Reference, Length>;
 type Weights = [[Scalar; 8]; 3];
 
 const CAP: usize = 4;
+const SERIAL: usize = 512;
 const CREASE: Quantity = Dimensionless::of(0.866);
 const FIRST: Quantity = Dimensionless::of(0.01);
 const RADIUS: Quantity = Dimensionless::of(0.2);
@@ -369,12 +375,39 @@ impl Energy<'_> {
         mut gradient: Option<&mut Gradient>,
     ) -> Quantity<Area> {
         let mut total = Quantity::<Area>::default();
-        self.hexes
-            .iter()
-            .zip(&self.scales)
-            .for_each(|(hex, &scale)| {
-                let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
-                let (value, slopes) = terms(self.theta, scale, &nodes, gradient.is_some());
+        let derivative = gradient.is_some();
+        let chunk = chunk_size(self.hexes.len());
+        let mut parts = vec![
+            (
+                Quantity::<Area>::default(),
+                CoordinateList::<3, 8>::default()
+            );
+            self.hexes.len()
+        ];
+        scope(|scope| {
+            parts
+                .chunks_mut(chunk)
+                .zip(self.hexes.chunks(chunk))
+                .enumerate()
+                .for_each(|(index, (parts, hexes))| {
+                    scope.spawn(move || {
+                        parts
+                            .iter_mut()
+                            .zip(hexes)
+                            .enumerate()
+                            .for_each(|(offset, (part, hex))| {
+                                let nodes =
+                                    hex.iter().map(|&node| coordinates[node].clone()).collect();
+                                let scale = self.scales[index * chunk + offset];
+                                *part = terms(self.theta, scale, &nodes, derivative)
+                            })
+                    });
+                })
+        });
+        parts
+            .into_iter()
+            .zip(self.hexes)
+            .for_each(|((value, slopes), hex)| {
                 total -= value;
                 if let Some(gradient) = gradient.as_deref_mut() {
                     hex.iter()
@@ -392,6 +425,16 @@ impl Energy<'_> {
             }
         });
         total
+    }
+}
+
+fn chunk_size(items: usize) -> usize {
+    if items < 2 * SERIAL {
+        items.max(1)
+    } else {
+        items
+            .div_ceil(available_parallelism().map_or(1, |threads| threads.get()))
+            .max(1)
     }
 }
 
