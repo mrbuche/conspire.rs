@@ -41,8 +41,8 @@ macro_rules! test_density {
         mod $mod {
             use super::*;
 
-            type B = Block<(), Tetrahedron<$g>, $g, 3, 4, 4, ElementDensities<$g>>;
-            type Scalar = Block<(), Tetrahedron<$g>, $g, 3, 4, 4, Quantity<Density>>;
+            type B = Block<(), Tetrahedron<$g>, $g, 3, 4, ElementDensities<$g>>;
+            type Scalar = Block<(), Tetrahedron<$g>, $g, 3, 4, Quantity<Density>>;
 
             #[test]
             fn constant_density_gives_density_times_volume() -> Result<(), AssertionError> {
@@ -82,7 +82,7 @@ macro_rules! test_density {
                     CONNECTIVITY.to_vec(),
                     &coordinates(),
                 ));
-                let reference = Block::<(), Tetrahedron<$g>, $g, 3, 4, 4>::from((
+                let reference = Block::<(), Tetrahedron<$g>, $g, 3, 4>::from((
                     (),
                     CONNECTIVITY.to_vec(),
                     &coordinates(),

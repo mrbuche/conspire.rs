@@ -12,11 +12,10 @@ use crate::{
     },
 };
 
-impl<C, F, const G: usize, const N: usize, const P: usize, R, H> DecomposableElements
-    for Block<C, F, G, 3, N, P, R, H>
+impl<C, F, const G: usize, const N: usize, R, H> DecomposableElements for Block<C, F, G, 3, N, R, H>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, 3, N, P>,
+    F: ElasticFiniteElement<C, G, 3, N>,
 {
     fn element_systems(
         &self,

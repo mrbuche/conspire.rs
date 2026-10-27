@@ -1,13 +1,17 @@
+pub mod damage;
 pub mod elastic;
 pub mod linear;
 
 use crate::{
     fem::block::element::{
-        ElementNodalCoordinates, ElementNodalEitherCoordinates, FiniteElement, IntegrationWeights,
-        ShapeFunctionsAtIntegrationPoints, surface::SurfaceFiniteElement,
+        ElementNodalCoordinates, ElementNodalEitherCoordinates, IntegrationWeights,
+        ReferenceFiniteElement, ShapeFunctionsAtIntegrationPoints,
+        cohesive::elastic::StiffnessCohesiveList,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+        surface::SurfaceFiniteElement,
     },
-    math::{ScalarList, Tensor},
-    mechanics::{CurrentCoordinate, NormalGradients},
+    math::{Rank2, ScalarList, Tensor, TensorTuple},
+    mechanics::{CurrentCoordinate, NormalGradients, TractionList},
     units::Area,
 };
 use std::fmt::{self, Debug, Formatter};
@@ -36,7 +40,7 @@ impl<const G: usize, const N: usize, const O: usize> Debug for CohesiveElement<G
 impl<const G: usize, const N: usize, const O: usize, const P: usize>
     SurfaceFiniteElement<G, N, P, Area> for CohesiveElement<G, N, O>
 where
-    Self: FiniteElement<G, M, N, P, Area>,
+    Self: ReferenceFiniteElement<G, M, N, P, Area>,
 {
 }
 
@@ -75,6 +79,57 @@ where
                     .collect()
             })
             .collect()
+    }
+    fn nodal_forces_from(&self, tractions: TractionList<G>) -> ElementNodalForcesSolid<N> {
+        tractions
+            .into_iter()
+            .zip(
+                Self::signed_shape_functions()
+                    .into_iter()
+                    .zip(self.integration_weights()),
+            )
+            .map(|(traction, (signed_shape_functions, integration_weight))| {
+                signed_shape_functions
+                    .into_iter()
+                    .map(|signed_shape_function| {
+                        &traction * (signed_shape_function * integration_weight)
+                    })
+                    .collect()
+            })
+            .sum()
+    }
+    fn nodal_stiffnesses_from(
+        &self,
+        stiffnesses: StiffnessCohesiveList<G>,
+        normal_gradients: NormalGradients<N, G>,
+    ) -> ElementNodalStiffnessesSolid<N> {
+        stiffnesses
+            .into_iter()
+            .zip(
+                Self::signed_shape_functions()
+                    .into_iter()
+                    .zip(normal_gradients.into_iter().zip(self.integration_weights())),
+            )
+            .map(
+                |(stiffness, (signed_shape_functions, (normal_gradient, integration_weight)))| {
+                    let TensorTuple(stiffness_u, stiffness_n) = stiffness;
+                    signed_shape_functions
+                        .iter()
+                        .map(|signed_shape_function_a| {
+                            signed_shape_functions
+                                .iter()
+                                .zip(normal_gradient.iter())
+                                .map(|(signed_shape_function_b, normal_gradient_b)| {
+                                    (&stiffness_u * signed_shape_function_b
+                                        + (&stiffness_n * normal_gradient_b.transpose()) * 0.5)
+                                        * (signed_shape_function_a * integration_weight)
+                                })
+                                .collect()
+                        })
+                        .collect()
+                },
+            )
+            .sum()
     }
     fn signs() -> ScalarList<N>;
 }

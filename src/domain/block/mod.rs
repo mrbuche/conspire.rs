@@ -4,7 +4,9 @@ pub(crate) mod test;
 pub(crate) mod element;
 pub(crate) mod solid;
 
-use crate::math::{optimize::EqualityConstraint, sparse::SparseSolver};
+use crate::math::{
+    TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint, sparse::SparseSolver,
+};
 use std::any::type_name;
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
@@ -16,6 +18,17 @@ pub(crate) fn trimmed_type_name<T>() -> &'static str {
         .split('<')
         .next()
         .unwrap()
+}
+
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub(crate) fn element_coordinates<const D: usize, const N: usize, I, U>(
+    coordinates: &TensorRank1Vec<D, I, U>,
+    nodes: &[usize; N],
+) -> TensorRank1List<D, I, N, U> {
+    nodes
+        .iter()
+        .map(|&node| coordinates[node].clone())
+        .collect()
 }
 
 pub(crate) fn add_node_neighbors<'a>(

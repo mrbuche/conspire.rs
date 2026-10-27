@@ -50,8 +50,16 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, Reference, P, O>;
 
-pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize, W = Volume>
-where
+/// The reference element: its nodes, the shape functions of `P` of them and their gradients,
+/// its quadrature points and weights, and the weights in the unit `W` of the measure of the
+/// element itself.
+pub trait ReferenceFiniteElement<
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+    W = Volume,
+> where
     Self: Clone + Debug,
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
@@ -74,9 +82,21 @@ where
             .map(|integration_point| Self::shape_functions_gradients(integration_point))
             .collect()
     }
-    fn volume(&self) -> Quantity<W> {
+}
+
+/// A [`ReferenceFiniteElement`] that integrates over a volume, with as many shape functions as nodes.
+pub trait FiniteElement<const G: usize, const M: usize, const N: usize>
+where
+    Self: ReferenceFiniteElement<G, M, N, N>,
+{
+    fn volume(&self) -> Quantity<Volume> {
         self.integration_weights().into_iter().sum()
     }
+}
+
+impl<T, const G: usize, const M: usize, const N: usize> FiniteElement<G, M, N> for T where
+    T: ReferenceFiniteElement<G, M, N, N>
+{
 }
 
 #[derive(Clone)]
@@ -116,7 +136,7 @@ fn basic_from<const D: usize, const G: usize, const N: usize, const O: usize>(
     reference_nodal_coordinates: TensorRank1List<D, Reference, N, Length>,
 ) -> Element<D, G, N, O>
 where
-    Element<D, G, N, O>: FiniteElement<G, D, N, N>,
+    Element<D, G, N, O>: ReferenceFiniteElement<G, D, N, N>,
 {
     let gradient_vectors = Element::shape_functions_gradients_at_integration_points()
         .into_iter()

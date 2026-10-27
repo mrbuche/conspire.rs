@@ -1,6 +1,6 @@
 use crate::{
     fem::block::element::{
-        Element, FiniteElement,
+        Element, FiniteElement, ReferenceFiniteElement,
         mass::{ConsistentMass, RowSumLumping},
     },
     math::{Quantity, Tensor, TensorList},
@@ -13,39 +13,35 @@ pub type ElementNodalHeatCapacities<const D: usize> =
     TensorList<TensorList<Quantity<HeatCapacity>, D>, D>;
 pub type ElementNodalLumpedHeatCapacities<const D: usize> = TensorList<Quantity<HeatCapacity>, D>;
 
-pub trait HeatCapacityFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait HeatCapacityFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, P> + ConsistentMass,
+    Self: FiniteElement<G, M, N> + ConsistentMass,
 {
     fn nodal_heat_capacities(
         &self,
         capacities: &IntegrationHeatCapacities<G>,
-    ) -> ElementNodalHeatCapacities<P>;
+    ) -> ElementNodalHeatCapacities<N>;
 }
 
-pub trait LumpedHeatCapacityFiniteElement<
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
-    Self: FiniteElement<G, M, N, P> + RowSumLumping,
+pub trait LumpedHeatCapacityFiniteElement<const G: usize, const M: usize, const N: usize>
+where
+    Self: FiniteElement<G, M, N> + RowSumLumping,
 {
     fn nodal_lumped_heat_capacities(
         &self,
         capacities: &IntegrationHeatCapacities<G>,
-    ) -> ElementNodalLumpedHeatCapacities<P>;
+    ) -> ElementNodalLumpedHeatCapacities<N>;
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    HeatCapacityFiniteElement<G, M, N, P> for Element<3, G, N, O>
+impl<const G: usize, const M: usize, const N: usize, const O: usize>
+    HeatCapacityFiniteElement<G, M, N> for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, P> + ConsistentMass,
+    Self: FiniteElement<G, M, N> + ConsistentMass,
 {
     fn nodal_heat_capacities(
         &self,
         capacities: &IntegrationHeatCapacities<G>,
-    ) -> ElementNodalHeatCapacities<P> {
+    ) -> ElementNodalHeatCapacities<N> {
         Self::shape_functions_at_integration_points()
             .iter()
             .zip(capacities)
@@ -68,15 +64,15 @@ where
     }
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    LumpedHeatCapacityFiniteElement<G, M, N, P> for Element<3, G, N, O>
+impl<const G: usize, const M: usize, const N: usize, const O: usize>
+    LumpedHeatCapacityFiniteElement<G, M, N> for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, P> + RowSumLumping,
+    Self: FiniteElement<G, M, N> + RowSumLumping,
 {
     fn nodal_lumped_heat_capacities(
         &self,
         capacities: &IntegrationHeatCapacities<G>,
-    ) -> ElementNodalLumpedHeatCapacities<P> {
+    ) -> ElementNodalLumpedHeatCapacities<N> {
         Self::shape_functions_at_integration_points()
             .iter()
             .zip(capacities)

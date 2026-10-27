@@ -123,7 +123,7 @@ mod patch {
         mechanics::Traction,
         units::{Length, Stress, Time},
     };
-    type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+    type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8>;
     const PULL: f64 = 1e-3;
     const BULK: f64 = 13.0;
     const SHEAR: f64 = 3.0;
@@ -353,7 +353,7 @@ mod rate {
         mechanics::Traction,
         units::{Stress, Time, Viscosity},
     };
-    type Hex = Block<Canonical<AlmansiHamelEulerian, Newtonian>, Hexahedron, 8, 3, 8, 8>;
+    type Hex = Block<Canonical<AlmansiHamelEulerian, Newtonian>, Hexahedron, 8, 3, 8>;
     const PULL: f64 = 1e-2;
     fn model() -> Model<Hex, 3> {
         let mut mesh = Mesh::from((
@@ -476,7 +476,7 @@ mod body {
         math::assert::{Assert, AssertionError},
         units::{Stress, Time},
     };
-    type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+    type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8>;
     fn model() -> Model<Hex, 3> {
         let mesh = Mesh::from((
             vec![Connectivity::Hexahedral(
@@ -596,7 +596,7 @@ mod follower {
         mechanics::Traction,
         units::Stress,
     };
-    type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+    type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8>;
     fn model() -> Model<Hex, 3> {
         let mut mesh = Mesh::from((
             vec![Connectivity::Hexahedral(
@@ -819,7 +819,7 @@ mod follower {
             math::{integrate::Newmark, optimize::Tolerances},
             units::{Density, Time},
         };
-        type Dense = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
+        type Dense = Block<NeoHookean, Hexahedron, 8, 3, 8, Quantity<Density>>;
         fn dense() -> Model<Dense, 3> {
             let coordinates = NodalReferenceCoordinates::from([
                 [0.0, 0.0, 0.0],

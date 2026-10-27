@@ -1,11 +1,12 @@
+use crate::math::integrate::StepError;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::elastic_plastic::{ElasticPlastic, StepError, coupled},
+        solid::elastic_plastic::{ElasticPlastic, coupled},
     },
     domain::block::element::solid::elastic_plastic::ElasticPlasticElement,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElementError, ReferenceFiniteElement,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement,
             SolidFiniteElement, plastic::PlasticStateVariables,
@@ -16,15 +17,10 @@ use crate::{
 };
 use std::array::from_fn;
 
-pub trait ElasticPlasticFiniteElement<
-    C,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
+pub trait ElasticPlasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
+where
     C: ElasticPlastic,
-    Self: SolidFiniteElement<G, M, N, P>
+    Self: SolidFiniteElement<G, M, N>
         + ElasticPlasticElement<
             C,
             G,
@@ -35,11 +31,11 @@ pub trait ElasticPlasticFiniteElement<
 {
 }
 
-impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticPlasticFiniteElement<C, G, M, N, P> for T
+impl<T, C, const G: usize, const M: usize, const N: usize> ElasticPlasticFiniteElement<C, G, M, N>
+    for T
 where
     C: ElasticPlastic,
-    T: SolidFiniteElement<G, M, N, P>
+    T: SolidFiniteElement<G, M, N>
         + ElasticPlasticElement<
             C,
             G,
@@ -54,7 +50,7 @@ impl<C, const G: usize, const N: usize, const O: usize> ElasticPlasticElement<C,
     for Element<3, G, N, O>
 where
     C: ElasticPlastic,
-    Self: SolidFiniteElement<G, 3, N, N>,
+    Self: SolidFiniteElement<G, 3, N>,
 {
     type Forces = ElementNodalForcesSolid<N>;
     type Stiffnesses = ElementNodalStiffnessesSolid<N>;
@@ -172,9 +168,13 @@ where
             .try_fold(
                 StepError::default(),
                 |worst, ((gradient_old, gradient), (state_old, state))| {
-                    constitutive_model
-                        .step_error(gradient_old, gradient, state_old, state)
-                        .map(|error| worst.max(error))
+                    Ok::<_, crate::constitutive::ConstitutiveError>(
+                        worst.max(
+                            constitutive_model
+                                .step_error(gradient_old, gradient, state_old, state)?
+                                .relative_to(constitutive_model.yield_strain(state_old)?),
+                        ),
+                    )
                 },
             )
             .map_err(|error| FiniteElementError::upstream(error, self))
@@ -209,7 +209,7 @@ impl<C, const G: usize, const N: usize, const O: usize>
     MonolithicElasticPlasticFiniteElement<C, G, N> for Element<3, G, N, O>
 where
     C: ElasticPlastic,
-    Self: SolidFiniteElement<G, 3, N, N>,
+    Self: SolidFiniteElement<G, 3, N>,
 {
     fn monolithic(
         &self,

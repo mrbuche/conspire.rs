@@ -11,7 +11,7 @@ use crate::{
     units::{Stress, Volume},
 };
 
-type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8>;
 
 fn neo_hookean() -> NeoHookean {
     NeoHookean {

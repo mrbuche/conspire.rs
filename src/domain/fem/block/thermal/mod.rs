@@ -14,11 +14,11 @@ use crate::{
 
 pub use crate::domain::thermal::NodalTemperatures;
 
-pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize>
 where
     C: Thermal,
-    F: ThermalFiniteElement<G, M, N, P>,
-    Self: DiffusiveElements<Power, C, F, G, M, N, P>,
+    F: ThermalFiniteElement<G, M, N>,
+    Self: DiffusiveElements<Power, C, F, G, M, N>,
 {
     fn nodal_temperatures_element(
         &self,
@@ -35,11 +35,10 @@ where
     }
 }
 
-impl<T, C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ThermalElements<C, F, G, M, N, P> for T
+impl<T, C, F, const G: usize, const M: usize, const N: usize> ThermalElements<C, F, G, M, N> for T
 where
     C: Thermal,
-    F: ThermalFiniteElement<G, M, N, P>,
-    T: DiffusiveElements<Power, C, F, G, M, N, P>,
+    F: ThermalFiniteElement<G, M, N>,
+    T: DiffusiveElements<Power, C, F, G, M, N>,
 {
 }

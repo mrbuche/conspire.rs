@@ -20,11 +20,11 @@ use crate::{
     units::Energy,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    HyperelasticElements<3> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, R, H> HyperelasticElements<3>
+    for Block<C, F, G, M, N, R, H>
 where
     C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N, P>,
+    F: HyperelasticFiniteElement<C, G, M, N>,
     Self: ElasticElements<3>,
 {
     fn helmholtz_free_energy(
@@ -75,11 +75,10 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize, R> HyperelasticElements<2>
-    for Block<C, F, G, 2, N, P, R>
+impl<C, F, const G: usize, const N: usize, R> HyperelasticElements<2> for Block<C, F, G, 2, N, R>
 where
     C: Hyperelastic,
-    F: PlanarHyperelasticFiniteElement<C, G, N, P>,
+    F: PlanarHyperelasticFiniteElement<C, G, N>,
     Self: ElasticElements<2>,
 {
     fn helmholtz_free_energy(

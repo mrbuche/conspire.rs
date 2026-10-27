@@ -45,7 +45,6 @@ use conspire::{
 const G: usize = 1;
 const M: usize = 3;
 const N: usize = 4;
-const P: usize = 4;
 
 fn connectivity() -> Vec<[usize; N]> {
     vec![
@@ -7808,8 +7807,8 @@ fn root_rkmk_dae_covers_nested_and_mixed_block_topologies() {
     };
     fn assert_root_rkmk_dae<T: RootRkmkDae<3>>() {}
     type Viscoplastic =
-        Block<Canonical<AlmansiHamelEulerian, ViscoplasticFlow>, LinearTetrahedron<G>, G, M, N, P>;
-    type Elastic = Block<AlmansiHamelEulerian, LinearTetrahedron<G>, G, M, N, P>;
+        Block<Canonical<AlmansiHamelEulerian, ViscoplasticFlow>, LinearTetrahedron<G>, G, M, N>;
+    type Elastic = Block<AlmansiHamelEulerian, LinearTetrahedron<G>, G, M, N>;
     assert_root_rkmk_dae::<Model<ElasticViscoplasticAndElastic<Viscoplastic, Elastic>, 3>>();
     assert_root_rkmk_dae::<Model<Blocks<Blocks<Viscoplastic, Viscoplastic>, Viscoplastic>, 3>>();
     assert_root_rkmk_dae::<Model<Blocks<Viscoplastic, Blocks<Viscoplastic, Viscoplastic>>, 3>>();
@@ -8252,7 +8251,7 @@ mod cbm_forces_smoke {
 #[test]
 fn temporary_elastic_plastic() -> Result<(), AssertionError> {
     use conspire::constitutive::solid::elastic_plastic::Root;
-    use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
+    use conspire::fem::solid::rate_independent::RateIndependentRoot;
     use conspire::math::optimize::SolveStrategy;
     let tol = 1e-10;
     let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
@@ -8382,7 +8381,7 @@ fn assert_same_plastic_solution(
 
 #[test]
 fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
-    use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
+    use conspire::fem::solid::rate_independent::RateIndependentRoot;
     use conspire::math::optimize::SolveStrategy;
     let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
     let mut connectivity = connectivity();
@@ -8416,7 +8415,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
         &(),
         &times,
         SolveStrategy::Condensed(NewtonRaphson::default()),
-        Dimensionless::of(1e-3),
+        Dimensionless::of(1e3),
     )?;
     for elimination in [false, true] {
         let solution = fem_model.root(
@@ -8425,7 +8424,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
             &(),
             &times,
             SolveStrategy::Monolithic { elimination },
-            Dimensionless::of(1e-3),
+            Dimensionless::of(1e3),
         )?;
         assert_same_plastic_solution(&reference, &solution, 1e-8)?;
     }
@@ -8434,7 +8433,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
 
 #[test]
 fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), AssertionError> {
-    use conspire::fem::solid::elastic_plastic::ElasticPlasticElements;
+    use conspire::fem::solid::rate_independent::RateIndependentElements;
     let model = Canonical::from((
         NeoHookean {
             bulk_modulus: Stress::pascals(13.0),
@@ -8522,7 +8521,7 @@ fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), Asserti
 
 #[test]
 fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
-    use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
+    use conspire::fem::solid::rate_independent::RateIndependentRoot;
     use conspire::math::optimize::SolveStrategy;
     let tol = 1e-9;
     let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();

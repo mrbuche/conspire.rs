@@ -9,13 +9,13 @@ use crate::{
 
 const M: usize = 2;
 
-impl<C, F, const G: usize, const N: usize, const P: usize>
+impl<C, F, const G: usize, const N: usize>
     From<(
         C,
         Vec<[usize; N]>,
         &NodalReferenceCoordinates<3>,
         Quantity<Length>,
-    )> for Block<C, F, G, M, N, P>
+    )> for Block<C, F, G, M, N>
 where
     F: From<(ElementNodalReferenceCoordinates<N>, Quantity<Length>)>,
 {

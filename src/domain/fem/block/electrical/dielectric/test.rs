@@ -1,9 +1,7 @@
 macro_rules! test_dielectric_block {
     ($element: ident) => {
         mod dielectric_block {
-            use super::{
-                D, G, M, N, P, get_connectivity, get_reference_coordinates_block, $element,
-            };
+            use super::{D, G, M, N, get_connectivity, get_reference_coordinates_block, $element};
             use crate::{
                 EPSILON,
                 constitutive::electrical::dielectric::Linear,
@@ -33,8 +31,8 @@ macro_rules! test_dielectric_block {
                         .map(|node| ElectricPotential::volts((1.0 + node as f64).sin()))
                         .collect()
                 }
-                fn block() -> Block<Linear, $element, G, M, N, P> {
-                    Block::<Linear, $element, G, M, N, P>::from((
+                fn block() -> Block<Linear, $element, G, M, N> {
+                    Block::<Linear, $element, G, M, N>::from((
                         MODEL,
                         get_connectivity(),
                         &get_reference_coordinates_block(),

@@ -12,17 +12,16 @@ use crate::{
 pub type ElementNodalForcesElectrical<const D: usize> = ElementNodalForces<Charge, D>;
 pub type ElementNodalStiffnessesElectrical<const D: usize> = ElementNodalStiffnesses<Charge, D>;
 
-pub trait DielectricFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait DielectricFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: Dielectric,
-    Self: DiffusionFiniteElement<C, G, M, N, P>,
+    Self: DiffusionFiniteElement<C, G, M, N>,
 {
 }
 
-impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
-    DielectricFiniteElement<C, G, M, N, P> for T
+impl<T, C, const G: usize, const M: usize, const N: usize> DielectricFiniteElement<C, G, M, N> for T
 where
     C: Dielectric,
-    T: DiffusionFiniteElement<C, G, M, N, P>,
+    T: DiffusionFiniteElement<C, G, M, N>,
 {
 }

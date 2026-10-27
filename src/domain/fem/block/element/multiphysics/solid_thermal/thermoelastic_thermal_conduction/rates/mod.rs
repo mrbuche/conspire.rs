@@ -8,8 +8,8 @@ use crate::{
         solid::thermoelastic::Thermoelastic, thermal::conduction::ThermalConduction,
     },
     fem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
-        FiniteElementError,
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+        ReferenceFiniteElement,
         multiphysics::solid_thermal::{
             ElementNodalForcesSolidThermal, ElementNodalHeatingStiffnessesSolidThermal,
             ElementNodalHeatingsSolidThermal, ElementNodalStiffnessesSolidThermal,
@@ -31,10 +31,9 @@ pub trait ThermoelasticThermalConductionRateFiniteElement<
     const G: usize,
     const M: usize,
     const N: usize,
-    const P: usize,
 > where
     C: ThermoelasticThermalConduction,
-    Self: SolidThermalFiniteElement<G, M, N, P>,
+    Self: SolidThermalFiniteElement<G, M, N>,
 {
     fn nodal_forces(
         &self,
@@ -60,10 +59,10 @@ pub trait ThermoelasticThermalConductionRateFiniteElement<
 }
 
 impl<C, const G: usize, const N: usize, const O: usize>
-    ThermoelasticThermalConductionRateFiniteElement<C, G, 3, N, N> for Element<3, G, N, O>
+    ThermoelasticThermalConductionRateFiniteElement<C, G, 3, N> for Element<3, G, N, O>
 where
     C: ThermoelasticThermalConduction,
-    Self: SolidThermalFiniteElement<G, 3, N, N>,
+    Self: SolidThermalFiniteElement<G, 3, N>,
 {
     fn nodal_forces(
         &self,

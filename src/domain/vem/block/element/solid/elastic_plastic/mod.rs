@@ -1,5 +1,6 @@
+use crate::math::integrate::StepError;
 use crate::{
-    constitutive::solid::elastic_plastic::{ElasticPlastic, StepError},
+    constitutive::solid::elastic_plastic::ElasticPlastic,
     domain::block::element::solid::{
         elastic_plastic::ElasticPlasticElement, plastic::PlasticStateVariables,
     },
@@ -326,9 +327,13 @@ where
             .try_fold(
                 StepError::default(),
                 |worst, ((gradient_old, gradient), (state_old, state))| {
-                    constitutive_model
-                        .step_error(gradient_old, gradient, state_old, state)
-                        .map(|error| worst.max(error))
+                    Ok::<_, crate::constitutive::ConstitutiveError>(
+                        worst.max(
+                            constitutive_model
+                                .step_error(gradient_old, gradient, state_old, state)?
+                                .relative_to(constitutive_model.yield_strain(state_old)?),
+                        ),
+                    )
                 },
             )
             .map_err(|error| self.upstream(error))

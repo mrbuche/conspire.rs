@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        Element, FiniteElement,
+        Element, FiniteElement, ReferenceFiniteElement,
         linear::{LinearElement, LinearFiniteElement},
     },
     math::{Quantity, Scalar, Tensor, TensorList},
@@ -30,43 +30,39 @@ impl<const G: usize, const N: usize> DiagonalScaling for LinearElement<G, N> whe
 {
 }
 
-pub trait MassFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait MassFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, P> + ConsistentMass,
+    Self: FiniteElement<G, M, N> + ConsistentMass,
 {
-    fn nodal_masses(&self, densities: &IntegrationDensities<G>) -> ElementNodalMasses<P>;
+    fn nodal_masses(&self, densities: &IntegrationDensities<G>) -> ElementNodalMasses<N>;
 }
 
-pub trait DiagonallyScaledMassFiniteElement<
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
-    Self: FiniteElement<G, M, N, P> + DiagonalScaling,
+pub trait DiagonallyScaledMassFiniteElement<const G: usize, const M: usize, const N: usize>
+where
+    Self: FiniteElement<G, M, N> + DiagonalScaling,
 {
     fn nodal_diagonally_scaled_masses(
         &self,
         densities: &IntegrationDensities<G>,
-    ) -> ElementNodalLumpedMasses<P>;
+    ) -> ElementNodalLumpedMasses<N>;
 }
 
-pub trait LumpedMassFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait LumpedMassFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, P> + RowSumLumping,
+    Self: FiniteElement<G, M, N> + RowSumLumping,
 {
     fn nodal_lumped_masses(
         &self,
         densities: &IntegrationDensities<G>,
-    ) -> ElementNodalLumpedMasses<P>;
+    ) -> ElementNodalLumpedMasses<N>;
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    MassFiniteElement<G, M, N, P> for Element<3, G, N, O>
+impl<const G: usize, const M: usize, const N: usize, const O: usize> MassFiniteElement<G, M, N>
+    for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, P> + ConsistentMass,
+    Self: FiniteElement<G, M, N> + ConsistentMass,
 {
-    fn nodal_masses(&self, densities: &IntegrationDensities<G>) -> ElementNodalMasses<P> {
+    fn nodal_masses(&self, densities: &IntegrationDensities<G>) -> ElementNodalMasses<N> {
         Self::shape_functions_at_integration_points()
             .iter()
             .zip(densities)
@@ -87,15 +83,15 @@ where
     }
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    LumpedMassFiniteElement<G, M, N, P> for Element<3, G, N, O>
+impl<const G: usize, const M: usize, const N: usize, const O: usize>
+    LumpedMassFiniteElement<G, M, N> for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, P> + RowSumLumping,
+    Self: FiniteElement<G, M, N> + RowSumLumping,
 {
     fn nodal_lumped_masses(
         &self,
         densities: &IntegrationDensities<G>,
-    ) -> ElementNodalLumpedMasses<P> {
+    ) -> ElementNodalLumpedMasses<N> {
         Self::shape_functions_at_integration_points()
             .iter()
             .zip(densities)
@@ -111,16 +107,16 @@ where
     }
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    DiagonallyScaledMassFiniteElement<G, M, N, P> for Element<3, G, N, O>
+impl<const G: usize, const M: usize, const N: usize, const O: usize>
+    DiagonallyScaledMassFiniteElement<G, M, N> for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, P> + DiagonalScaling,
+    Self: FiniteElement<G, M, N> + DiagonalScaling,
 {
     fn nodal_diagonally_scaled_masses(
         &self,
         densities: &IntegrationDensities<G>,
-    ) -> ElementNodalLumpedMasses<P> {
-        let diagonals: ElementNodalLumpedMasses<P> = Self::shape_functions_at_integration_points()
+    ) -> ElementNodalLumpedMasses<N> {
+        let diagonals: ElementNodalLumpedMasses<N> = Self::shape_functions_at_integration_points()
             .iter()
             .zip(densities)
             .zip(self.integration_weights())

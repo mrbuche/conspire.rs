@@ -5,8 +5,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_SQRT_3_5, FiniteElement, IntegrationWeights, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_SQRT_3_5, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
     math::{Scalar, ScalarList, TensorRank1},
@@ -19,7 +19,10 @@ const P: usize = N;
 
 pub type Hexahedron = QuadraticElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Hexahedron {
+impl ReferenceFiniteElement<G, M, N, P> for Hexahedron {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         const POINTS: [Scalar; 3] = [-FRAC_SQRT_3_5, 0.0, FRAC_SQRT_3_5];
         POINTS
@@ -32,9 +35,6 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
                 })
             })
             .collect()
-    }
-    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
-        &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {
         [

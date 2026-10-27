@@ -18,7 +18,7 @@ macro_rules! planar_elastic_tests {
             use crate::{
                 constitutive::solid::hyperelastic::{NeoHookean, autodiff::AutodiffNeoHookean},
                 fem::block::element::{
-                    FiniteElement,
+                    ReferenceFiniteElement,
                     planar::{
                         PlanarElasticFiniteElement, PlanarElementNodalCoordinates,
                         PlanarElementNodalReferenceCoordinates,
@@ -35,7 +35,8 @@ macro_rules! planar_elastic_tests {
                 AutodiffNeoHookean,
                 NeoHookean,
             ) {
-                let parametric = <$element as FiniteElement<$g, 2, $n, $n>>::parametric_reference();
+                let parametric =
+                    <$element as ReferenceFiniteElement<$g, 2, $n, $n>>::parametric_reference();
                 let mut reference = [[0.0; 2]; $n];
                 let mut current = [[0.0; 2]; $n];
                 for a in 0..$n {

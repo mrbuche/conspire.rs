@@ -5,8 +5,8 @@ use crate::{
             Block,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                FiniteElement, GradientVectors,
-                linear::hexahedron::{G, Hexahedron, M, N, P},
+                GradientVectors, ReferenceFiniteElement,
+                linear::hexahedron::{G, Hexahedron, M, N},
                 test::test_finite_element,
             },
             test::test_finite_element_block,
@@ -301,7 +301,7 @@ mod timed_velocity {
         )
             .into()
     }
-    fn get_block() -> Block<SaintVenantKirchhoff, Hexahedron, G, M, N, P> {
+    fn get_block() -> Block<SaintVenantKirchhoff, Hexahedron, G, M, N> {
         (
             model(),
             get_connectivity(),

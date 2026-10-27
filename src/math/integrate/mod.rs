@@ -8,6 +8,7 @@ mod dae;
 mod error;
 mod field;
 mod ode;
+mod stepper;
 mod tableau;
 
 use crate::math::{Quantity, QuantityVector, Scalar, TensorVec};
@@ -16,13 +17,6 @@ use crate::units::Time;
 /// The variable of integration values.
 pub type Times<T = Time> = QuantityVector<T>;
 
-/// The values of a span stepped at a fixed step, the last step being shorter if the step does
-/// not divide the span.
-///
-/// A span that is a whole number of steps up to rounding is that number of steps, since
-/// rounding it up would end the values with the final one twice, or with a step that is only
-/// rounding. The rounding is that of the values, which is large when they are large next to
-/// the step, and of the count of the steps.
 pub(crate) fn fixed_step_times<T>(t_0: Quantity<T>, t_f: Quantity<T>, dt: Quantity<T>) -> Times<T> {
     let steps = (t_f - t_0).value() / dt.value();
     let whole = steps.round();
@@ -48,6 +42,7 @@ pub use field::{
     integrate_rkmk_dae_adaptive_root, integrate_rkmk_state, integrate_rkmk_state_adaptive,
     interpolate_hermite, rkmk_dae_step, rkmk_dae_step_minimize, rkmk_dae_step_root, rkmk_step,
 };
+pub use stepper::{Outcome, Step, StepError, StepIndicators, Stepper, adapt};
 pub use tableau::{ButcherTableau, EmbeddedTableau, StabilityRegion};
 
 pub use ode::explicit::variable_step::{

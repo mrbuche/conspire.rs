@@ -18,11 +18,11 @@ use crate::{
 
 pub use crate::domain::solid::SolidElements;
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> SolidElements
-    for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, R, H> SolidElements
+    for Block<C, F, G, M, N, R, H>
 where
     C: Solid,
-    F: SolidFiniteElement<G, M, N, P>,
+    F: SolidFiniteElement<G, M, N>,
 {
     type DeformationGradients = DeformationGradientList<G>;
     type DeformationGradientRates = DeformationGradientRateList<G>;

@@ -45,7 +45,7 @@ const NODES: usize = 5;
 const CONNECTIVITY: [[usize; 4]; 2] = [[0, 1, 2, 3], [1, 2, 3, 4]];
 const HOT: f64 = 100.02;
 
-type B = Block<Canonical<AlmansiHamel, Fourier>, Tetrahedron<4>, 4, 3, 4, 4>;
+type B = Block<Canonical<AlmansiHamel, Fourier>, Tetrahedron<4>, 4, 3, 4>;
 
 fn coordinates() -> NodalReferenceCoordinates<3> {
     [
@@ -354,13 +354,12 @@ mod dynamics {
         [1.5, 1.4, 1.3],
     ];
     type Coupled = Canonical<AlmansiHamel, Fourier>;
-    type Massive = Block<Coupled, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
+    type Massive = Block<Coupled, Tetrahedron<4>, 4, 3, 4, Quantity<Density>>;
     type Both = Block<
         Coupled,
         Tetrahedron<4>,
         4,
         3,
-        4,
         4,
         Quantity<Density>,
         Quantity<VolumetricHeatCapacity>,
@@ -798,13 +797,12 @@ mod dynamics {
         constitutive::solid::thermohyperelastic::NeoHookean, units::ReciprocalTemperature,
     };
     type Entropic = Canonical<NeoHookean, Fourier>;
-    type EntropicMassive = Block<Entropic, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
+    type EntropicMassive = Block<Entropic, Tetrahedron<4>, 4, 3, 4, Quantity<Density>>;
     type EntropicBoth = Block<
         Entropic,
         Tetrahedron<4>,
         4,
         3,
-        4,
         4,
         Quantity<Density>,
         Quantity<VolumetricHeatCapacity>,
@@ -1214,7 +1212,6 @@ mod quasistatic {
         4,
         3,
         4,
-        4,
         crate::fem::block::NoDensity,
         Quantity<VolumetricHeatCapacity>,
     >;
@@ -1223,7 +1220,7 @@ mod quasistatic {
     }
     fn model() -> Model<Capacitive, 3> {
         (
-            Block::<Coupled, Tetrahedron<4>, 4, 3, 4, 4>::from((
+            Block::<Coupled, Tetrahedron<4>, 4, 3, 4>::from((
                 (
                     AlmansiHamel {
                         bulk_modulus: BULK_MODULUS,

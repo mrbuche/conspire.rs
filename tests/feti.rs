@@ -27,7 +27,7 @@ const TOLERANCES: Tolerances = Tolerances {
     residual: 1e-9,
 };
 
-type HexBlock = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+type HexBlock = Block<NeoHookean, Hexahedron, 8, 3, 8>;
 
 fn clamped(nodes: Vec<usize>) -> impl Constrain<Solid<3>> {
     Conditions::<Solid<3>>::new()
@@ -209,7 +209,7 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
     assert!(difference < 1e-6, "coordinates differ by {difference:e}");
 }
 
-type NonsymmetricBlock = Block<AlmansiHamelLagrangian, Hexahedron, 8, 3, 8, 8>;
+type NonsymmetricBlock = Block<AlmansiHamelLagrangian, Hexahedron, 8, 3, 8>;
 
 fn nonsymmetric_problem(
     nel: [usize; 3],

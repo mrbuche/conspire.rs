@@ -5,8 +5,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_SQRT_3_5, FiniteElement, IntegrationWeights, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_SQRT_3_5, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
     math::{Scalar, ScalarList, TensorRank1},
@@ -19,7 +19,10 @@ const P: usize = N;
 
 pub type Pyramid = QuadraticElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Pyramid {
+impl ReferenceFiniteElement<G, M, N, P> for Pyramid {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         const X: [f64; 3] = [0.294997790111502, 0.652996233961648, 0.927005975926850];
         let u1_2d = [
@@ -52,9 +55,6 @@ impl FiniteElement<G, M, N, P> for Pyramid {
                     .map(move |(u1, u2)| TensorRank1::from([x * u1, x * u2, 1.0 - x]))
             })
             .collect()
-    }
-    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
-        &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {
         [
