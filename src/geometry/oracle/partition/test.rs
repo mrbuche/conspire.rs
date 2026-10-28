@@ -184,6 +184,73 @@ fn projection_is_never_nearer_than_the_effective_distance() {
     });
 }
 
+fn crease_partition() -> Partition<Tessellation> {
+    Partition::new(vec![cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3])])
+}
+
+const CREASE_TOLERANCE: Quantity<Length> = Length::meters(1e-9);
+
+fn hidden_points(partition: &Partition<Tessellation>) -> Vec<Coordinate<3>> {
+    grid()
+        .into_iter()
+        .filter(|point| partition.project(point, 1).is_none())
+        .collect()
+}
+
+#[test]
+fn converged_crease_points_lie_on_both_surfaces() -> Result<(), AssertionError> {
+    let partition = crease_partition();
+    let hidden = hidden_points(&partition);
+    let converged: Vec<(Coordinate<3>, Coordinate<3>)> = hidden
+        .iter()
+        .filter_map(|point| {
+            partition
+                .project_to_crease(point, 1, CREASE_TOLERANCE, 100)
+                .ok()
+                .map(|closest| (point.clone(), closest))
+        })
+        .collect();
+    assert!(2 * converged.len() > hidden.len());
+    converged.iter().try_for_each(|(point, closest)| {
+        Assert::default()
+            .eq_within_tols(partition.signed_distance(closest, 1), &Length::meters(0.0))?;
+        Assert::default()
+            .eq_within_tols(partition.signed_distance(closest, 0), &Length::meters(0.0))?;
+        assert!(
+            (closest - point).norm() + Length::meters(1e-12)
+                >= partition.signed_distance(point, 1).abs()
+        );
+        Ok(())
+    })
+}
+
+#[test]
+fn crease_projection_agrees_with_projection_where_exact() {
+    let partition = crease_partition();
+    grid().iter().for_each(|point| {
+        if let Some(exact) = partition.project(point, 1) {
+            assert_eq!(
+                partition
+                    .project_to_crease(point, 1, CREASE_TOLERANCE, 100)
+                    .unwrap(),
+                exact
+            )
+        }
+    })
+}
+
+#[test]
+fn crease_projection_reports_non_convergence() {
+    let partition = crease_partition();
+    hidden_points(&partition).iter().for_each(|point| {
+        assert!(
+            partition
+                .project_to_crease(point, 1, CREASE_TOLERANCE, 0)
+                .is_err()
+        )
+    })
+}
+
 fn shared_face_partition() -> Partition<Tessellation> {
     Partition::new(vec![
         cuboid([0.0; 3], [1.0; 3]),
