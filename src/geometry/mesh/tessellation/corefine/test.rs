@@ -1,4 +1,4 @@
-use super::{Triangle, crossing};
+use super::{Triangle, crossing as crossing_ends};
 use crate::{
     geometry::{
         Coordinate,
@@ -13,6 +13,10 @@ use crate::{
     units::Length,
 };
 use std::array::from_fn;
+
+fn crossing(first: Triangle, second: Triangle) -> Result<Option<[Coordinate<3>; 2]>, &'static str> {
+    Ok(crossing_ends(first, second)?.map(|ends| ends.map(|end| end.point)))
+}
 
 fn point(x: f64, y: f64, z: f64) -> Coordinate<3> {
     [x, y, z].into()

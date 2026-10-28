@@ -35,6 +35,7 @@ pub use self::{
     smooth::Smoothing,
     tessellation::{
         Tessellation,
+        corefine::{Crossing, Polyline},
         cut::{
             Class,
             marching::{Finish, Marching, Placement},
