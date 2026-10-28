@@ -73,7 +73,6 @@
 
 # Reference Guide
 
-- [Python interface](python.md)
 - [Rust interface](rust.md)
 
 -----------
