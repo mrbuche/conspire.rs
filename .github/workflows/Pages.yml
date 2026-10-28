@@ -33,7 +33,7 @@ jobs:
       - name: mdBook
         run: cargo install mdbook --version 0.5.4
       - name: Dependencies
-        run: cargo install mdbook-katex --version 0.10.0
+        run: cargo install mdbook-katex --version 0.10.0 && cargo install mdbook-langtabs --version 0.2.0
       - name: Checkout (stable)
         uses: actions/checkout@v7
         with:
