@@ -6,7 +6,7 @@ use crate::{
             Union,
             test::{check, grid},
         },
-        mesh::test::cuboid,
+        mesh::test::solid,
         solid::SolidOracle,
     },
     math::{
@@ -17,8 +17,8 @@ use crate::{
 
 #[test]
 fn overlapping_difference_matches_outer_minus_inner() -> Result<(), AssertionError> {
-    let (outer, inner) = (cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
-    let oracle = Difference::new(cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
+    let (outer, inner) = (solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3]));
+    let oracle = Difference::new(solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3]));
     let counts = check(&oracle, |point| {
         outer
             .signed_distance(point)
@@ -30,7 +30,7 @@ fn overlapping_difference_matches_outer_minus_inner() -> Result<(), AssertionErr
 
 #[test]
 fn cavity_wall_normal_points_into_the_cavity() -> Result<(), AssertionError> {
-    let oracle = Difference::new(cuboid([0.0; 3], [1.0; 3]), cuboid([0.3; 3], [0.7; 3]));
+    let oracle = Difference::new(solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3]));
     let cavity = oracle
         .project(&Coordinate::from([0.5, 0.5, 0.25]))
         .unwrap()
@@ -45,8 +45,8 @@ fn cavity_wall_normal_points_into_the_cavity() -> Result<(), AssertionError> {
 
 #[test]
 fn nested_difference_always_projects() -> Result<(), AssertionError> {
-    let (outer, inner) = (cuboid([0.0; 3], [1.0; 3]), cuboid([0.3; 3], [0.7; 3]));
-    let oracle = Difference::new(cuboid([0.0; 3], [1.0; 3]), cuboid([0.3; 3], [0.7; 3]));
+    let (outer, inner) = (solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3]));
+    let oracle = Difference::new(solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3]));
     let counts = check(&oracle, |point| {
         outer
             .signed_distance(point)
@@ -59,8 +59,8 @@ fn nested_difference_always_projects() -> Result<(), AssertionError> {
 
 #[test]
 fn an_inexact_operand_makes_the_difference_inexact() {
-    let union = || Union::new(cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
-    let difference = Difference::new(union(), cuboid([5.0; 3], [5.2; 3]));
+    let union = || Union::new(solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3]));
+    let difference = Difference::new(union(), solid([5.0; 3], [5.2; 3]));
     let points = grid();
     let inexact: Vec<_> = points
         .iter()

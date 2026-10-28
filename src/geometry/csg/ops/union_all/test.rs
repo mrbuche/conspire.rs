@@ -6,7 +6,7 @@ use crate::{
             Union,
             test::{check, grid},
         },
-        mesh::{Tessellation, test::cuboid},
+        mesh::{Watertight, test::solid},
         solid::SolidOracle,
     },
     math::{
@@ -16,11 +16,11 @@ use crate::{
     units::Length,
 };
 
-fn boxes() -> Vec<Tessellation> {
+fn boxes() -> Vec<Watertight> {
     vec![
-        cuboid([0.0; 3], [0.5; 3]),
-        cuboid([0.3; 3], [0.8; 3]),
-        cuboid([0.6; 3], [1.0; 3]),
+        solid([0.0; 3], [0.5; 3]),
+        solid([0.3; 3], [0.8; 3]),
+        solid([0.6; 3], [1.0; 3]),
     ]
 }
 
@@ -40,8 +40,8 @@ fn union_all_matches_the_smallest_distance() -> Result<(), AssertionError> {
 
 #[test]
 fn union_all_of_two_is_the_binary_union() -> Result<(), AssertionError> {
-    let all = UnionAll::new(vec![cuboid([0.0; 3], [0.5; 3]), cuboid([0.3; 3], [0.8; 3])]);
-    let pair = Union::new(cuboid([0.0; 3], [0.5; 3]), cuboid([0.3; 3], [0.8; 3]));
+    let all = UnionAll::new(vec![solid([0.0; 3], [0.5; 3]), solid([0.3; 3], [0.8; 3])]);
+    let pair = Union::new(solid([0.0; 3], [0.5; 3]), solid([0.3; 3], [0.8; 3]));
     grid().iter().try_for_each(|point| {
         Assert::default().eq_within_tols(all.signed_distance(point), &pair.signed_distance(point))
     })
@@ -49,7 +49,7 @@ fn union_all_of_two_is_the_binary_union() -> Result<(), AssertionError> {
 
 #[test]
 fn the_empty_union_is_the_empty_set() {
-    let oracle = UnionAll::<Tessellation>::new(Vec::new());
+    let oracle = UnionAll::<Watertight>::new(Vec::new());
     let point = Coordinate::from([0.5; 3]);
     assert!(oracle.signed_distance(&point).value().is_infinite());
     assert!(oracle.project(&point).is_none());

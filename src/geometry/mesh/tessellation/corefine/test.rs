@@ -1,7 +1,10 @@
 use super::{Triangle, crossing};
 use crate::{
     geometry::{
-        Coordinate, bvh::closest_point_on_triangle, mesh::test::cuboid, solid::SolidOracle,
+        Coordinate,
+        bvh::closest_point_on_triangle,
+        mesh::test::{cuboid, solid},
+        solid::SolidOracle,
     },
     math::{
         Tensor,
@@ -144,9 +147,12 @@ fn random_crossings_lie_on_both_triangles_in_either_order() {
 
 #[test]
 fn overlapping_cubes_cross_along_both_surfaces() {
-    let first = cuboid([0.0; 3], [1.0; 3]);
-    let second = cuboid([0.5; 3], [1.5; 3]);
-    let crossings = first.crossings(&second).unwrap();
+    let first = solid([0.0; 3], [1.0; 3]);
+    let second = solid([0.5; 3], [1.5; 3]);
+    let crossings = first
+        .tessellation()
+        .crossings(second.tessellation())
+        .unwrap();
     assert!(!crossings.is_empty());
     crossings.iter().for_each(|crossing| {
         crossing.segment.iter().for_each(|end| {

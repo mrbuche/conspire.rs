@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, Tessellation},
+        mesh::{Connectivity, Mesh, Tessellation, Watertight},
     },
     math::assert::AssertionError,
 };
@@ -57,6 +57,10 @@ pub fn cuboid(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
         coordinates,
     ))
     .into()
+}
+
+pub fn solid(minimum: [f64; 3], maximum: [f64; 3]) -> Watertight {
+    Watertight::new(cuboid(minimum, maximum)).unwrap()
 }
 
 pub fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {

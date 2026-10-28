@@ -2,7 +2,7 @@ use super::Partition;
 use crate::{
     geometry::{
         Coordinate, Coordinates, Direction,
-        mesh::{Tessellation, test::cuboid},
+        mesh::{Watertight, test::solid},
     },
     math::{
         Quantity, Tensor,
@@ -31,7 +31,7 @@ fn grid() -> Coordinates<3> {
 }
 
 fn exactly_one_owner(
-    partition: &Partition<Tessellation>,
+    partition: &Partition<Watertight>,
     expected: impl Fn(&Coordinate<3>) -> Option<usize>,
 ) {
     grid().iter().for_each(|point| {
@@ -47,7 +47,7 @@ fn exactly_one_owner(
 #[test]
 fn nested_volume_takes_priority() {
     let (core_min, core_max) = ([0.3; 3], [0.7; 3]);
-    let partition = Partition::new(vec![cuboid(core_min, core_max), cuboid([0.0; 3], [1.0; 3])]);
+    let partition = Partition::new(vec![solid(core_min, core_max), solid([0.0; 3], [1.0; 3])]);
     exactly_one_owner(&partition, |point| {
         if inside(point, core_min, core_max) {
             Some(0)
@@ -62,7 +62,7 @@ fn nested_volume_takes_priority() {
 #[test]
 fn overlap_goes_to_the_earlier_volume() {
     let (first, second) = (([0.0; 3], [0.7; 3]), ([0.3; 3], [1.0; 3]));
-    let partition = Partition::new(vec![cuboid(first.0, first.1), cuboid(second.0, second.1)]);
+    let partition = Partition::new(vec![solid(first.0, first.1), solid(second.0, second.1)]);
     exactly_one_owner(&partition, |point| {
         if inside(point, first.0, first.1) {
             Some(0)
@@ -77,7 +77,7 @@ fn overlap_goes_to_the_earlier_volume() {
 #[test]
 fn priority_order_decides_the_overlap() {
     let core = ([0.3; 3], [0.7; 3]);
-    let partition = Partition::new(vec![cuboid([0.0; 3], [1.0; 3]), cuboid(core.0, core.1)]);
+    let partition = Partition::new(vec![solid([0.0; 3], [1.0; 3]), solid(core.0, core.1)]);
     let center = [0.5; 3].into();
     assert_eq!(partition.owner(&center), Some(0));
     assert!(partition.signed_distance(&center, 1) > Quantity::default());
@@ -85,13 +85,13 @@ fn priority_order_decides_the_overlap() {
 
 #[test]
 fn gaps_are_owned_by_nobody() {
-    let partition = Partition::new(vec![cuboid([0.0; 3], [1.0; 3]), cuboid([2.0; 3], [3.0; 3])]);
+    let partition = Partition::new(vec![solid([0.0; 3], [1.0; 3]), solid([2.0; 3], [3.0; 3])]);
     assert_eq!(partition.owner(&[1.5; 3].into()), None);
     assert_eq!(partition.owner(&[2.5; 3].into()), Some(1));
 }
 
 fn projected_points(
-    partition: &Partition<Tessellation>,
+    partition: &Partition<Watertight>,
     index: usize,
 ) -> Vec<(Coordinate<3>, Coordinate<3>)> {
     grid()
@@ -113,8 +113,8 @@ fn projection_lands_on_the_region_boundary() -> Result<(), AssertionError> {
     .into_iter()
     .try_for_each(|(first_min, first_max, second_min, second_max)| {
         let partition = Partition::new(vec![
-            cuboid(first_min, first_max),
-            cuboid(second_min, second_max),
+            solid(first_min, first_max),
+            solid(second_min, second_max),
         ]);
         (0..2).try_for_each(|index| {
             projected_points(&partition, index)
@@ -131,7 +131,7 @@ fn projection_lands_on_the_region_boundary() -> Result<(), AssertionError> {
 
 #[test]
 fn projection_is_inexact_at_creases() {
-    let partition = Partition::new(vec![cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3])]);
+    let partition = Partition::new(vec![solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3])]);
     let projections: Vec<_> = grid()
         .iter()
         .map(|point| partition.project(point, 1))
@@ -153,7 +153,7 @@ fn projection_is_inexact_at_creases() {
 
 #[test]
 fn projection_distance_is_the_effective_distance_when_nested() -> Result<(), AssertionError> {
-    let partition = Partition::new(vec![cuboid([0.3; 3], [0.7; 3]), cuboid([0.0; 3], [1.0; 3])]);
+    let partition = Partition::new(vec![solid([0.3; 3], [0.7; 3]), solid([0.0; 3], [1.0; 3])]);
     let projected = projected_points(&partition, 1);
     assert_eq!(projected.len(), grid().len());
     assert!(hidden_points(&partition).is_empty());
@@ -167,7 +167,7 @@ fn projection_distance_is_the_effective_distance_when_nested() -> Result<(), Ass
 
 #[test]
 fn projection_is_never_nearer_than_the_effective_distance() {
-    let partition = Partition::new(vec![cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3])]);
+    let partition = Partition::new(vec![solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3])]);
     (0..2).for_each(|index| {
         projected_points(&partition, index)
             .iter()
@@ -181,13 +181,13 @@ fn projection_is_never_nearer_than_the_effective_distance() {
     });
 }
 
-fn crease_partition() -> Partition<Tessellation> {
-    Partition::new(vec![cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3])])
+fn crease_partition() -> Partition<Watertight> {
+    Partition::new(vec![solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3])])
 }
 
 const CREASE_TOLERANCE: Quantity<Length> = Length::meters(1e-9);
 
-fn hidden_points(partition: &Partition<Tessellation>) -> Vec<Coordinate<3>> {
+fn hidden_points(partition: &Partition<Watertight>) -> Vec<Coordinate<3>> {
     grid()
         .into_iter()
         .filter(|point| {
@@ -256,7 +256,7 @@ fn crease_projection_reports_non_convergence() {
 }
 
 fn bisected(
-    partition: &Partition<Tessellation>,
+    partition: &Partition<Watertight>,
     point: &Coordinate<3>,
 ) -> Result<Coordinate<3>, &'static str> {
     partition.boundary_on_segment(&Coordinate::from([0.9; 3]), point, 1, CREASE_TOLERANCE)
@@ -331,10 +331,10 @@ fn bisection_terminates_on_a_coincident_interface() {
     assert!((found[0].value() - 1.0).abs() < 1e-8);
 }
 
-fn shared_face_partition() -> Partition<Tessellation> {
+fn shared_face_partition() -> Partition<Watertight> {
     Partition::new(vec![
-        cuboid([0.0; 3], [1.0; 3]),
-        cuboid([1.0, 0.0, 0.0], [2.0, 1.0, 1.0]),
+        solid([0.0; 3], [1.0; 3]),
+        solid([1.0, 0.0, 0.0], [2.0, 1.0, 1.0]),
     ])
 }
 
@@ -405,7 +405,7 @@ fn coincident_face_projects_onto_the_shared_plane() -> Result<(), AssertionError
 
 #[test]
 fn region_normal_is_reversed_on_the_wall_of_an_earlier_volume() -> Result<(), AssertionError> {
-    let partition = Partition::new(vec![cuboid([0.3; 3], [0.7; 3]), cuboid([0.0; 3], [1.0; 3])]);
+    let partition = Partition::new(vec![solid([0.3; 3], [0.7; 3]), solid([0.0; 3], [1.0; 3])]);
     let cavity = partition
         .project(&[0.5, 0.5, 0.25].into(), 1)
         .unwrap()
@@ -421,8 +421,8 @@ fn region_normal_is_reversed_on_the_wall_of_an_earlier_volume() -> Result<(), As
 #[test]
 fn unrelated_earlier_volume_does_not_withhold_the_projection() -> Result<(), AssertionError> {
     let partition = Partition::new(vec![
-        cuboid([1.2, 0.4, 0.4], [1.4, 0.6, 0.6]),
-        cuboid([0.0; 3], [1.0; 3]),
+        solid([1.2, 0.4, 0.4], [1.4, 0.6, 0.6]),
+        solid([0.0; 3], [1.0; 3]),
     ]);
     let projection = partition.project(&[1.15, 0.5, 0.5].into(), 1).unwrap();
     assert!(!projection.exact);

@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod test;
 
-use super::Tessellation;
+use super::{D, NORMALIZED_DIRECTIONS, Tessellation};
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, DirectionsRef,
         solid::{Projection, SolidOracle},
     },
-    math::{CrossProduct, Quantity},
+    math::{CrossProduct, Quantity, Tensor},
     units::{Length, Volume},
 };
 
@@ -68,6 +68,9 @@ impl Tessellation {
 }
 
 /// A tessellation with no [`Defects`], so it bounds a volume.
+///
+/// This is the only way to query a tessellation as a [`SolidOracle`], because the inside/outside
+/// test by ray parity is wrong on a surface that is not closed, manifold and outward oriented.
 pub struct Watertight(Tessellation);
 
 impl Watertight {
@@ -88,10 +91,36 @@ impl Watertight {
 }
 
 impl SolidOracle for Watertight {
-    fn signed_distance(&self, point: &Coordinate<3>) -> Quantity<Length> {
-        self.0.signed_distance(point)
+    fn signed_distance(&self, point: &Coordinate<D>) -> Quantity<Length> {
+        let mesh = self.0.mesh();
+        let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
+        let normals = self.0.normals().iter().flatten().collect();
+        let directions = NORMALIZED_DIRECTIONS;
+        let distance = self
+            .project(point)
+            .map_or(Quantity::new(f64::INFINITY), |projection| {
+                (&projection.point - point).norm()
+            });
+        if self
+            .0
+            .encloses(point, mesh.coordinates(), &elements, &normals, &directions)
+        {
+            -distance
+        } else {
+            distance
+        }
     }
-    fn project(&self, point: &Coordinate<3>) -> Option<Projection> {
-        self.0.project(point)
+    fn project(&self, point: &Coordinate<D>) -> Option<Projection> {
+        let mesh = self.0.mesh();
+        let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
+        let normals: DirectionsRef<'_, _> = self.0.normals().iter().flatten().collect();
+        self.0
+            .bvh()
+            .closest_point(point, mesh.coordinates(), &elements)
+            .map(|(point, face)| Projection {
+                point,
+                normal: normals[face].normalized(),
+                exact: true,
+            })
     }
 }

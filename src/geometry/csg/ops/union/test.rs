@@ -1,13 +1,13 @@
 use super::Union;
 use crate::{
-    geometry::{csg::ops::test::check, mesh::test::cuboid, solid::SolidOracle},
+    geometry::{csg::ops::test::check, mesh::test::solid, solid::SolidOracle},
     math::assert::AssertionError,
 };
 
 #[test]
 fn overlapping_union_matches_the_smaller_distance() -> Result<(), AssertionError> {
-    let (first, second) = (cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
-    let oracle = Union::new(cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
+    let (first, second) = (solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3]));
+    let oracle = Union::new(solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3]));
     let counts = check(&oracle, |point| {
         first
             .signed_distance(point)
@@ -19,8 +19,8 @@ fn overlapping_union_matches_the_smaller_distance() -> Result<(), AssertionError
 
 #[test]
 fn disjoint_union_always_projects() -> Result<(), AssertionError> {
-    let (first, second) = (cuboid([0.0; 3], [0.2; 3]), cuboid([0.6; 3], [1.0; 3]));
-    let oracle = Union::new(cuboid([0.0; 3], [0.2; 3]), cuboid([0.6; 3], [1.0; 3]));
+    let (first, second) = (solid([0.0; 3], [0.2; 3]), solid([0.6; 3], [1.0; 3]));
+    let oracle = Union::new(solid([0.0; 3], [0.2; 3]), solid([0.6; 3], [1.0; 3]));
     let counts = check(&oracle, |point| {
         first
             .signed_distance(point)
