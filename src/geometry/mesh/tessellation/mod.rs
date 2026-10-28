@@ -3,6 +3,7 @@ pub(super) mod cut;
 pub(super) mod features;
 pub(super) mod from;
 pub(super) mod into;
+pub(super) mod oracle;
 pub(super) mod read;
 pub(super) mod sdf;
 pub(super) mod trim;

@@ -105,7 +105,7 @@ impl Tessellation {
         });
         classes
     }
-    pub(super) fn encloses(
+    pub(in crate::geometry::mesh::tessellation) fn encloses(
         &self,
         point: &Coordinate<D>,
         surface_coordinates: &Coordinates<D>,

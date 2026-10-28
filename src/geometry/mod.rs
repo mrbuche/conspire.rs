@@ -12,6 +12,9 @@ pub mod mesh;
 /// Orthotrees, such as quadtrees and octrees.
 pub mod ntree;
 
+/// Regions known through signed distance.
+pub mod oracle;
+
 /// Regular grids of values.
 pub mod grid;
 
