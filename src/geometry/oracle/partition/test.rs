@@ -7,7 +7,11 @@ use crate::{
             test::{CONNECTIVITY, COORDINATES},
         },
     },
-    math::{Quantity, Tensor},
+    math::{
+        Quantity, Tensor,
+        assert::{Assert, AssertionError},
+    },
+    units::Length,
 };
 use std::array::from_fn;
 
@@ -103,4 +107,79 @@ fn gaps_are_owned_by_nobody() {
     let partition = Partition::new(vec![cuboid([0.0; 3], [1.0; 3]), cuboid([2.0; 3], [3.0; 3])]);
     assert_eq!(partition.owner(&[1.5; 3].into()), None);
     assert_eq!(partition.owner(&[2.5; 3].into()), Some(1));
+}
+
+fn projected_points(
+    partition: &Partition<Tessellation>,
+    index: usize,
+) -> Vec<(Coordinate<3>, Coordinate<3>)> {
+    grid()
+        .into_iter()
+        .filter_map(|point| {
+            partition
+                .project(&point, index)
+                .map(|closest| (point, closest))
+        })
+        .collect()
+}
+
+#[test]
+fn projection_lands_on_the_region_boundary() -> Result<(), AssertionError> {
+    [
+        ([0.3; 3], [0.7; 3], [0.0; 3], [1.0; 3]),
+        ([0.0; 3], [0.7; 3], [0.3; 3], [1.0; 3]),
+    ]
+    .into_iter()
+    .try_for_each(|(first_min, first_max, second_min, second_max)| {
+        let partition = Partition::new(vec![
+            cuboid(first_min, first_max),
+            cuboid(second_min, second_max),
+        ]);
+        (0..2).try_for_each(|index| {
+            projected_points(&partition, index)
+                .iter()
+                .try_for_each(|(_, closest)| {
+                    Assert::default().eq_within_tols(
+                        partition.signed_distance(closest, index),
+                        &Length::meters(0.0),
+                    )
+                })
+        })
+    })
+}
+
+#[test]
+fn projection_is_withheld_at_creases() {
+    let partition = Partition::new(vec![cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3])]);
+    let found = projected_points(&partition, 1).len();
+    assert!(0 < found && found < grid().len());
+}
+
+#[test]
+fn projection_distance_is_the_effective_distance_when_nested() -> Result<(), AssertionError> {
+    let partition = Partition::new(vec![cuboid([0.3; 3], [0.7; 3]), cuboid([0.0; 3], [1.0; 3])]);
+    let projected = projected_points(&partition, 1);
+    assert_eq!(projected.len(), grid().len());
+    projected.iter().try_for_each(|(point, closest)| {
+        Assert::default().eq_within_tols(
+            (closest - point).norm(),
+            &partition.signed_distance(point, 1).abs(),
+        )
+    })
+}
+
+#[test]
+fn projection_is_never_nearer_than_the_effective_distance() {
+    let partition = Partition::new(vec![cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3])]);
+    (0..2).for_each(|index| {
+        projected_points(&partition, index)
+            .iter()
+            .for_each(|(point, closest)| {
+                let slack = Length::meters(1e-12);
+                assert!(
+                    (closest - point).norm() + slack
+                        >= partition.signed_distance(point, index).abs()
+                )
+            })
+    });
 }
