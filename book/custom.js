@@ -1,7 +1,7 @@
 (() => {
     const urls = {
         "rust.html": "https://docs.rs/conspire",
-        "rust_latest.html": "https://mrbuche.github.io/conspire.rs/latest/",
+        "rust_latest.html": "https://mrbuche.github.io/conspire/rust/latest/",
     };
     const rewrite = (root) =>
         Object.entries(urls).forEach(([page, url]) =>

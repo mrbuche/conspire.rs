@@ -48,8 +48,6 @@ jobs:
             bash book/prebuild.sh
             mdbook build
             mdbook test -L target/release/deps
-            grep -lr "python.html" book/build/ | xargs sed -i 's@href="python.html"@href="https://conspire.readthedocs.io"@'
-            grep -lr "rust.html" book/build/ | xargs sed -i 's@href="rust.html"@href="https://docs.rs/conspire"@'
             cp -r book/build/* ../_site/stable/
           fi
       - name: Checkout (latest)
@@ -71,8 +69,6 @@ jobs:
           bash book/prebuild.sh
           mdbook build
           mdbook test -L target/release/deps
-          grep -lr "python.html" book/build/ | xargs sed -i 's@href="python.html"@href="https://conspire.readthedocs.io/en/latest"@'
-          grep -lr "rust.html" book/build/ | xargs sed -i 's@href="rust.html"@href="https://mrbuche.github.io/conspire/rust/latest/"@'
           mkdir -p ../_site/latest/ && cp -r book/build/* ../_site/latest/
       - name: Rust
         run: |
