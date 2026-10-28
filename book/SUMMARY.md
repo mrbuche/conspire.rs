@@ -73,7 +73,8 @@
 
 # Reference Guide
 
-- [Rust library](rust.md)
+- [Rust library (stable)](rust.md)
+- [Rust library (latest)](rust_latest.md)
 
 -----------
 
