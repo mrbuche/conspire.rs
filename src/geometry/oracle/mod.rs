@@ -1,3 +1,7 @@
+mod partition;
+
+pub use partition::Partition;
+
 use crate::{geometry::Coordinate, math::Quantity, units::Length};
 
 /// A region of space known through its signed distance, negative inside.
