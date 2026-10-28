@@ -19,13 +19,10 @@ level = 0
 [output.html]
 edit-url-template = "https://github.com/mrbuche/conspire/edit/main/{path}"
 git-repository-url = "https://github.com/mrbuche/conspire"
-additional-css = ["langtabs.css", "custom.css"]
-additional-js = ["langtabs.js", "custom.js"]
+additional-css = ["custom.css"]
+additional-js = ["custom.js"]
 
 [preprocessor.katex]
 after = [ "links" ]
 block-delimiter = { left = "```math", right = "```" }
 inline-delimiter = { left = "$`", right = "`$" }
-
-[preprocessor.langtabs]
-command = "mdbook-langtabs"
