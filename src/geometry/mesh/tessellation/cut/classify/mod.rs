@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use super::{Class, DIRECTIONS, topology::element_faces};
+use super::{Class, topology::element_faces};
+use crate::geometry::mesh::tessellation::NORMALIZED_DIRECTIONS;
 use crate::{
     geometry::{
         Coordinate, Coordinates, CoordinatesRef, Direction, DirectionsRef,
@@ -18,7 +19,7 @@ impl Tessellation {
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
-        let directions = DIRECTIONS.map(|direction| direction.normalized());
+        let directions = NORMALIZED_DIRECTIONS;
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
         let number_of_elements = mesh.number_of_elements();

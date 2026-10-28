@@ -6,14 +6,17 @@ pub mod bbox;
 /// Bounding volume hierarchies.
 pub mod bvh;
 
+/// Constructive solid geometry.
+pub mod csg;
+
 /// Primitive and polyhedral meshes.
 pub mod mesh;
 
 /// Orthotrees, such as quadtrees and octrees.
 pub mod ntree;
 
-/// Regions known through signed distance.
-pub mod oracle;
+/// Solids known through signed distance, and their boolean combinations.
+pub mod solid;
 
 /// Regular grids of values.
 pub mod grid;

@@ -426,7 +426,7 @@ fn point_box_distance_squared<const D: usize>(
         .sum()
 }
 
-fn closest_point_on_triangle(
+pub(crate) fn closest_point_on_triangle(
     point: &Coordinate<3>,
     a: &Coordinate<3>,
     b: &Coordinate<3>,

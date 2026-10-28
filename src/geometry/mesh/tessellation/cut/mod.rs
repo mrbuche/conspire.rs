@@ -17,7 +17,7 @@ mod topology;
 
 use crate::{
     geometry::{
-        Coordinate, Direction,
+        Coordinate,
         mesh::{
             Dualization, Mesh,
             tessellation::{D, Tessellation, cut::geometry::contained},
@@ -59,11 +59,6 @@ const EDGES: [[usize; 2]; 12] = [
     [1, 5],
     [2, 6],
     [3, 7],
-];
-pub(in crate::geometry::mesh::tessellation) const DIRECTIONS: [Direction<D>; 3] = [
-    Direction::const_from([1.0, 0.140_412_03, 0.092_153_88]),
-    Direction::const_from([0.097_153_2, 1.0, 0.131_771_4]),
-    Direction::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
 
 /// What an octree background's cells are meshed into.

@@ -5,6 +5,9 @@ mod node;
 mod primitive;
 mod ray;
 
+#[cfg(test)]
+pub(crate) use base::closest_point_on_triangle;
+
 use crate::{geometry::bvh::node::Nodes, math::Quantity};
 
 pub struct BoundingVolumeHierarchy<const D: usize> {

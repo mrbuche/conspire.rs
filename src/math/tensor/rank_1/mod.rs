@@ -69,9 +69,11 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
         relabel(self.into_canonical())
     }
     /// Returns the direction the tensor points in.
-    pub fn normalized(self) -> TensorRank1<D, I, Dimensionless> {
-        let norm = self.norm().value();
-        (self / norm).with_unit()
+    pub fn normalized(&self) -> TensorRank1<D, I, Dimensionless>
+    where
+        U: UnitDiv<U, Output = Dimensionless>,
+    {
+        self / self.norm()
     }
     fn into_canonical(self) -> TensorRank1<D, Reference, Dimensionless> {
         unsafe {

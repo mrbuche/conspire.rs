@@ -42,6 +42,23 @@ pub fn mesh() -> Mesh<3> {
     (connectivities, coordinates).into()
 }
 
+pub fn cuboid(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
+    let coordinates: Coordinates<3> = COORDINATES
+        .iter()
+        .map(|corner| {
+            std::array::from_fn(|axis| {
+                minimum[axis] + (maximum[axis] - minimum[axis]) * corner[axis].value()
+            })
+            .into()
+        })
+        .collect();
+    Mesh::from((
+        vec![Connectivity::Triangular(CONNECTIVITY.to_vec().into())],
+        coordinates,
+    ))
+    .into()
+}
+
 pub fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {
     let mut points = vec![[0.0, 0.0, radius]];
     for i in 1..=stacks {

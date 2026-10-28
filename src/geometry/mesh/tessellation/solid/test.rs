@@ -1,8 +1,8 @@
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, Direction,
         mesh::{Tessellation, test::mesh},
-        oracle::Oracle,
+        solid::SolidOracle,
     },
     math::{
         Quantity, Tensor,
@@ -51,7 +51,7 @@ fn project_lands_on_the_boundary_at_the_distance() -> Result<(), AssertionError>
     let cube = cube();
     POINTS.iter().try_for_each(|&point| {
         let point = Coordinate::from(point);
-        let projected = cube.project(&point);
+        let (projected, _) = cube.project(&point).unwrap();
         Assert::default().eq_within_tols(cube.signed_distance(&projected), &Length::meters(0.0))?;
         Assert::default().eq_within_tols(
             (&projected - &point).norm(),
@@ -65,4 +65,23 @@ fn sign_is_negative_inside_and_positive_outside() -> Result<(), AssertionError> 
     let cube = cube();
     Assert::non_positive(&cube.signed_distance(&[0.5; 3].into()))?;
     Assert::non_negative(&cube.signed_distance(&[2.0; 3].into()))
+}
+
+#[test]
+fn projection_normal_points_out_of_the_solid() -> Result<(), AssertionError> {
+    let cube = cube();
+    [
+        ([2.0, 0.5, 0.5], [1.0, 0.0, 0.0]),
+        ([-1.0, 0.5, 0.5], [-1.0, 0.0, 0.0]),
+        ([0.5, 2.0, 0.5], [0.0, 1.0, 0.0]),
+        ([0.5, -1.0, 0.5], [0.0, -1.0, 0.0]),
+        ([0.5, 0.5, 2.0], [0.0, 0.0, 1.0]),
+        ([0.5, 0.5, 0.9], [0.0, 0.0, 1.0]),
+        ([0.1, 0.5, 0.5], [-1.0, 0.0, 0.0]),
+    ]
+    .iter()
+    .try_for_each(|&(point, normal)| {
+        let (_, projected) = cube.project(&point.into()).unwrap();
+        Assert::default().eq_within_tols(&projected, &Direction::from(normal))
+    })
 }

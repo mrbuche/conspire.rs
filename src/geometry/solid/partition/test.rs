@@ -2,10 +2,7 @@ use super::Partition;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{
-            Connectivity, Mesh, Tessellation,
-            test::{CONNECTIVITY, COORDINATES},
-        },
+        mesh::{Tessellation, test::cuboid},
     },
     math::{
         Quantity, Tensor,
@@ -13,22 +10,6 @@ use crate::{
     },
     units::Length,
 };
-use std::array::from_fn;
-
-fn cuboid(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
-    let coordinates = COORDINATES
-        .iter()
-        .map(|corner| {
-            from_fn(|axis| minimum[axis] + (maximum[axis] - minimum[axis]) * corner[axis].value())
-                .into()
-        })
-        .collect();
-    Mesh::from((
-        vec![Connectivity::Triangular(CONNECTIVITY.to_vec().into())],
-        coordinates,
-    ))
-    .into()
-}
 
 fn inside(point: &Coordinate<3>, minimum: [f64; 3], maximum: [f64; 3]) -> bool {
     (0..3).all(|axis| minimum[axis] < point[axis].value() && point[axis].value() < maximum[axis])
@@ -118,7 +99,7 @@ fn projected_points(
         .filter_map(|point| {
             partition
                 .project(&point, index)
-                .map(|closest| (point, closest))
+                .map(|(closest, _)| (point, closest))
         })
         .collect()
 }
@@ -228,7 +209,7 @@ fn converged_crease_points_lie_on_both_surfaces() -> Result<(), AssertionError> 
 fn crease_projection_agrees_with_projection_where_exact() {
     let partition = crease_partition();
     grid().iter().for_each(|point| {
-        if let Some(exact) = partition.project(point, 1) {
+        if let Some((exact, _)) = partition.project(point, 1) {
             assert_eq!(
                 partition
                     .project_to_crease(point, 1, CREASE_TOLERANCE, 100)
@@ -389,7 +370,7 @@ fn coincident_face_projects_onto_the_shared_plane() -> Result<(), AssertionError
         .filter(|point| (point[0].value() - 1.0).abs() <= 0.1)
         .try_for_each(|point| {
             (0..2).try_for_each(|index| {
-                let closest = partition.project(point, index).unwrap();
+                let (closest, _) = partition.project(point, index).unwrap();
                 Assert::default().eq_within_tols(closest[0], &Length::meters(1.0))?;
                 Assert::default().eq_within_tols(
                     (&closest - point).norm(),
@@ -397,4 +378,13 @@ fn coincident_face_projects_onto_the_shared_plane() -> Result<(), AssertionError
                 )
             })
         })
+}
+
+#[test]
+fn region_normal_is_reversed_on_the_wall_of_an_earlier_volume() -> Result<(), AssertionError> {
+    let partition = Partition::new(vec![cuboid([0.3; 3], [0.7; 3]), cuboid([0.0; 3], [1.0; 3])]);
+    let (_, cavity) = partition.project(&[0.5, 0.5, 0.25].into(), 1).unwrap();
+    Assert::default().eq_within_tols(&cavity, &[0.0, 0.0, 1.0].into())?;
+    let (_, outer) = partition.project(&[0.5, 0.5, 0.05].into(), 1).unwrap();
+    Assert::default().eq_within_tols(&outer, &[0.0, 0.0, -1.0].into())
 }

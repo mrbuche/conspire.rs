@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test;
 
-use super::Oracle;
+use super::SolidOracle;
 use crate::{
-    geometry::Coordinate,
+    geometry::{Coordinate, Direction},
     math::{Quantity, Tensor},
     units::Length,
 };
@@ -13,7 +13,7 @@ pub struct Partition<O> {
     volumes: Vec<O>,
 }
 
-impl<O: Oracle> Partition<O> {
+impl<O: SolidOracle> Partition<O> {
     pub fn new(volumes: Vec<O>) -> Self {
         Self { volumes }
     }
@@ -39,11 +39,17 @@ impl<O: Oracle> Partition<O> {
     /// the region only if it is inside the volume and strictly inside no other earlier volume.
     /// The nearest candidate is the exact answer when it passes; otherwise the closest point is
     /// on a crease between two surfaces and `None` is returned.
-    pub fn project(&self, point: &Coordinate<3>, index: usize) -> Option<Coordinate<3>> {
-        let (owner, closest) = self.nearest(point, index)?;
+    ///
+    /// The normal points out of the region, so it is reversed on the wall of an earlier volume.
+    pub fn project(
+        &self,
+        point: &Coordinate<3>,
+        index: usize,
+    ) -> Option<(Coordinate<3>, Direction<3>)> {
+        let (owner, closest, normal) = self.nearest(point, index)?;
         self.violator(&closest, index, &[owner])
             .is_none()
-            .then_some(closest)
+            .then(|| (closest, if owner < index { -normal } else { normal }))
     }
     /// A point of the region boundary near the query, including where it lies on a crease.
     ///
@@ -58,20 +64,25 @@ impl<O: Oracle> Partition<O> {
         tolerance: Quantity<Length>,
         iterations: usize,
     ) -> Result<Coordinate<3>, &'static str> {
-        let (owner, mut closest) = self
+        let (owner, mut closest, _) = self
             .nearest(point, index)
             .ok_or("partition has no volume to project onto")?;
         let Some(hiding) = self.violator(&closest, index, &[owner]) else {
             return Ok(closest);
         };
-        let converged = (0..iterations).any(|_| {
-            closest = self.volumes[hiding].project(&closest);
+        let mut converged = false;
+        for _ in 0..iterations {
+            closest = self.surface(hiding, &closest)?;
             if self.volumes[owner].signed_distance(&closest).abs() <= tolerance {
-                return true;
+                converged = true;
+                break;
             }
-            closest = self.volumes[owner].project(&closest);
-            self.volumes[hiding].signed_distance(&closest).abs() <= tolerance
-        });
+            closest = self.surface(owner, &closest)?;
+            if self.volumes[hiding].signed_distance(&closest).abs() <= tolerance {
+                converged = true;
+                break;
+            }
+        }
         if !converged {
             return Err("projections between the two surfaces did not converge");
         }
@@ -113,12 +124,26 @@ impl<O: Oracle> Partition<O> {
         }
         Ok(inside)
     }
-    fn nearest(&self, point: &Coordinate<3>, index: usize) -> Option<(usize, Coordinate<3>)> {
+    fn surface(&self, volume: usize, point: &Coordinate<3>) -> Result<Coordinate<3>, &'static str> {
+        self.volumes[volume]
+            .project(point)
+            .map(|(closest, _)| closest)
+            .ok_or("a volume has no surface to project onto")
+    }
+    fn nearest(
+        &self,
+        point: &Coordinate<3>,
+        index: usize,
+    ) -> Option<(usize, Coordinate<3>, Direction<3>)> {
         self.volumes[..=index]
             .iter()
             .enumerate()
-            .map(|(owner, volume)| (owner, volume.project(point)))
-            .min_by(|(_, a), (_, b)| (a - point).norm().total_cmp(&(b - point).norm()))
+            .filter_map(|(owner, volume)| {
+                volume
+                    .project(point)
+                    .map(|(closest, normal)| (owner, closest, normal))
+            })
+            .min_by(|(_, a, _), (_, b, _)| (a - point).norm().total_cmp(&(b - point).norm()))
     }
     fn violator(&self, point: &Coordinate<3>, index: usize, skip: &[usize]) -> Option<usize> {
         let zero = Quantity::default();
