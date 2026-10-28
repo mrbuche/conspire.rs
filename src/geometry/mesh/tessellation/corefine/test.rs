@@ -1,4 +1,4 @@
-use super::{Triangle, crossing as crossing_ends};
+use super::{Triangle, pierce::crossing as crossing_ends};
 use crate::{
     geometry::{
         Coordinate,

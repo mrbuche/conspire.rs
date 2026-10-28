@@ -1,4 +1,4 @@
-use super::{super::Side, Crossing, Key, chain};
+use super::{super::Feature, Crossing, Key, chain};
 use crate::{
     geometry::{
         Coordinate,
@@ -13,10 +13,9 @@ use crate::{
 };
 
 fn key(node: usize) -> Key {
-    Key::Vertex {
-        side: Side::First,
-        node,
-        other: 0,
+    Key {
+        first: Feature::Vertex(node),
+        second: Feature::Face(0),
     }
 }
 
@@ -154,12 +153,66 @@ fn curve_points_lie_on_both_surfaces() -> Result<(), AssertionError> {
 }
 
 #[test]
-fn crossings_on_a_shared_diagonal_leave_open_chains() {
+fn crossings_on_a_shared_diagonal_still_close_into_the_skew_hexagon() {
     let first = cuboid([0.0; 3], [1.0; 3]);
     let second = cuboid([0.5; 3], [1.5; 3]);
     let polylines = first.intersection_curves(&second).unwrap();
-    assert!(!polylines.is_empty());
-    assert!(polylines.iter().all(|polyline| !polyline.closed));
+    assert_eq!(polylines.len(), 1);
+    assert!(polylines[0].closed);
+    assert_eq!(polylines[0].crossings.len(), 6);
+    let mut found: Vec<[f64; 3]> = polylines[0]
+        .points
+        .iter()
+        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
+        .collect();
+    let mut expected = vec![
+        [1.0, 0.5, 0.5],
+        [1.0, 0.5, 1.0],
+        [0.5, 0.5, 1.0],
+        [0.5, 1.0, 1.0],
+        [0.5, 1.0, 0.5],
+        [1.0, 1.0, 0.5],
+    ];
+    found.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    expected.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    assert_eq!(found.len(), 6);
+    found.iter().zip(&expected).for_each(|(a, b)| {
+        a.iter()
+            .zip(b)
+            .for_each(|(x, y)| assert!((x - y).abs() < 1e-12, "{found:?}"))
+    });
+}
+
+#[test]
+fn a_diagonal_shift_of_a_cube_closes_into_one_loop_at_every_offset() {
+    let first = cuboid([0.0; 3], [1.0; 3]);
+    [0.25, 0.5, 0.75].iter().for_each(|&shift| {
+        let second = cuboid([shift; 3], [shift + 1.0; 3]);
+        let polylines = first.intersection_curves(&second).unwrap();
+        assert_eq!(polylines.len(), 1, "shift {shift}");
+        assert!(polylines[0].closed, "shift {shift}");
+    })
+}
+
+#[test]
+fn a_bar_whose_edges_lie_on_face_diagonals_still_closes() {
+    let first = cuboid([0.0; 3], [1.0; 3]);
+    let second = cuboid([0.3, 0.3, 0.5], [0.7, 0.7, 1.5]);
+    let polylines = first.intersection_curves(&second).unwrap();
+    assert_eq!(polylines.len(), 1);
+    assert!(polylines[0].closed);
+    polylines[0]
+        .points
+        .iter()
+        .for_each(|point| assert!((point[2].value() - 1.0).abs() < 1e-12));
+    [[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]]
+        .iter()
+        .for_each(|corner| {
+            assert!(polylines[0].points.iter().any(|point| {
+                (point[0].value() - corner[0]).abs() < 1e-12
+                    && (point[1].value() - corner[1]).abs() < 1e-12
+            }))
+        });
 }
 
 #[test]

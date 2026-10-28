@@ -30,8 +30,22 @@ pub fn orient3d(
     filtered(a, b, c, d).unwrap_or_else(|| exact(a, b, c, d))
 }
 
-/// The sign from floating point when it is certain, and `None` when rounding could change it.
-fn filtered(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Option<Ordering> {
+/// The floating-point determinant behind [`orient3d`], proportional to the signed distance of `d`
+/// from the plane through `a`, `b` and `c`.
+///
+/// It carries rounding error, so it can place a point on a plane but never decide a sign.
+pub fn orient3d_estimate(
+    a: &Coordinate<3>,
+    b: &Coordinate<3>,
+    c: &Coordinate<3>,
+    d: &Coordinate<3>,
+) -> f64 {
+    let [a, b, c, d] = [a, b, c, d].map(|point| from_fn(|axis| point[axis].value()));
+    estimate(a, b, c, d).0
+}
+
+/// The determinant, and the sum of the magnitudes of its terms, which bounds its rounding error.
+fn estimate(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> (f64, f64) {
     let [adx, ady, adz] = from_fn(|axis| a[axis] - d[axis]);
     let [bdx, bdy, bdz] = from_fn(|axis| b[axis] - d[axis]);
     let [cdx, cdy, cdz] = from_fn(|axis| c[axis] - d[axis]);
@@ -42,6 +56,12 @@ fn filtered(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Option<Orderi
     let permanent = (bdxcdy.abs() + cdxbdy.abs()) * adz.abs()
         + (cdxady.abs() + adxcdy.abs()) * bdz.abs()
         + (adxbdy.abs() + bdxady.abs()) * cdz.abs();
+    (determinant, permanent)
+}
+
+/// The sign from floating point when it is certain, and `None` when rounding could change it.
+fn filtered(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Option<Ordering> {
+    let (determinant, permanent) = estimate(a, b, c, d);
     let bound = ERROR_BOUND * permanent;
     if determinant > bound {
         Some(Ordering::Greater)
