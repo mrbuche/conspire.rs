@@ -4,7 +4,6 @@
 
 # User Guide
 
-- [Installation](installation.md)
 - [Mathematical methods](math.md)
   - [Integration, ODEs, and DAEs](math/integrate.md)
     - [Explicit integration](math/integrate/explicit.md)
@@ -69,13 +68,15 @@
     - [Conduction models](constitutive/thermal/conduction.md)
       - [Fourier](constitutive/thermal/conduction/fourier.md)
 - [Geometry and meshing](geometry.md)
-- [Finite element methods](fem.md)
-- [Virtual element methods](vem.md)
+- [Domain discretization](domain.md)
+  - [Continuum bond methods](domain/cbm.md)
+  - [Finite element methods](domain/fem.md)
+  - [Virtual element methods](domain/vem.md)
 
 # Reference Guide
 
-- [Python interface](python.md)
-- [Rust interface](rust.md)
+- [Rust library (stable)](rust.md)
+- [Rust library (latest)](rust_latest.md)
 
 -----------
 

@@ -6,7 +6,7 @@ Under Review (2026)
 
 [**Link length and energy fluctuations in extensible freely jointed chains**](https://doi.org/10.1103/cnf3-b2j8)\
 Michael R. Buche\
-Physical Review E, Accepted (2026)
+Physical Review E 114 (4), 045414 (2026)
 
 [**Extensible links in a broad class of single polymer chain models**](https://doi.org/10.1103/h5wp-gmp6)\
 Michael R. Buche, Matthew J. Grasinger, Jason P. Mulderrig\

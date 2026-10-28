@@ -1,1 +1,1 @@
-# Rust interface
+# Rust library (stable)

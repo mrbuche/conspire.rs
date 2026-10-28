@@ -22,8 +22,3 @@ done < <(find "$book/reproductions" -name '*.py' -print0)
 while IFS= read -r -d '' svg; do
     fixup "$svg"
 done < <(find "$book/reproductions" -name '*.svg' -print0)
-
-cd "$book"
-if ! python3 contributors.py > contributors.generated.md; then
-    echo "<!-- contributors.py failed; grid omitted -->" > contributors.generated.md
-fi
