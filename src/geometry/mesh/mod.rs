@@ -39,6 +39,7 @@ pub use self::{
             Class,
             marching::{Finish, Marching, Placement},
         },
+        watertight::{Defects, Watertight},
         write::Stl,
     },
     write::{Output, exodus::ExodusFormat, vtk::Vtk},

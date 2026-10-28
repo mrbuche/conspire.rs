@@ -11,6 +11,7 @@ pub(super) mod read;
 pub(super) mod sdf;
 pub(super) mod solid;
 pub(super) mod trim;
+pub(super) mod watertight;
 pub(super) mod write;
 
 use crate::{
