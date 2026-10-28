@@ -51,7 +51,9 @@ fn project_lands_on_the_boundary_at_the_distance() -> Result<(), AssertionError>
     let cube = cube();
     POINTS.iter().try_for_each(|&point| {
         let point = Coordinate::from(point);
-        let (projected, _) = cube.project(&point).unwrap();
+        let projection = cube.project(&point).unwrap();
+        assert!(projection.exact);
+        let projected = projection.point;
         Assert::default().eq_within_tols(cube.signed_distance(&projected), &Length::meters(0.0))?;
         Assert::default().eq_within_tols(
             (&projected - &point).norm(),
@@ -81,7 +83,7 @@ fn projection_normal_points_out_of_the_solid() -> Result<(), AssertionError> {
     ]
     .iter()
     .try_for_each(|&(point, normal)| {
-        let (_, projected) = cube.project(&point.into()).unwrap();
+        let projected = cube.project(&point.into()).unwrap().normal;
         Assert::default().eq_within_tols(&projected, &Direction::from(normal))
     })
 }

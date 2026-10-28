@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test;
 
-use super::SolidOracle;
+use super::{Projection, SolidOracle, nearest_surviving};
 use crate::{
-    geometry::{Coordinate, Direction},
+    geometry::Coordinate,
     math::{Quantity, Tensor},
     units::Length,
 };
@@ -33,27 +33,42 @@ impl<O: SolidOracle> Partition<O> {
             |distance, earlier| distance.max(-earlier.signed_distance(point)),
         )
     }
-    /// Closest point on the boundary of the region of a volume left after removing every earlier volume.
+    /// A boundary point of the region of a volume left after removing every earlier volume.
     ///
     /// Each volume offers its own closest boundary point. A candidate lies on the boundary of
     /// the region only if it is inside the volume and strictly inside no other earlier volume.
-    /// The nearest candidate is the exact answer when it passes; otherwise the closest point is
-    /// on a crease between two surfaces and `None` is returned.
+    /// The nearest such candidate is returned, and is exact when it is also the nearest candidate
+    /// overall; otherwise a hidden candidate was nearer and the closest point may be on a crease.
     ///
     /// The normal points out of the region, so it is reversed on the wall of an earlier volume.
-    pub fn project(
-        &self,
-        point: &Coordinate<3>,
-        index: usize,
-    ) -> Option<(Coordinate<3>, Direction<3>)> {
-        let (owner, closest, normal) = self.nearest(point, index)?;
-        self.violator(&closest, index, &[owner])
-            .is_none()
-            .then(|| (closest, if owner < index { -normal } else { normal }))
+    pub fn project(&self, point: &Coordinate<3>, index: usize) -> Option<Projection> {
+        nearest_surviving(
+            point,
+            self.volumes[..=index]
+                .iter()
+                .enumerate()
+                .map(|(owner, volume)| {
+                    volume.project(point).map(|projection| {
+                        let survives = self.violator(&projection.point, index, &[owner]).is_none();
+                        let normal = if owner < index {
+                            -projection.normal.clone()
+                        } else {
+                            projection.normal.clone()
+                        };
+                        (
+                            Projection {
+                                normal,
+                                ..projection
+                            },
+                            survives,
+                        )
+                    })
+                }),
+        )
     }
     /// A point of the region boundary near the query, including where it lies on a crease.
     ///
-    /// Where [`Self::project`] is exact it is used. Otherwise the nearest candidate is hidden
+    /// Where the nearest candidate is on the region boundary it is used. Otherwise it is hidden
     /// inside another volume, and projections alternate between the surface the candidate lies
     /// on and the surface hiding it until the iterate is within `tolerance` of both. The
     /// result lies on the crease between them, which is not necessarily the nearest such point.
@@ -64,7 +79,7 @@ impl<O: SolidOracle> Partition<O> {
         tolerance: Quantity<Length>,
         iterations: usize,
     ) -> Result<Coordinate<3>, &'static str> {
-        let (owner, mut closest, _) = self
+        let (owner, mut closest) = self
             .nearest(point, index)
             .ok_or("partition has no volume to project onto")?;
         let Some(hiding) = self.violator(&closest, index, &[owner]) else {
@@ -127,23 +142,19 @@ impl<O: SolidOracle> Partition<O> {
     fn surface(&self, volume: usize, point: &Coordinate<3>) -> Result<Coordinate<3>, &'static str> {
         self.volumes[volume]
             .project(point)
-            .map(|(closest, _)| closest)
+            .map(|projection| projection.point)
             .ok_or("a volume has no surface to project onto")
     }
-    fn nearest(
-        &self,
-        point: &Coordinate<3>,
-        index: usize,
-    ) -> Option<(usize, Coordinate<3>, Direction<3>)> {
+    fn nearest(&self, point: &Coordinate<3>, index: usize) -> Option<(usize, Coordinate<3>)> {
         self.volumes[..=index]
             .iter()
             .enumerate()
             .filter_map(|(owner, volume)| {
                 volume
                     .project(point)
-                    .map(|(closest, normal)| (owner, closest, normal))
+                    .map(|projection| (owner, projection.point))
             })
-            .min_by(|(_, a, _), (_, b, _)| (a - point).norm().total_cmp(&(b - point).norm()))
+            .min_by(|(_, a), (_, b)| (a - point).norm().total_cmp(&(b - point).norm()))
     }
     fn violator(&self, point: &Coordinate<3>, index: usize, skip: &[usize]) -> Option<usize> {
         let zero = Quantity::default();

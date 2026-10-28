@@ -22,22 +22,41 @@ pub fn grid() -> Coordinates<3> {
     points.into()
 }
 
+#[derive(Default)]
+pub struct Counts {
+    pub exact: usize,
+    pub inexact: usize,
+    pub missing: usize,
+}
+
+impl Counts {
+    pub fn found(&self) -> usize {
+        self.exact + self.inexact
+    }
+}
+
 pub fn check(
     oracle: &impl SolidOracle,
     expected: impl Fn(&Coordinate<3>) -> Quantity<Length>,
-) -> Result<(usize, usize), AssertionError> {
-    let mut counts = (0, 0);
+) -> Result<Counts, AssertionError> {
+    let mut counts = Counts::default();
     for point in grid().iter() {
         Assert::default().eq_within_tols(oracle.signed_distance(point), &expected(point))?;
         match oracle.project(point) {
-            None => counts.1 += 1,
-            Some((closest, normal)) => {
-                counts.0 += 1;
-                Assert::default()
-                    .eq_within_tols(oracle.signed_distance(&closest), &Length::meters(0.0))?;
-                Assert::default().eq_within_tols(normal.norm(), &Quantity::new(1.0))?;
+            None => counts.missing += 1,
+            Some(projection) => {
+                if projection.exact {
+                    counts.exact += 1;
+                } else {
+                    counts.inexact += 1;
+                }
+                Assert::default().eq_within_tols(
+                    oracle.signed_distance(&projection.point),
+                    &Length::meters(0.0),
+                )?;
+                Assert::default().eq_within_tols(projection.normal.norm(), &Quantity::new(1.0))?;
                 assert!(
-                    (&closest - point).norm() + Length::meters(1e-12)
+                    (&projection.point - point).norm() + Length::meters(1e-12)
                         >= oracle.signed_distance(point).abs()
                 );
             }

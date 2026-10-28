@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use super::nearest_surviving;
 use crate::{
-    geometry::{Coordinate, Direction, solid::SolidOracle},
+    geometry::{
+        Coordinate,
+        solid::{Projection, SolidOracle, nearest_surviving},
+    },
     math::Quantity,
     units::Length,
 };
@@ -24,16 +26,16 @@ impl<S: SolidOracle> SolidOracle for UnionAll<S> {
             .map(|solid| solid.signed_distance(point))
             .fold(Quantity::new(f64::INFINITY), Quantity::min)
     }
-    fn project(&self, point: &Coordinate<3>) -> Option<(Coordinate<3>, Direction<3>)> {
+    fn project(&self, point: &Coordinate<3>) -> Option<Projection> {
         let zero = Quantity::default();
         nearest_surviving(
             point,
             self.0.iter().enumerate().map(|(index, solid)| {
-                solid.project(point).map(|(closest, normal)| {
+                solid.project(point).map(|projection| {
                     let survives = self.0.iter().enumerate().all(|(other, solid)| {
-                        other == index || solid.signed_distance(&closest) >= zero
+                        other == index || solid.signed_distance(&projection.point) >= zero
                     });
-                    (closest, normal, survives)
+                    (projection, survives)
                 })
             }),
         )

@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use super::nearest_surviving;
 use crate::{
-    geometry::{Coordinate, Direction, solid::SolidOracle},
+    geometry::{
+        Coordinate,
+        solid::{Projection, SolidOracle, nearest_surviving},
+    },
     math::Quantity,
     units::Length,
 };
@@ -26,18 +28,25 @@ impl<A: SolidOracle, B: SolidOracle> SolidOracle for Difference<A, B> {
             .signed_distance(point)
             .max(-self.inner.signed_distance(point))
     }
-    fn project(&self, point: &Coordinate<3>) -> Option<(Coordinate<3>, Direction<3>)> {
+    fn project(&self, point: &Coordinate<3>) -> Option<Projection> {
         let zero = Quantity::default();
         nearest_surviving(
             point,
             [
-                self.outer.project(point).map(|(closest, normal)| {
-                    let survives = self.inner.signed_distance(&closest) >= zero;
-                    (closest, normal, survives)
+                self.outer.project(point).map(|projection| {
+                    let survives = self.inner.signed_distance(&projection.point) >= zero;
+                    (projection, survives)
                 }),
-                self.inner.project(point).map(|(closest, normal)| {
-                    let survives = self.outer.signed_distance(&closest) <= zero;
-                    (closest, -normal, survives)
+                self.inner.project(point).map(|projection| {
+                    let survives = self.outer.signed_distance(&projection.point) <= zero;
+                    let normal = -projection.normal.clone();
+                    (
+                        Projection {
+                            normal,
+                            ..projection
+                        },
+                        survives,
+                    )
                 }),
             ],
         )

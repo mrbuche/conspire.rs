@@ -28,13 +28,13 @@ fn boxes() -> Vec<Tessellation> {
 fn union_all_matches_the_smallest_distance() -> Result<(), AssertionError> {
     let solids = boxes();
     let oracle = UnionAll::new(boxes());
-    let (found, _) = check(&oracle, |point| {
+    let counts = check(&oracle, |point| {
         solids
             .iter()
             .map(|solid| solid.signed_distance(point))
             .fold(Length::meters(f64::INFINITY), |a, b| a.min(b))
     })?;
-    assert!(found > 0);
+    assert!(counts.found() > 0);
     Ok(())
 }
 

@@ -1,30 +1,45 @@
 use super::Difference;
 use crate::{
     geometry::{
-        Coordinate, Direction, csg::ops::test::check, mesh::test::cuboid, solid::SolidOracle,
+        Coordinate, Direction,
+        csg::ops::{
+            Union,
+            test::{check, grid},
+        },
+        mesh::test::cuboid,
+        solid::SolidOracle,
     },
-    math::assert::{Assert, AssertionError},
+    math::{
+        Tensor,
+        assert::{Assert, AssertionError},
+    },
 };
 
 #[test]
 fn overlapping_difference_matches_outer_minus_inner() -> Result<(), AssertionError> {
     let (outer, inner) = (cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
     let oracle = Difference::new(cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
-    let (found, _) = check(&oracle, |point| {
+    let counts = check(&oracle, |point| {
         outer
             .signed_distance(point)
             .max(-inner.signed_distance(point))
     })?;
-    assert!(found > 0);
+    assert!(counts.found() > 0);
     Ok(())
 }
 
 #[test]
 fn cavity_wall_normal_points_into_the_cavity() -> Result<(), AssertionError> {
     let oracle = Difference::new(cuboid([0.0; 3], [1.0; 3]), cuboid([0.3; 3], [0.7; 3]));
-    let (_, cavity) = oracle.project(&Coordinate::from([0.5, 0.5, 0.25])).unwrap();
+    let cavity = oracle
+        .project(&Coordinate::from([0.5, 0.5, 0.25]))
+        .unwrap()
+        .normal;
     Assert::default().eq_within_tols(&cavity, &Direction::from([0.0, 0.0, 1.0]))?;
-    let (_, outer) = oracle.project(&Coordinate::from([0.5, 0.5, 0.05])).unwrap();
+    let outer = oracle
+        .project(&Coordinate::from([0.5, 0.5, 0.05]))
+        .unwrap()
+        .normal;
     Assert::default().eq_within_tols(&outer, &Direction::from([0.0, 0.0, -1.0]))
 }
 
@@ -32,11 +47,31 @@ fn cavity_wall_normal_points_into_the_cavity() -> Result<(), AssertionError> {
 fn nested_difference_always_projects() -> Result<(), AssertionError> {
     let (outer, inner) = (cuboid([0.0; 3], [1.0; 3]), cuboid([0.3; 3], [0.7; 3]));
     let oracle = Difference::new(cuboid([0.0; 3], [1.0; 3]), cuboid([0.3; 3], [0.7; 3]));
-    let (_, missing) = check(&oracle, |point| {
+    let counts = check(&oracle, |point| {
         outer
             .signed_distance(point)
             .max(-inner.signed_distance(point))
     })?;
-    assert_eq!(missing, 0);
+    assert_eq!(counts.missing, 0);
+    assert_eq!(counts.inexact, 0);
     Ok(())
+}
+
+#[test]
+fn an_inexact_operand_makes_the_difference_inexact() {
+    let union = || Union::new(cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
+    let difference = Difference::new(union(), cuboid([5.0; 3], [5.2; 3]));
+    let points = grid();
+    let inexact: Vec<_> = points
+        .iter()
+        .filter(|point| {
+            union()
+                .project(point)
+                .is_some_and(|projection| !projection.exact)
+        })
+        .collect();
+    assert!(!inexact.is_empty());
+    inexact.iter().for_each(|point| {
+        assert!(!difference.project(point).unwrap().exact);
+    })
 }

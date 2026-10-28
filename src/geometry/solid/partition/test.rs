@@ -1,7 +1,7 @@
 use super::Partition;
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinate, Coordinates, Direction,
         mesh::{Tessellation, test::cuboid},
     },
     math::{
@@ -99,7 +99,7 @@ fn projected_points(
         .filter_map(|point| {
             partition
                 .project(&point, index)
-                .map(|(closest, _)| (point, closest))
+                .map(|projection| (point, projection.point))
         })
         .collect()
 }
@@ -130,10 +130,25 @@ fn projection_lands_on_the_region_boundary() -> Result<(), AssertionError> {
 }
 
 #[test]
-fn projection_is_withheld_at_creases() {
+fn projection_is_inexact_at_creases() {
     let partition = Partition::new(vec![cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3])]);
-    let found = projected_points(&partition, 1).len();
-    assert!(0 < found && found < grid().len());
+    let projections: Vec<_> = grid()
+        .iter()
+        .map(|point| partition.project(point, 1))
+        .collect();
+    assert!(
+        projections
+            .iter()
+            .flatten()
+            .any(|projection| projection.exact)
+    );
+    assert!(
+        projections
+            .iter()
+            .flatten()
+            .any(|projection| !projection.exact)
+    );
+    assert!(projections.iter().any(Option::is_none));
 }
 
 #[test]
@@ -141,6 +156,7 @@ fn projection_distance_is_the_effective_distance_when_nested() -> Result<(), Ass
     let partition = Partition::new(vec![cuboid([0.3; 3], [0.7; 3]), cuboid([0.0; 3], [1.0; 3])]);
     let projected = projected_points(&partition, 1);
     assert_eq!(projected.len(), grid().len());
+    assert!(hidden_points(&partition).is_empty());
     projected.iter().try_for_each(|(point, closest)| {
         Assert::default().eq_within_tols(
             (closest - point).norm(),
@@ -174,7 +190,11 @@ const CREASE_TOLERANCE: Quantity<Length> = Length::meters(1e-9);
 fn hidden_points(partition: &Partition<Tessellation>) -> Vec<Coordinate<3>> {
     grid()
         .into_iter()
-        .filter(|point| partition.project(point, 1).is_none())
+        .filter(|point| {
+            partition
+                .project(point, 1)
+                .is_none_or(|projection| !projection.exact)
+        })
         .collect()
 }
 
@@ -209,12 +229,15 @@ fn converged_crease_points_lie_on_both_surfaces() -> Result<(), AssertionError> 
 fn crease_projection_agrees_with_projection_where_exact() {
     let partition = crease_partition();
     grid().iter().for_each(|point| {
-        if let Some((exact, _)) = partition.project(point, 1) {
+        if let Some(exact) = partition
+            .project(point, 1)
+            .filter(|projection| projection.exact)
+        {
             assert_eq!(
                 partition
                     .project_to_crease(point, 1, CREASE_TOLERANCE, 100)
                     .unwrap(),
-                exact
+                exact.point
             )
         }
     })
@@ -370,7 +393,7 @@ fn coincident_face_projects_onto_the_shared_plane() -> Result<(), AssertionError
         .filter(|point| (point[0].value() - 1.0).abs() <= 0.1)
         .try_for_each(|point| {
             (0..2).try_for_each(|index| {
-                let (closest, _) = partition.project(point, index).unwrap();
+                let closest = partition.project(point, index).unwrap().point;
                 Assert::default().eq_within_tols(closest[0], &Length::meters(1.0))?;
                 Assert::default().eq_within_tols(
                     (&closest - point).norm(),
@@ -383,8 +406,26 @@ fn coincident_face_projects_onto_the_shared_plane() -> Result<(), AssertionError
 #[test]
 fn region_normal_is_reversed_on_the_wall_of_an_earlier_volume() -> Result<(), AssertionError> {
     let partition = Partition::new(vec![cuboid([0.3; 3], [0.7; 3]), cuboid([0.0; 3], [1.0; 3])]);
-    let (_, cavity) = partition.project(&[0.5, 0.5, 0.25].into(), 1).unwrap();
+    let cavity = partition
+        .project(&[0.5, 0.5, 0.25].into(), 1)
+        .unwrap()
+        .normal;
     Assert::default().eq_within_tols(&cavity, &[0.0, 0.0, 1.0].into())?;
-    let (_, outer) = partition.project(&[0.5, 0.5, 0.05].into(), 1).unwrap();
+    let outer = partition
+        .project(&[0.5, 0.5, 0.05].into(), 1)
+        .unwrap()
+        .normal;
     Assert::default().eq_within_tols(&outer, &[0.0, 0.0, -1.0].into())
+}
+
+#[test]
+fn unrelated_earlier_volume_does_not_withhold_the_projection() -> Result<(), AssertionError> {
+    let partition = Partition::new(vec![
+        cuboid([1.2, 0.4, 0.4], [1.4, 0.6, 0.6]),
+        cuboid([0.0; 3], [1.0; 3]),
+    ]);
+    let projection = partition.project(&[1.15, 0.5, 0.5].into(), 1).unwrap();
+    assert!(!projection.exact);
+    Assert::default().eq_within_tols(&projection.point, &Coordinate::from([1.0, 0.5, 0.5]))?;
+    Assert::default().eq_within_tols(&projection.normal, &Direction::from([1.0, 0.0, 0.0]))
 }

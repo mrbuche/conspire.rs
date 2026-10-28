@@ -8,12 +8,12 @@ use crate::{
 fn overlapping_union_matches_the_smaller_distance() -> Result<(), AssertionError> {
     let (first, second) = (cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
     let oracle = Union::new(cuboid([0.0; 3], [0.7; 3]), cuboid([0.3; 3], [1.0; 3]));
-    let (found, _) = check(&oracle, |point| {
+    let counts = check(&oracle, |point| {
         first
             .signed_distance(point)
             .min(second.signed_distance(point))
     })?;
-    assert!(found > 0);
+    assert!(counts.found() > 0);
     Ok(())
 }
 
@@ -21,12 +21,13 @@ fn overlapping_union_matches_the_smaller_distance() -> Result<(), AssertionError
 fn disjoint_union_always_projects() -> Result<(), AssertionError> {
     let (first, second) = (cuboid([0.0; 3], [0.2; 3]), cuboid([0.6; 3], [1.0; 3]));
     let oracle = Union::new(cuboid([0.0; 3], [0.2; 3]), cuboid([0.6; 3], [1.0; 3]));
-    let (found, missing) = check(&oracle, |point| {
+    let counts = check(&oracle, |point| {
         first
             .signed_distance(point)
             .min(second.signed_distance(point))
     })?;
-    assert!(found > 0);
-    assert_eq!(missing, 0);
+    assert!(counts.exact > 0);
+    assert_eq!(counts.inexact, 0);
+    assert_eq!(counts.missing, 0);
     Ok(())
 }
