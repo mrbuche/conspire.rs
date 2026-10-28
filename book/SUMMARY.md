@@ -4,7 +4,6 @@
 
 # User Guide
 
-- [Installation](installation.md)
 - [Mathematical methods](math.md)
   - [Integration, ODEs, and DAEs](math/integrate.md)
     - [Explicit integration](math/integrate/explicit.md)

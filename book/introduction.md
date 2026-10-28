@@ -4,7 +4,6 @@ c o n s p i r e
 
 ## User Guide
 
-- [Installation](installation.md)
 - [Mathematical methods](math.md)
 - [Physics models](physics.md)
 - [Constitutive models](constitutive.md)
