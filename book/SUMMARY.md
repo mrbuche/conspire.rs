@@ -73,7 +73,7 @@
 
 # Reference Guide
 
-- [Rust interface](rust.md)
+- [Rust library](rust.md)
 
 -----------
 

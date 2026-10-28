@@ -13,7 +13,7 @@ c o n s p i r e
 
 ## Reference Guide
 
-- [Rust interface](rust.md)
+- [Rust library](rust.md)
 
 ## Miscellaneous
 
