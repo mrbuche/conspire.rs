@@ -183,3 +183,75 @@ fn projection_is_never_nearer_than_the_effective_distance() {
             })
     });
 }
+
+fn shared_face_partition() -> Partition<Tessellation> {
+    Partition::new(vec![
+        cuboid([0.0; 3], [1.0; 3]),
+        cuboid([1.0, 0.0, 0.0], [2.0, 1.0, 1.0]),
+    ])
+}
+
+const ACROSS: [f64; 7] = [0.3, 0.9, 0.999, 1.0, 1.001, 1.1, 1.7];
+const ALONG: [f64; 3] = [0.2, 0.5, 0.8];
+
+fn across_the_shared_face() -> Coordinates<3> {
+    let mut points = Vec::new();
+    for &x in &ACROSS {
+        for &y in &ALONG {
+            for &z in &ALONG {
+                points.push([x, y, z]);
+            }
+        }
+    }
+    points.into()
+}
+
+#[test]
+fn coincident_face_owner_is_consistent_with_the_regions() {
+    let partition = shared_face_partition();
+    across_the_shared_face().iter().for_each(|point| {
+        let x = point[0].value();
+        let owner = partition.owner(point).unwrap();
+        if x != 1.0 {
+            assert_eq!(owner, if x < 1.0 { 0 } else { 1 });
+        }
+        assert!(partition.signed_distance(point, owner) <= Quantity::default());
+        (0..owner).for_each(|earlier| {
+            assert!(partition.signed_distance(point, earlier) > Quantity::default())
+        })
+    })
+}
+
+#[test]
+fn coincident_face_is_a_zero_of_both_regions() -> Result<(), AssertionError> {
+    let partition = shared_face_partition();
+    across_the_shared_face()
+        .iter()
+        .filter(|point| point[0].value() == 1.0)
+        .try_for_each(|point| {
+            (0..2).try_for_each(|index| {
+                Assert::default().eq_within_tols(
+                    partition.signed_distance(point, index),
+                    &Length::meters(0.0),
+                )
+            })
+        })
+}
+
+#[test]
+fn coincident_face_projects_onto_the_shared_plane() -> Result<(), AssertionError> {
+    let partition = shared_face_partition();
+    across_the_shared_face()
+        .iter()
+        .filter(|point| (point[0].value() - 1.0).abs() <= 0.1)
+        .try_for_each(|point| {
+            (0..2).try_for_each(|index| {
+                let closest = partition.project(point, index).unwrap();
+                Assert::default().eq_within_tols(closest[0], &Length::meters(1.0))?;
+                Assert::default().eq_within_tols(
+                    (&closest - point).norm(),
+                    &Length::meters((point[0].value() - 1.0).abs()),
+                )
+            })
+        })
+}
