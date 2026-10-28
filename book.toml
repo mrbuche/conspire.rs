@@ -19,8 +19,8 @@ level = 0
 [output.html]
 edit-url-template = "https://github.com/mrbuche/conspire/edit/main/{path}"
 git-repository-url = "https://github.com/mrbuche/conspire"
-additional-css = ["custom.css"]
-additional-js = ["custom.js"]
+additional-css = ["book/custom.css"]
+additional-js = ["book/custom.js"]
 
 [preprocessor.katex]
 after = [ "links" ]

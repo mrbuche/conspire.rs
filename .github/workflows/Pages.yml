@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Release
         id: last_release
-        uses: InsonusK/get-latest-release@v1.1.0
+        uses: InsonusK/get-latest-release@7a9ff16c8c6b7ead5d71c0f1cc61f2703170eade # v1.1.0
         with:
           myToken: ${{ github.token }}
           view_top: 1
@@ -29,7 +29,7 @@ jobs:
       - name: Python
         uses: actions/setup-python@v7
         with:
-          python-version: 3.13
+          python-version: 3.15
       - name: mdBook
         run: cargo install mdbook --version 0.5.4
       - name: Dependencies
