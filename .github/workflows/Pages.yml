@@ -2,30 +2,85 @@ name: Pages
 concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.head_ref }}
+env:
+  CARGO_TERM_COLOR: always
 on:
   pull_request:
     branches: main
   push:
     branches: main
+  release:
+    types: published
 permissions: {}
 jobs:
   Build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Release
+        id: last_release
+        uses: InsonusK/get-latest-release@7a9ff16c8c6b7ead5d71c0f1cc61f2703170eade # v1.1.0
+        with:
+          myToken: ${{ github.token }}
+          view_top: 1
       - name: Toolchain
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
-      - name: Dev
+      - name: Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: 3.15
+      - name: mdBook
+        run: cargo install mdbook --version 0.5.4
+      - name: Dependencies
+        run: cargo install mdbook-katex --version 0.10.0
+      - name: Checkout (stable)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.last_release.outputs.tag_name }}
+          submodules: true
+      - name: Stable
         run: |
-          mkdir -p _site/
+          mkdir -p ../_site/stable/
+          if [ -f book.toml ]; then
+            pip install conspire==${{ steps.last_release.outputs.tag_name }} matplotlib numpy
+            cargo run --release --example book --features constitutive,doc
+            bash book/prebuild.sh
+            mdbook build
+            mdbook test -L target/release/deps
+            cp -r book/build/* ../_site/stable/
+          fi
+      - name: Checkout (latest)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: true
+      - name: Ruff
+        uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6 # v3
+        with:
+          version: 0.16.5
+      - name: Check
+        run: ruff check
+      - name: Format
+        run: ruff format --check
+      - name: Latest
+        run: |
+          pip install git+https://github.com/mrbuche/conspire.py.git matplotlib numpy
+          cargo run --release --example book --features constitutive,doc
+          bash book/prebuild.sh
+          mdbook build
+          mdbook test -L target/release/deps
+          mkdir -p ../_site/latest/ && cp -r book/build/* ../_site/latest/
+      - name: Rust
+        run: |
           cargo rustdoc --release --features all -- --html-in-header .github/katex.html
           mv target/doc/conspire/ target/doc/latest/
-          cp -r target/doc/* _site/
+          mkdir -p ../_site/rust/ && cp -r target/doc/* ../_site/rust/
+      - name: Site
+        run: cp book/redirect.html ../_site/index.html
       - name: Upload
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: ../_site/
   Deploy:
     environment:
       name: github-pages
@@ -39,4 +94,4 @@ jobs:
     steps:
       - name: Deployment
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
