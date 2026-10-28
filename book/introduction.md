@@ -19,4 +19,3 @@ c o n s p i r e
 
 - [Contributors](contributors.md)
 - [Publications](publications.md)
-- [Reproductions](reproductions.md)
