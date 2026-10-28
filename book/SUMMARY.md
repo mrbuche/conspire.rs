@@ -68,8 +68,9 @@
     - [Conduction models](constitutive/thermal/conduction.md)
       - [Fourier](constitutive/thermal/conduction/fourier.md)
 - [Geometry and meshing](geometry.md)
-- [Finite element methods](fem.md)
-- [Virtual element methods](vem.md)
+- [Domain discretization](domain.md)
+  - [Finite element methods](domain/fem.md)
+  - [Virtual element methods](domain/vem.md)
 
 # Reference Guide
 
