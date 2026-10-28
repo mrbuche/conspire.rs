@@ -9,8 +9,6 @@ c o n s p i r e
 - [Constitutive models](constitutive.md)
 - [Geometry and meshing](geometry.md)
 - [Domain discretization](domain.md)
-  - [Finite element methods](domain/fem.md)
-  - [Virtual element methods](domain/vem.md)
 
 ## Reference Guide
 
