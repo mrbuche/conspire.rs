@@ -2,30 +2,89 @@ name: Pages
 concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.head_ref }}
+env:
+  CARGO_TERM_COLOR: always
 on:
   pull_request:
     branches: main
   push:
     branches: main
+  release:
+    types: published
 permissions: {}
 jobs:
   Build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Release
+        id: last_release
+        uses: InsonusK/get-latest-release@v1.1.0
+        with:
+          myToken: ${{ github.token }}
+          view_top: 1
       - name: Toolchain
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
-      - name: Dev
+      - name: Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13
+      - name: mdBook
+        run: cargo install mdbook --version 0.5.4
+      - name: Dependencies
+        run: cargo install mdbook-katex --version 0.10.0
+      - name: Checkout (stable)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.last_release.outputs.tag_name }}
+          submodules: true
+      - name: Stable
         run: |
-          mkdir -p _site/
+          mkdir -p ../_site/stable/
+          if [ -f book.toml ]; then
+            pip install conspire==${{ steps.last_release.outputs.tag_name }} matplotlib numpy
+            cargo run --release --example book --features constitutive,doc
+            bash book/prebuild.sh
+            mdbook build
+            mdbook test -L target/release/deps
+            grep -lr "python.html" book/build/ | xargs sed -i 's@href="python.html"@href="https://conspire.readthedocs.io"@'
+            grep -lr "rust.html" book/build/ | xargs sed -i 's@href="rust.html"@href="https://docs.rs/conspire"@'
+            cp -r book/build/* ../_site/stable/
+          fi
+      - name: Checkout (latest)
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          version: 0.16.5
+      - name: Check
+        run: ruff check
+      - name: Format
+        run: ruff format --check
+      - name: Latest
+        run: |
+          pip install git+https://github.com/mrbuche/conspire.py.git matplotlib numpy
+          cargo run --release --example book --features constitutive,doc
+          bash book/prebuild.sh
+          mdbook build
+          mdbook test -L target/release/deps
+          grep -lr "python.html" book/build/ | xargs sed -i 's@href="python.html"@href="https://conspire.readthedocs.io/en/latest"@'
+          grep -lr "rust.html" book/build/ | xargs sed -i 's@href="rust.html"@href="https://mrbuche.github.io/conspire/rust/latest/"@'
+          mkdir -p ../_site/latest/ && cp -r book/build/* ../_site/latest/
+      - name: Rust
+        run: |
           cargo rustdoc --release --features all -- --html-in-header .github/katex.html
           mv target/doc/conspire/ target/doc/latest/
-          cp -r target/doc/* _site/
+          mkdir -p ../_site/rust/ && cp -r target/doc/* ../_site/rust/
+      - name: Site
+        run: cp book/redirect.html ../_site/index.html
       - name: Upload
         uses: actions/upload-pages-artifact@v5
+        with:
+          path: ../_site/
   Deploy:
     environment:
       name: github-pages

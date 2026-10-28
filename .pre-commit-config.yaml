@@ -76,3 +76,8 @@ repos:
         args: ['--features', 'all doc', '--tests', '--', '-D',  'warnings']
         name: cargo clippy doc tests
     -   id: fmt
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.5
+    hooks:
+    -   id: ruff-check
+    -   id: ruff-format

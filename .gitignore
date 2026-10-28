@@ -8,3 +8,6 @@ target/
 **.vtm
 **.vtu
 **.vtm
+book/build/
+**.svg
+**__pycache__/

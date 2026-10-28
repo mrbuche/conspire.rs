@@ -4,6 +4,7 @@ categories = ["mathematics", "science"]
 description = "c o n s p i r e"
 documentation = "https://docs.rs/crate/conspire"
 edition = "2024"
+exclude = ["/book/", "/book.toml", "/custom.css", "/custom.js"]
 homepage = "https://mrbuche.github.io/conspire"
 keywords = ["conspire", "mrbuche"]
 license = "GPL-3.0"
@@ -40,3 +41,7 @@ strip = "symbols"
 inherits = "release"
 codegen-units = 32
 lto = false
+
+[[example]]
+name = "book"
+required-features = ["constitutive", "doc"]
