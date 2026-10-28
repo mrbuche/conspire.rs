@@ -1,12 +1,16 @@
 (() => {
-    const url = location.pathname.includes("/latest/")
-        ? "https://mrbuche.github.io/conspire.rs/latest"
-        : "https://docs.rs/conspire";
+    const urls = {
+        "rust.html": "https://docs.rs/conspire",
+        "rust_latest.html": "https://mrbuche.github.io/conspire.rs/latest/",
+    };
     const rewrite = (root) =>
-        root.querySelectorAll('a[href$="rust.html"]').forEach((a) => {
-            a.href = url;
-            a.target = "_blank";
-        });
+        Object.entries(urls).forEach(([page, url]) =>
+            root.querySelectorAll(`a[href$="${page}"]`).forEach((a) => {
+                if (a.getAttribute("href").split("/").pop() !== page) return;
+                a.href = url;
+                a.target = "_blank";
+            }),
+        );
     const sidebar = (frame) => {
         const doc = frame.contentDocument;
         if (!doc) return;

@@ -1,1 +1,1 @@
-# Rust library
+# Rust library (stable)
