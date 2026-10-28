@@ -1,5 +1,5 @@
 [book]
-authors = ["Michael R. Buche <mrbuche@sandia.gov>"]
+authors = ["Michael R. Buche <mrbuche@sandia.gov>", "Chad B. Hovey <chovey@sandia.gov>"]
 description = "c o n s p i r e"
 language = "en"
 src = "book/"
