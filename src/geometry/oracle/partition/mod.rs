@@ -80,6 +80,39 @@ impl<O: Oracle> Partition<O> {
         }
         Ok(closest)
     }
+    /// A point of the region boundary on the segment between a point inside the region and one outside it.
+    ///
+    /// The segment is halved, keeping the end that is inside, until it is no longer than
+    /// `tolerance`; the inside end is returned. This needs no surface structure, so it works
+    /// where the projections do not, but the point found is not the nearest one.
+    pub fn boundary_on_segment(
+        &self,
+        inside: &Coordinate<3>,
+        outside: &Coordinate<3>,
+        index: usize,
+        tolerance: Quantity<Length>,
+    ) -> Result<Coordinate<3>, &'static str> {
+        let zero = Quantity::default();
+        if tolerance <= zero {
+            return Err("tolerance must be positive");
+        }
+        if self.signed_distance(inside, index) > zero {
+            return Err("the first end of the segment is not inside the region");
+        }
+        if self.signed_distance(outside, index) <= zero {
+            return Err("the second end of the segment is not outside the region");
+        }
+        let (mut inside, mut outside) = (inside.clone(), outside.clone());
+        while (&outside - &inside).norm() > tolerance {
+            let middle = (&inside + &outside) * 0.5;
+            if self.signed_distance(&middle, index) <= zero {
+                inside = middle;
+            } else {
+                outside = middle;
+            }
+        }
+        Ok(inside)
+    }
     fn nearest(&self, point: &Coordinate<3>, index: usize) -> Option<(usize, Coordinate<3>)> {
         self.volumes[..=index]
             .iter()

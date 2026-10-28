@@ -251,6 +251,82 @@ fn crease_projection_reports_non_convergence() {
     })
 }
 
+fn bisected(
+    partition: &Partition<Tessellation>,
+    point: &Coordinate<3>,
+) -> Result<Coordinate<3>, &'static str> {
+    partition.boundary_on_segment(&Coordinate::from([0.9; 3]), point, 1, CREASE_TOLERANCE)
+}
+
+#[test]
+fn bisection_lands_within_tolerance_of_the_boundary() {
+    let partition = crease_partition();
+    let outside: Vec<Coordinate<3>> = grid()
+        .iter()
+        .filter(|point| partition.signed_distance(point, 1) > Quantity::default())
+        .cloned()
+        .collect();
+    assert!(!outside.is_empty());
+    outside.iter().for_each(|point| {
+        let found = bisected(&partition, point).unwrap();
+        let distance = partition.signed_distance(&found, 1);
+        assert!(distance <= Quantity::default());
+        assert!(distance + CREASE_TOLERANCE > Quantity::default());
+    })
+}
+
+#[test]
+fn bisection_reaches_the_points_the_projections_cannot() {
+    let partition = crease_partition();
+    let failed: Vec<Coordinate<3>> = hidden_points(&partition)
+        .into_iter()
+        .filter(|point| {
+            partition
+                .project_to_crease(point, 1, CREASE_TOLERANCE, 100)
+                .is_err()
+        })
+        .collect();
+    assert!(!failed.is_empty());
+    failed
+        .iter()
+        .for_each(|point| assert!(bisected(&partition, point).is_ok()))
+}
+
+#[test]
+fn bisection_requires_the_ends_to_straddle_the_boundary() {
+    let partition = crease_partition();
+    let (inside, outside) = ([0.9; 3].into(), [-0.5; 3].into());
+    assert!(
+        partition
+            .boundary_on_segment(&outside, &inside, 1, CREASE_TOLERANCE)
+            .is_err()
+    );
+    assert!(
+        partition
+            .boundary_on_segment(&inside, &inside, 1, CREASE_TOLERANCE)
+            .is_err()
+    );
+    assert!(
+        partition
+            .boundary_on_segment(&inside, &outside, 1, Length::meters(0.0))
+            .is_err()
+    );
+}
+
+#[test]
+fn bisection_terminates_on_a_coincident_interface() {
+    let partition = shared_face_partition();
+    let found = partition
+        .boundary_on_segment(
+            &[1.5, 0.5, 0.5].into(),
+            &[0.5, 0.5, 0.5].into(),
+            1,
+            CREASE_TOLERANCE,
+        )
+        .unwrap();
+    assert!((found[0].value() - 1.0).abs() < 1e-8);
+}
+
 fn shared_face_partition() -> Partition<Tessellation> {
     Partition::new(vec![
         cuboid([0.0; 3], [1.0; 3]),
