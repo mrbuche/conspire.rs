@@ -69,6 +69,7 @@
       - [Fourier](constitutive/thermal/conduction/fourier.md)
 - [Geometry and meshing](geometry.md)
 - [Domain discretization](domain.md)
+  - [Continuum bond methods](domain/cbm.md)
   - [Finite element methods](domain/fem.md)
   - [Virtual element methods](domain/vem.md)
 
