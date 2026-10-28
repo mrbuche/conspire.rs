@@ -15,6 +15,9 @@ pub mod mesh;
 /// Orthotrees, such as quadtrees and octrees.
 pub mod ntree;
 
+/// Exact geometric predicates.
+pub mod predicates;
+
 /// Solids known through signed distance, and their boolean combinations.
 pub mod solid;
 
