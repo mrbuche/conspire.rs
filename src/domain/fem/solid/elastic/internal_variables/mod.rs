@@ -11,7 +11,8 @@ use crate::{
     math::{
         Scalar, Tensor, TensorVector, Vector,
         optimize::{
-            NewtonRaphson, OptimizationError, RootFinding, RootFindingIncremental, SolveStrategy,
+            Direct, NewtonRaphson, OptimizationError, ResidualMerit, RootFinding,
+            RootFindingIncremental, SolveStrategy,
         },
     },
 };
@@ -46,7 +47,7 @@ where
     /// gather of local solves rather than a system.
     fn internal_variables_root(
         &self,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError>;
@@ -135,7 +136,7 @@ where
     }
     fn internal_variables_root(
         &self,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
@@ -180,24 +181,25 @@ where
 /// The residual and the tangent are asked for at the same coordinates, so the
 /// solve is remembered rather than repeated, and what it converged to last is
 /// where the next one starts.
-pub struct SolvedInternalVariables<'a, B, const G: usize, V, const D: usize>
+pub struct SolvedInternalVariables<'a, B, const G: usize, V, const D: usize, S>
 where
     V: Tensor,
 {
     initial: InternalVariablesField<G, V>,
-    local_solver: &'a NewtonRaphson,
+    local_solver: &'a NewtonRaphson<Direct, S>,
     model: &'a Model<B, D>,
     solved: RefCell<Option<(NodalCoordinates<D>, InternalVariablesField<G, V>)>>,
 }
 
-impl<'a, B, const G: usize, V, const D: usize> SolvedInternalVariables<'a, B, G, V, D>
+impl<'a, B, const G: usize, V, const D: usize, S> SolvedInternalVariables<'a, B, G, V, D, S>
 where
     B: ElasticIVElements<G, V, D>,
+    S: ResidualMerit,
     V: Tensor,
 {
     pub fn new(
         model: &'a Model<B, D>,
-        local_solver: &'a NewtonRaphson,
+        local_solver: &'a NewtonRaphson<Direct, S>,
         initial: InternalVariablesField<G, V>,
     ) -> Self {
         Self {
@@ -295,7 +297,7 @@ where
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<NodalCoordinates<D>, OptimizationError>;
 }
 
@@ -313,7 +315,7 @@ where
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         let equality_constraint = conditions.constraint();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];

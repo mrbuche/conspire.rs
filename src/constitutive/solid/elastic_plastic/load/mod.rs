@@ -6,7 +6,7 @@ use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariables},
     math::{
         Matrix, Quantity, Vector,
-        optimize::{RootFindingBlock, SolveStrategy},
+        optimize::{ResidualMerit, RootFindingBlock, SolveStrategy},
         sparse::CscMatrix,
     },
     mechanics::{
@@ -61,7 +61,7 @@ impl Load {
             Matrix,
             Matrix,
         >,
-        strategy: &SolveStrategy,
+        strategy: &SolveStrategy<impl ResidualMerit>,
         time: Quantity<Time>,
         deformation_gradient: &DeformationGradient,
         previous_state: &PlasticStateVariables,

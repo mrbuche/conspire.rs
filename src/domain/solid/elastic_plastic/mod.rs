@@ -10,8 +10,8 @@ use crate::{
     math::{
         Jacobian, Quantity, Tensor, TensorVec, Vector,
         optimize::{
-            EqualityConstraint, NewtonRaphson, OptimizationError, Prescription, RootFinding,
-            RootFindingBlock, SolveStrategy,
+            Direct, EqualityConstraint, NewtonRaphson, OptimizationError, Prescription,
+            ResidualMerit, RootFinding, RootFindingBlock, SolveStrategy,
         },
         sparse::{CscMatrix, SparseSolver},
     },
@@ -91,7 +91,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         nodal_forces: &mut NodalForcesSolid<D>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError>;
@@ -100,7 +100,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<(NodalForcesSolid<D>, NodalStiffnessesSolid<D>), ElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
@@ -141,7 +141,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<S, ElementModelError>;
     /// The error indicators of a load step, from the coordinates and the plastic states at
     /// its two ends, the larger over the integration points.
@@ -165,7 +165,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         nodal_forces: &mut NodalForcesSolid<D>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError> {
@@ -201,7 +201,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<S, ElementModelError> {
         self.blocks()
             .updated_state(nodal_coordinates, state_variables, local_solver)
@@ -267,7 +267,7 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
              + LoadStiffnessAt<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
          ),
         times: &[Quantity<Time>],
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
         abs_tol: Quantity,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
 }
@@ -433,7 +433,7 @@ where
              + LoadStiffnessAt<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
          ),
         times: &[Quantity<Time>],
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
         abs_tol: Quantity,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
         let mut nodal_coordinates: NodalCoordinates<D> = self.coordinates().clone().into();

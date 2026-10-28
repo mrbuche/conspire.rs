@@ -11,7 +11,10 @@ use crate::{
         ElementModelError, NodalCoordinates,
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
-    math::{Tensor, optimize::NewtonRaphson},
+    math::{
+        Tensor,
+        optimize::{Direct, NewtonRaphson, ResidualMerit},
+    },
 };
 
 pub use crate::domain::{
@@ -33,7 +36,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariablesField<1>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         nodal_forces: &mut NodalForcesSolid<3>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
@@ -69,7 +72,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariablesField<1>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<PlasticStateVariablesField<1>, ElementModelError> {
         self.nodes
             .iter()

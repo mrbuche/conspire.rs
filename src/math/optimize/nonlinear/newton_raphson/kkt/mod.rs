@@ -1,11 +1,12 @@
 use crate::math::{
     HessianBlock, Jacobian, LuDecomposition, Scalar, Solution, SquareMatrix, Tensor, Vector,
-    optimize::OptimizationError,
+    optimize::{Direct, OptimizationError, ResidualMerit},
     sparse::{CscMatrix, SparseSolver},
 };
 use std::{collections::BTreeMap, ops::Mul};
 
 use super::NewtonRaphson;
+use super::backtrack::{Backtrack, Residually, half_square, residual_step};
 use super::convergence::{converged, limit_decrement};
 
 #[expect(clippy::too_many_arguments)]
@@ -91,8 +92,8 @@ pub(super) fn kkt_residual<R, T>(
 /// global ones, so anywhere the global variables are moved to, this is what
 /// the local ones become.
 #[expect(clippy::too_many_arguments)]
-pub(super) fn converge_local<U, V, Rv, Kuu, Kvu, Kuv, Kvv>(
-    local_solver: &NewtonRaphson,
+pub(super) fn converge_local<S, U, V, Rv, Kuu, Kvu, Kuv, Kvv>(
+    local_solver: &NewtonRaphson<Direct, S>,
     residual_local: &mut impl FnMut(&U, &V) -> Result<Rv, String>,
     tangents: &mut impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
     global: &U,
@@ -106,11 +107,13 @@ pub(super) fn converge_local<U, V, Rv, Kuu, Kvu, Kuv, Kvv>(
     factorization: &mut LuDecomposition,
 ) -> Result<(), OptimizationError>
 where
+    S: ResidualMerit,
     Rv: Jacobian,
     Kvv: HessianBlock,
     V: Solution,
     for<'a> &'a CscMatrix: Mul<&'a V, Output = Vector>,
 {
+    let search = Residually(&local_solver.line_search);
     let mut local_steps = 0;
     let mut scales = None;
     loop {
@@ -138,8 +141,41 @@ where
         );
         tangent_inner.factorize_lu_into(factorization)?;
         let mut decrement = factorization.solve(update_inner);
-        limit_decrement(local_solver, &mut [(&mut decrement, num_local)]);
-        local.decrement_from_chained(multipliers_local, &decrement)
+        let fraction = limit_decrement(local_solver, &mut [(&mut decrement, num_local)]);
+        let step_size = if !Residually::<S>::SEARCHES {
+            1.0
+        } else {
+            residual_step(
+                local_solver,
+                &search,
+                || half_square(update_inner.iter().copied()),
+                |trial_size| {
+                    let mut trial = local.clone();
+                    let mut trial_multipliers = multipliers_local.clone();
+                    trial
+                        .decrement_from_chained(&mut trial_multipliers, &(&decrement * trial_size));
+                    let mut trial_residual = Vector::zero(update_inner.len());
+                    kkt_residual(
+                        residual_local(global, &trial)?,
+                        &trial_multipliers,
+                        constraint_matrix_local,
+                        constraint_rhs_local,
+                        &trial,
+                        &mut trial_residual,
+                    );
+                    if !Residually::<S>::MERIT {
+                        tangents(global, &trial)?;
+                    }
+                    Ok(half_square(trial_residual.iter().copied()))
+                },
+                fraction,
+            )?
+        };
+        if step_size == 1.0 {
+            local.decrement_from_chained(multipliers_local, &decrement)
+        } else {
+            local.decrement_from_chained(multipliers_local, &(&decrement * step_size))
+        }
     }
 }
 

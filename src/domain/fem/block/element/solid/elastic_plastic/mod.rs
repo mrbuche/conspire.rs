@@ -11,7 +11,10 @@ use crate::{
             SolidFiniteElement, plastic::PlasticStateVariables,
         },
     },
-    math::{ContractSecondFourthWithFirst, Tensor, optimize::NewtonRaphson},
+    math::{
+        ContractSecondFourthWithFirst, Tensor,
+        optimize::{Direct, NewtonRaphson, ResidualMerit},
+    },
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList, Scalar},
 };
 use std::array::from_fn;
@@ -64,7 +67,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &PlasticStateVariables<G>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<(ElementNodalForcesSolid<N>, ElementNodalStiffnessesSolid<N>), FiniteElementError>
     {
         let evaluations = self
@@ -142,7 +145,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &PlasticStateVariables<G>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<PlasticStateVariables<G>, FiniteElementError> {
         self.deformation_gradients(nodal_coordinates)
             .iter()

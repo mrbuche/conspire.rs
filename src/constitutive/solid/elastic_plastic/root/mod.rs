@@ -6,7 +6,7 @@ use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariablesHistory},
     math::{
         Matrix, Quantity, TensorArray, Vector,
-        optimize::{RootFindingBlock, SolveStrategy},
+        optimize::{ResidualMerit, RootFindingBlock, SolveStrategy},
     },
     mechanics::{
         DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
@@ -59,7 +59,7 @@ pub trait Root {
             Matrix,
             Matrix,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
         abs_tol: Quantity,
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
 }
@@ -81,7 +81,7 @@ where
             Matrix,
             Matrix,
         >,
-        strategy: SolveStrategy,
+        strategy: SolveStrategy<impl ResidualMerit>,
         abs_tol: Quantity,
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
     {
