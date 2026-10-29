@@ -1,4 +1,7 @@
-use super::{Triangle, pierce::crossing as crossing_ends};
+use super::{
+    Triangle,
+    pierce::{Meeting, crossing as crossing_ends},
+};
 use crate::{
     geometry::{
         Coordinate,
@@ -15,7 +18,10 @@ use crate::{
 use std::array::from_fn;
 
 fn crossing(first: Triangle, second: Triangle) -> Result<Option<[Coordinate<3>; 2]>, &'static str> {
-    Ok(crossing_ends(first, second)?.map(|ends| ends.map(|end| end.point)))
+    Ok(match crossing_ends(first, second)? {
+        Meeting::Segment(ends) => Some(ends.map(|end| end.point)),
+        _ => None,
+    })
 }
 
 fn point(x: f64, y: f64, z: f64) -> Coordinate<3> {
@@ -102,7 +108,7 @@ fn separated_parallel_and_touching_triangles_do_not_cross() {
 }
 
 #[test]
-fn coplanar_and_degenerate_triangles_are_errors() {
+fn coplanar_triangles_are_reported_and_degenerate_ones_are_errors() {
     let flat = flat();
     let coplanar = [
         point(1.0, 1.0, 0.0),
@@ -114,8 +120,12 @@ fn coplanar_and_degenerate_triangles_are_errors() {
         point(1.0, 1.0, 1.0),
         point(2.0, 2.0, 3.0),
     ];
-    assert!(crossing(refs(&flat), refs(&coplanar)).is_err());
-    assert!(crossing(refs(&flat), refs(&collinear)).is_err());
+    assert!(matches!(
+        crossing_ends(refs(&flat), refs(&coplanar)),
+        Ok(Meeting::Coplanar)
+    ));
+    assert!(crossing_ends(refs(&flat), refs(&collinear)).is_err());
+    assert!(crossing_ends(refs(&collinear), refs(&flat)).is_err());
 }
 
 #[test]
@@ -167,10 +177,11 @@ fn overlapping_cubes_cross_along_both_surfaces() {
 }
 
 #[test]
-fn cubes_sharing_a_face_plane_cannot_be_crossed() {
+fn cubes_sharing_a_face_report_the_coplanar_pairs_and_still_cross_at_its_boundary() {
     let first = cuboid([0.0; 3], [1.0; 3]);
     let second = cuboid([1.0, 0.0, 0.0], [2.0, 1.0, 1.0]);
-    assert!(first.crossings(&second).is_err());
+    assert!(!first.coplanar_pairs(&second).unwrap().is_empty());
+    assert!(!first.crossings(&second).unwrap().is_empty());
 }
 
 #[test]

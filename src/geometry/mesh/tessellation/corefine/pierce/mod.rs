@@ -4,7 +4,7 @@ mod test;
 use super::Triangle;
 use crate::geometry::{
     Coordinate,
-    predicates::{orient3d, orient3d_estimate},
+    predicates::{collinear, orient3d, orient3d_estimate},
 };
 use std::cmp::Ordering;
 
@@ -26,31 +26,39 @@ pub(super) struct End {
     pub second: Local,
 }
 
-/// The segment along which two triangles cross.
+/// How two triangles meet.
+pub(super) enum Meeting {
+    /// They do not meet in a segment: they are separated, or touch at a single point.
+    Apart,
+    /// They lie in one plane, so they meet in an area, or not at all, rather than in a segment.
+    Coplanar,
+    /// They cross along a segment.
+    Segment([End; 2]),
+}
+
+/// How two triangles meet, and the segment along which they cross if they do.
 ///
-/// `None` where they do not meet in a segment: separated, or touching at a single point.
-/// Coplanar triangles meet in an area, not a segment, and are an error, as are degenerate
-/// triangles. Which side of a plane a vertex is on, and where a boundary point lies in the other
-/// triangle, are decided exactly, so a segment end is named by the features it lies on even where
-/// it falls exactly on an edge or a vertex. Only the coordinates of an end are rounded.
-pub(super) fn crossing(
-    first: Triangle,
-    second: Triangle,
-) -> Result<Option<[End; 2]>, &'static str> {
+/// Degenerate triangles, whose vertices are collinear, are an error. Which side of a plane a
+/// vertex is on, and where a boundary point lies in the other triangle, are decided exactly, so a
+/// segment end is named by the features it lies on even where it falls exactly on an edge or a
+/// vertex. Only the coordinates of an end are rounded.
+pub(super) fn crossing(first: Triangle, second: Triangle) -> Result<Meeting, &'static str> {
+    if collinear(first[0], first[1], first[2]) || collinear(second[0], second[1], second[2]) {
+        return Err("degenerate triangle");
+    }
     let sides_first = sides(second, first);
     let sides_second = sides(first, second);
-    let coplanar = |sides: &[Ordering; 3]| sides.iter().all(|&side| side == Ordering::Equal);
-    if coplanar(&sides_first) || coplanar(&sides_second) {
-        return Err("coplanar or degenerate triangles");
+    if sides_first.iter().all(|&side| side == Ordering::Equal) {
+        return Ok(Meeting::Coplanar);
     }
     if separated(&sides_first) || separated(&sides_second) {
-        return Ok(None);
+        return Ok(Meeting::Apart);
     }
     let (Some(ends_first), Some(ends_second)) = (
         plane_crossings(&sides_first),
         plane_crossings(&sides_second),
     ) else {
-        return Ok(None);
+        return Ok(Meeting::Apart);
     };
     let mut ends = Vec::<End>::with_capacity(4);
     for local in ends_first {
@@ -83,9 +91,9 @@ pub(super) fn crossing(
         }
     }
     match <[End; 2]>::try_from(distinct) {
-        Ok(ends) => Ok(Some(ends)),
+        Ok(ends) => Ok(Meeting::Segment(ends)),
         Err(distinct) if distinct.len() > 2 => Err("a crossing has more than two ends"),
-        Err(_) => Ok(None),
+        Err(_) => Ok(Meeting::Apart),
     }
 }
 

@@ -9,7 +9,7 @@ pub use chain::Polyline;
 use super::Tessellation;
 use crate::geometry::{Coordinate, CoordinatesRef};
 use chain::chain;
-use pierce::{Local, crossing};
+use pierce::{Local, Meeting, crossing};
 
 type Triangle<'a> = [&'a Coordinate<3>; 3];
 
@@ -37,15 +37,35 @@ pub struct Crossing {
     pub(super) keys: [Key; 2],
 }
 
+/// How the triangles of one tessellation meet those of another.
+struct Contacts {
+    /// The segments along which triangles cross.
+    crossings: Vec<Crossing>,
+    /// The pairs of triangles, as indices into each tessellation, that lie in one plane.
+    coplanar: Vec<[usize; 2]>,
+}
+
 impl Tessellation {
     /// The curves along which this tessellation intersects another.
+    ///
+    /// Where triangles of the two lie in one plane, the boundary of that overlap is included, but
+    /// not what lies inside it; see [`Self::coplanar_pairs`].
     pub fn intersection_curves(&self, other: &Tessellation) -> Result<Vec<Polyline>, &'static str> {
         chain(&self.crossings(other)?)
     }
     /// Every segment along which this tessellation crosses another.
     ///
-    /// Fails on coplanar or degenerate triangle pairs, which have no crossing segment.
+    /// Two triangles in one plane meet in an area, not a segment, so they have no crossing; the
+    /// segments where their neighbours meet them are included. Fails on degenerate triangles.
     pub fn crossings(&self, other: &Tessellation) -> Result<Vec<Crossing>, &'static str> {
+        Ok(self.contacts(other)?.crossings)
+    }
+    /// The pairs of triangles, as indices into this tessellation and the other, that lie in one
+    /// plane and whose bounding boxes overlap. Some pairs only touch along an edge.
+    pub fn coplanar_pairs(&self, other: &Tessellation) -> Result<Vec<[usize; 2]>, &'static str> {
+        Ok(self.contacts(other)?.coplanar)
+    }
+    fn contacts(&self, other: &Tessellation) -> Result<Contacts, &'static str> {
         let (coordinates, other_coordinates) =
             (self.mesh().coordinates(), other.mesh().coordinates());
         let triangles: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
@@ -53,6 +73,7 @@ impl Tessellation {
             other.mesh().connectivities().iter().flatten().collect();
         let other_bvh = other.bvh();
         let mut crossings = Vec::new();
+        let mut coplanar = Vec::new();
         for (first, nodes) in triangles.iter().enumerate() {
             let triangle = [
                 &coordinates[nodes[0]],
@@ -70,21 +91,28 @@ impl Tessellation {
                     &other_coordinates[other_nodes[1]],
                     &other_coordinates[other_nodes[2]],
                 ];
-                if let Some(ends) = crossing(triangle, other_triangle)? {
-                    let keys = ends.each_ref().map(|end| Key {
-                        first: feature(end.first, nodes, first),
-                        second: feature(end.second, other_nodes, second),
-                    });
-                    crossings.push(Crossing {
-                        first,
-                        second,
-                        keys,
-                        segment: ends.map(|end| end.point),
-                    });
+                match crossing(triangle, other_triangle)? {
+                    Meeting::Apart => (),
+                    Meeting::Coplanar => coplanar.push([first, second]),
+                    Meeting::Segment(ends) => {
+                        let keys = ends.each_ref().map(|end| Key {
+                            first: feature(end.first, nodes, first),
+                            second: feature(end.second, other_nodes, second),
+                        });
+                        crossings.push(Crossing {
+                            first,
+                            second,
+                            keys,
+                            segment: ends.map(|end| end.point),
+                        });
+                    }
                 }
             }
         }
-        Ok(crossings)
+        Ok(Contacts {
+            crossings,
+            coplanar,
+        })
     }
 }
 

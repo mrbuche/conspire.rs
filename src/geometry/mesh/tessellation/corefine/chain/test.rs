@@ -80,6 +80,21 @@ fn separate_curves_stay_separate() {
 }
 
 #[test]
+fn a_segment_found_twice_counts_once() {
+    let polylines = chain(&[
+        segment(0, 1),
+        segment(1, 2),
+        segment(1, 0),
+        segment(2, 0),
+        segment(0, 1),
+    ])
+    .unwrap();
+    assert_eq!(polylines.len(), 1);
+    assert!(polylines[0].closed);
+    assert_eq!(polylines[0].crossings.len(), 3);
+}
+
+#[test]
 fn branching_and_degenerate_segments_are_errors() {
     assert!(chain(&[segment(0, 1), segment(0, 2), segment(0, 3)]).is_err());
     assert!(chain(&[segment(4, 4)]).is_err());
@@ -213,6 +228,74 @@ fn a_bar_whose_edges_lie_on_face_diagonals_still_closes() {
                     && (point[1].value() - corner[1]).abs() < 1e-12
             }))
         });
+}
+
+fn assert_loop_through(first: &Tessellation, second: &Tessellation, corners: &[[f64; 3]]) {
+    let polylines = first.intersection_curves(second).unwrap();
+    assert_eq!(polylines.len(), 1);
+    assert!(polylines[0].closed);
+    let mut found: Vec<[f64; 3]> = polylines[0]
+        .points
+        .iter()
+        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
+        .collect();
+    let mut expected = corners.to_vec();
+    found.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    expected.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    assert_eq!(found.len(), expected.len(), "{found:?}");
+    found.iter().zip(&expected).for_each(|(a, b)| {
+        a.iter()
+            .zip(b)
+            .for_each(|(x, y)| assert!((x - y).abs() < 1e-12, "{found:?}"))
+    });
+}
+
+#[test]
+fn cubes_sharing_a_face_meet_along_the_boundary_of_that_face() {
+    let first = cuboid([0.0; 3], [1.0; 3]);
+    let second = cuboid([1.0, 0.0, 0.0], [2.0, 1.0, 1.0]);
+    assert_loop_through(
+        &first,
+        &second,
+        &[
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 0.0, 1.0],
+        ],
+    );
+}
+
+#[test]
+fn a_box_resting_inside_the_face_of_another_meets_it_along_its_outline() {
+    let base = cuboid([0.0, 0.0, -1.0], [2.0, 2.0, 0.0]);
+    let resting = cuboid([0.5, 0.5, 0.0], [1.5, 1.5, 1.0]);
+    assert_loop_through(
+        &base,
+        &resting,
+        &[
+            [0.5, 0.5, 0.0],
+            [1.5, 0.5, 0.0],
+            [1.5, 1.5, 0.0],
+            [0.5, 1.5, 0.0],
+        ],
+    );
+}
+
+#[test]
+fn boxes_overlapping_a_face_partly_meet_along_the_outline_of_the_overlap() {
+    let base = cuboid([0.0, 0.0, -1.0], [2.0, 2.0, 0.0]);
+    let resting = cuboid([0.5, 0.5, 0.0], [2.5, 2.5, 1.0]);
+    assert_loop_through(
+        &base,
+        &resting,
+        &[
+            [0.5, 0.5, 0.0],
+            [2.0, 0.5, 0.0],
+            [2.0, 2.0, 0.0],
+            [0.5, 2.0, 0.0],
+        ],
+    );
 }
 
 #[test]

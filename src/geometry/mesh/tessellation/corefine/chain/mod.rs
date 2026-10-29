@@ -2,7 +2,10 @@
 mod test;
 
 use super::{Crossing, Key};
-use crate::{geometry::Coordinate, math::FxHashMap};
+use crate::{
+    geometry::Coordinate,
+    math::{FxHashMap, FxHashSet},
+};
 
 /// A curve along which two tessellations intersect, as a chain of crossing segments.
 pub struct Polyline {
@@ -18,6 +21,7 @@ pub(super) fn chain(crossings: &[Crossing]) -> Result<Vec<Polyline>, &'static st
     let mut nodes = FxHashMap::<&Key, usize>::default();
     let mut points = Vec::<&Coordinate<3>>::new();
     let mut incident = Vec::<Vec<(usize, usize)>>::new();
+    let mut joined = FxHashSet::<[usize; 2]>::default();
     for (index, crossing) in crossings.iter().enumerate() {
         let ends = [0, 1].map(|end| {
             *nodes.entry(&crossing.keys[end]).or_insert_with(|| {
@@ -28,6 +32,9 @@ pub(super) fn chain(crossings: &[Crossing]) -> Result<Vec<Polyline>, &'static st
         });
         if ends[0] == ends[1] {
             return Err("a crossing segment starts and ends at the same point");
+        }
+        if !joined.insert([ends[0].min(ends[1]), ends[0].max(ends[1])]) {
+            continue;
         }
         incident[ends[0]].push((index, ends[1]));
         incident[ends[1]].push((index, ends[0]));

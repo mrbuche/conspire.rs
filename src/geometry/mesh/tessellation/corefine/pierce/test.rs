@@ -1,4 +1,4 @@
-use super::{Local, crossing};
+use super::{Local, Meeting, crossing};
 use crate::{
     geometry::{
         Coordinate, bvh::closest_point_on_triangle, mesh::tessellation::corefine::Triangle,
@@ -14,13 +14,16 @@ fn refs(points: &Points) -> Triangle<'_> {
 }
 
 fn ends(first: &Points, second: &Points) -> Option<Vec<(Local, Local, [f64; 3])>> {
-    crossing(refs(first), refs(second)).unwrap().map(|ends| {
-        ends.map(|end| {
-            let [x, y, z] = [0, 1, 2].map(|axis| end.point[axis].value());
-            (end.first, end.second, [x, y, z])
-        })
-        .to_vec()
-    })
+    match crossing(refs(first), refs(second)).unwrap() {
+        Meeting::Segment(ends) => Some(
+            ends.map(|end| {
+                let [x, y, z] = [0, 1, 2].map(|axis| end.point[axis].value());
+                (end.first, end.second, [x, y, z])
+            })
+            .to_vec(),
+        ),
+        _ => None,
+    }
 }
 
 fn flat() -> Points {

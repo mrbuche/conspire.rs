@@ -30,6 +30,20 @@ pub fn orient3d(
     filtered(a, b, c, d).unwrap_or_else(|| exact(a, b, c, d))
 }
 
+/// Whether three points lie on one line, exactly.
+pub fn collinear(a: &Coordinate<3>, b: &Coordinate<3>, c: &Coordinate<3>) -> bool {
+    let [a, b, c]: [[f64; 3]; 3] = [a, b, c].map(|point| from_fn(|axis| point[axis].value()));
+    let [ux, uy, uz] = from_fn(|axis| Expansion::difference(b[axis], a[axis]));
+    let [vx, vy, vz] = from_fn(|axis| Expansion::difference(c[axis], a[axis]));
+    [
+        uy.times(&vz).minus(uz.times(&vy)),
+        uz.times(&vx).minus(ux.times(&vz)),
+        ux.times(&vy).minus(uy.times(&vx)),
+    ]
+    .iter()
+    .all(|component| component.sign() == Ordering::Equal)
+}
+
 /// The floating-point determinant behind [`orient3d`], proportional to the signed distance of `d`
 /// from the plane through `a`, `b` and `c`.
 ///

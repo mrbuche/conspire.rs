@@ -1,4 +1,4 @@
-use super::{exact, filtered, orient3d};
+use super::{collinear, exact, filtered, orient3d};
 use std::{array::from_fn, cmp::Ordering};
 
 struct Lcg(u64);
@@ -123,4 +123,34 @@ fn large_integer_points_match_128_bit_arithmetic() {
         let [a, b, c, d] = [a, b, c, d].map(floats);
         assert_eq!(exact(a, b, c, d), expected);
     })
+}
+
+#[test]
+fn points_on_a_line_are_collinear_and_a_nudge_is_not() {
+    let (a, b) = ([0.0, 0.0, 0.0].into(), [1.0, 2.0, 3.0].into());
+    assert!(collinear(&a, &b, &[3.0, 6.0, 9.0].into()));
+    assert!(!collinear(&a, &b, &[3.0, 6.0, 9.0 + 2e-15].into()));
+    assert!(collinear(&a, &a, &b));
+}
+
+#[test]
+fn collinearity_of_large_integer_points_matches_128_bit_arithmetic() {
+    let mut random = Lcg(6);
+    let (mut lines, mut nudged) = (0, 0);
+    (0..5000).for_each(|_| {
+        let a = [0; 3].map(|_| random.integer(30));
+        let direction = [0; 3].map(|_| random.integer(8));
+        let (s, t) = (random.integer(3), random.integer(3));
+        let b: [i64; 3] = from_fn(|i| a[i] + s * direction[i]);
+        let mut c: [i64; 3] = from_fn(|i| a[i] + t * direction[i]);
+        c[(random.bits() % 3) as usize] += random.integer(1);
+        let [u, v]: [[i128; 3]; 2] = [b, c].map(|p| from_fn(|i| (p[i] - a[i]) as i128));
+        let expected =
+            u[1] * v[2] == u[2] * v[1] && u[2] * v[0] == u[0] * v[2] && u[0] * v[1] == u[1] * v[0];
+        lines += expected as usize;
+        nudged += !expected as usize;
+        let [a, b, c] = [a, b, c].map(floats);
+        assert_eq!(collinear(&a.into(), &b.into(), &c.into()), expected);
+    });
+    assert!(lines > 500 && nudged > 500);
 }
