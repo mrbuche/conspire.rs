@@ -33,6 +33,10 @@ pub struct LimitedMemoryBFGS<S = Armijo> {
     pub typical: Scalar,
 }
 
+/// The corrections a descent has kept, which a later descent on a nearby function can start from.
+#[derive(Clone, Debug, Default)]
+pub struct Corrections(VecDeque<(Vector, Vector, Scalar)>);
+
 /// The outcome of a descent, which may end before the tolerances are met.
 #[derive(Clone, Debug)]
 pub struct Descent<F, X> {
@@ -123,6 +127,33 @@ where
     /// or the step budget is spent, returning where it got to in any case.
     pub fn descend<F, J, X>(
         &self,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraints,
+    ) -> Result<Descent<F, X>, OptimizationError>
+    where
+        F: Erase<Erased = Scalar> + Tensor,
+        <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
+        <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
+        <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
+            Is<<F as Tensor>::Unit>,
+        J: FlatView + Tensor,
+        X: FlatView + Solution + Tensor,
+    {
+        self.descend_from(
+            &mut Corrections::default(),
+            function,
+            jacobian,
+            initial_guess,
+            equality_constraint,
+        )
+    }
+    /// Descends as [`descend`](Self::descend) does, starting from the corrections kept by an
+    /// earlier descent and leaving the ones it keeps in their place.
+    pub fn descend_from<F, J, X>(
+        &self,
+        corrections: &mut Corrections,
         mut function: impl FnMut(&X) -> Result<F, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
         mut initial_guess: X,
@@ -170,7 +201,13 @@ where
         let mut residual = gradient(&solution)?;
         let mut direction = Vector::zero(n);
         let mut alphas = Vec::with_capacity(self.history);
-        let mut history = VecDeque::<(Vector, Vector, Scalar)>::with_capacity(self.history);
+        let history = &mut corrections.0;
+        if history
+            .front()
+            .is_some_and(|(s, _, _)| s.as_slice().len() != n)
+        {
+            history.clear();
+        }
         let initial = function(&solution)?;
         let mut value = initial.clone();
         let mut reference = None;
@@ -190,7 +227,7 @@ where
             steps += 1;
             two_loop(
                 residual.as_flat(),
-                &history,
+                &*history,
                 self.typical / magnitude,
                 direction.as_mut_slice(),
                 &mut alphas,

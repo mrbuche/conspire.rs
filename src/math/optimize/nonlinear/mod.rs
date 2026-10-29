@@ -6,7 +6,7 @@ mod step_size;
 
 pub use conjugate_gradient::{Conjugacy, ConjugateGradient};
 pub use gradient_descent::GradientDescent;
-pub use lbfgs::{Descent, LimitedMemoryBFGS};
+pub use lbfgs::{Corrections, Descent, LimitedMemoryBFGS};
 pub use newton_raphson::NewtonRaphson;
 pub use step_size::{BarzilaiBorwein, BarzilaiBorweinStep, StepEstimator};
 

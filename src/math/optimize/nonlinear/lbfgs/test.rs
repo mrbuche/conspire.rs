@@ -1,4 +1,4 @@
-use super::LimitedMemoryBFGS;
+use super::{Corrections, LimitedMemoryBFGS};
 use crate::{
     math::{
         Matrix, Quantity, Reference, Scalar, Tensor, TensorRank1Vec, Vector,
@@ -249,4 +249,49 @@ fn a_short_history_still_converges() -> Result<(), AssertionError> {
             .solution,
         &Vector::from([1.0, 1.0]),
     )
+}
+
+#[test]
+fn descending_from_empty_corrections_is_descending() -> Result<(), OptimizationError> {
+    let start = Vector::from([-1.2, 1.0]);
+    let plain = solver().descend(rosenbrock, rosenbrock_gradient, start.clone(), Vec::new())?;
+    let from = solver().descend_from(
+        &mut Corrections::default(),
+        rosenbrock,
+        rosenbrock_gradient,
+        start,
+        Vec::new(),
+    )?;
+    assert_eq!(plain.steps, from.steps);
+    assert_eq!(plain.value, from.value);
+    assert_eq!(plain.solution.as_slice(), from.solution.as_slice());
+    Ok(())
+}
+
+#[test]
+fn kept_corrections_make_the_next_descent_better() -> Result<(), OptimizationError> {
+    let curvature = [1.0, 10.0, 100.0, 1.0e3, 1.0e4];
+    let value = |x: &Vector| -> Result<Scalar, String> {
+        Ok(x.iter()
+            .zip(curvature)
+            .map(|(x, c)| 0.5 * c * (x - 1.0).powi(2))
+            .sum())
+    };
+    let slope = |x: &Vector| -> Result<Vector, String> {
+        Ok(x.iter()
+            .zip(curvature)
+            .map(|(x, c)| c * (x - 1.0))
+            .collect())
+    };
+    let short = LimitedMemoryBFGS {
+        max_steps: 3,
+        ..solver()
+    };
+    let mut kept = Corrections::default();
+    let first = short.descend_from(&mut kept, value, slope, Vector::zero(5), Vec::new())?;
+    let carried =
+        short.descend_from(&mut kept, value, slope, first.solution.clone(), Vec::new())?;
+    let fresh = short.descend(value, slope, first.solution, Vec::new())?;
+    assert!(carried.value < 0.5 * fresh.value);
+    Ok(())
 }

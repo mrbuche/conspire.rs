@@ -11,7 +11,7 @@ use crate::{
     math::{
         CrossProduct, Quantity, QuantityVector, Reference, Scalar, Tensor, TensorList,
         TensorListVec, TensorRank1, TensorRank1Vec,
-        optimize::{Armijo, LimitedMemoryBFGS, Tolerances},
+        optimize::{Armijo, Corrections, LimitedMemoryBFGS, Tolerances},
     },
     units::{Area, Dimensionless, Length, ReciprocalLength, Volume},
 };
@@ -147,6 +147,7 @@ impl Mesh<3> {
         let mut current = coordinates.clone();
         let mut best: Option<Coordinates<3>> = None;
         let mut first = true;
+        let mut corrections = Corrections::default();
         let stop = 'ratchet: loop {
             let mut stalled = false;
             let mut sweep = 0;
@@ -185,7 +186,8 @@ impl Mesh<3> {
                     });
                 }
                 let descent = solver((FIRST * energy.typical()).value())
-                    .descend(
+                    .descend_from(
+                        &mut corrections,
                         |x| Ok(energy.evaluate(x, None)),
                         |x| {
                             let mut slopes = Gradient::zero(x.len());
