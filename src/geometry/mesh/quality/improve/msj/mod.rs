@@ -170,7 +170,6 @@ impl Mesh<3> {
                         break 'ratchet None;
                     }
                     energy.theta = Self::next(quality);
-                    energy.rho *= 2.0;
                     continue 'ratchet;
                 }
                 if stalled {
