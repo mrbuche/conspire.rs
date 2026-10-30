@@ -475,3 +475,45 @@ fn evaluation_keeps_nothing_from_the_previous_call() {
     assert_eq!(value(&reused, &coordinates), reference_a.0);
     assert_eq!(value(&reused, &stretched), reference_b.0);
 }
+
+#[test]
+fn skipping_hexes_that_cannot_reach_the_threshold_changes_nothing() {
+    let mesh = grid(11, 0.9);
+    let hexes: Vec<[usize; 8]> = mesh
+        .iter()
+        .flat_map(|block| match block {
+            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
+            _ => unreachable!(),
+        })
+        .collect();
+    let coordinates = mesh.coordinates().clone();
+    let scales = scales(&hexes, &coordinates);
+    let energy = || Energy {
+        boundary: &[],
+        hexes: &hexes,
+        lambda: TensorListVec::default(),
+        planes: Vec::new(),
+        rho: Quantity::new(1.0),
+        scales: scales.clone(),
+        scratch: Mutex::default(),
+        theta: Quantity::new(0.3),
+    };
+    let reused = energy();
+    reused.evaluate(&coordinates, Some(&mut Gradient::zero(coordinates.len())));
+    for (round, amplitude) in [1.0e-4, 1.0e-3, 3.0e-3, 1.0e-2, 3.0e-2]
+        .into_iter()
+        .enumerate()
+    {
+        let mut moved = coordinates.clone();
+        moved.iter_mut().enumerate().for_each(|(n, node)| {
+            (0..3).for_each(|i| {
+                node[i] += Quantity::new(amplitude * offset(3 * n + i, round as Scalar))
+            })
+        });
+        assert_eq!(
+            reused.evaluate(&moved, None).value().to_bits(),
+            energy().evaluate(&moved, None).value().to_bits(),
+            "amplitude {amplitude}"
+        );
+    }
+}

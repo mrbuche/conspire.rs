@@ -30,6 +30,8 @@ const SERIAL: usize = 512;
 const CREASE: Quantity = Dimensionless::of(0.866);
 const FIRST: Quantity = Dimensionless::of(0.01);
 const RADIUS: Quantity = Dimensionless::of(0.2);
+const MARGIN: Scalar = 1.0e-9;
+const SAFETY: Scalar = 1.0e-6;
 const RHO: Quantity = Dimensionless::of(1.0e2);
 const STALL: Quantity = Dimensionless::of(1.0e-6);
 const STEP: Quantity = Dimensionless::of(0.01);
@@ -104,10 +106,29 @@ struct Plane {
     slot: usize,
 }
 
+type Part = (Quantity<Area>, CoordinateList<3, 8>, Quantity<Length>);
+
 #[derive(Default)]
 struct Scratch {
-    parts: Vec<(Quantity<Area>, CoordinateList<3, 8>)>,
+    base: Option<(Coordinates<3>, Quantity)>,
+    parts: Vec<Part>,
+    reach: Vec<Quantity<Length>>,
     values: Vec<Quantity<Area>>,
+}
+
+struct Reach<'a> {
+    base: &'a Coordinates<3>,
+    reach: &'a [Quantity<Length>],
+}
+
+impl Reach<'_> {
+    fn holds(&self, index: usize, hex: &[usize; 8], coordinates: &Coordinates<3>) -> bool {
+        let reach = self.reach[index] * (1.0 - SAFETY);
+        reach > Quantity::default()
+            && hex
+                .iter()
+                .all(|&node| (&coordinates[node] - &self.base[node]).norm() < reach)
+    }
 }
 
 struct Energy<'a> {
@@ -381,14 +402,16 @@ impl Energy<'_> {
     fn map_hexes<R>(
         &self,
         coordinates: &Coordinates<3>,
+        skip: Option<Reach>,
         derivative: bool,
         mapped: &mut [R],
-        map: impl Fn((Quantity<Area>, CoordinateList<3, 8>)) -> R + Sync,
+        map: impl Fn(Part) -> R + Sync,
     ) where
         R: Send,
     {
         let chunk = chunk_size(self.hexes.len());
         let map = &map;
+        let skip = &skip;
         scope(|scope| {
             mapped
                 .chunks_mut(chunk)
@@ -398,10 +421,28 @@ impl Energy<'_> {
                     scope.spawn(move || {
                         mapped.iter_mut().zip(hexes).enumerate().for_each(
                             |(offset, (slot, hex))| {
-                                let nodes =
-                                    hex.iter().map(|&node| coordinates[node].clone()).collect();
-                                let scale = self.scales[index * chunk + offset];
-                                *slot = map(terms(self.theta, scale, &nodes, derivative))
+                                let at = index * chunk + offset;
+                                *slot = map(
+                                    if skip
+                                        .as_ref()
+                                        .is_some_and(|skip| skip.holds(at, hex, coordinates))
+                                    {
+                                        Default::default()
+                                    } else {
+                                        let nodes = hex
+                                            .iter()
+                                            .map(|&node| coordinates[node].clone())
+                                            .collect();
+                                        let scale = self.scales[at];
+                                        if derivative {
+                                            bounded(self.theta, scale, &nodes, true)
+                                        } else {
+                                            let (value, slopes) =
+                                                terms(self.theta, scale, &nodes, false);
+                                            (value, slopes, Default::default())
+                                        }
+                                    },
+                                )
                             },
                         )
                     });
@@ -415,25 +456,36 @@ impl Energy<'_> {
     ) -> Quantity<Area> {
         let mut total = Quantity::<Area>::default();
         let mut scratch = self.scratch.lock().unwrap();
+        let Scratch {
+            base,
+            parts,
+            reach,
+            values,
+        } = &mut *scratch;
         match gradient.as_deref_mut() {
             Some(gradient) => {
-                let parts = &mut scratch.parts;
                 parts.resize_with(self.hexes.len(), Default::default);
-                self.map_hexes(coordinates, true, parts, |part| part);
+                self.map_hexes(coordinates, None, true, parts, |part| part);
+                reach.clear();
                 parts
                     .iter()
                     .zip(self.hexes)
-                    .for_each(|((value, slopes), hex)| {
+                    .for_each(|((value, slopes, margin), hex)| {
                         total -= *value;
+                        reach.push(*margin);
                         hex.iter()
                             .zip(slopes.iter())
                             .for_each(|(&node, slope)| gradient[node] -= slope)
-                    })
+                    });
+                *base = Some((coordinates.clone(), self.theta))
             }
             None => {
-                let values = &mut scratch.values;
                 values.resize_with(self.hexes.len(), Default::default);
-                self.map_hexes(coordinates, false, values, |(value, _)| value);
+                let skip = base
+                    .as_ref()
+                    .filter(|(_, theta)| *theta == self.theta)
+                    .map(|(base, _)| Reach { base, reach });
+                self.map_hexes(coordinates, skip, false, values, |(value, _, _)| value);
                 values.iter().for_each(|&value| total -= value)
             }
         }
@@ -467,6 +519,16 @@ fn terms(
     nodes: &CoordinateList<3, 8>,
     derivative: bool,
 ) -> (Quantity<Area>, CoordinateList<3, 8>) {
+    let (value, slopes, _) = bounded(theta, scale, nodes, derivative);
+    (value, slopes)
+}
+
+fn bounded(
+    theta: Quantity,
+    scale: Quantity<Length>,
+    nodes: &CoordinateList<3, 8>,
+    derivative: bool,
+) -> Part {
     let frames: [Frame; 9] = from_fn(|point| Frame::new(&POINTS[point], nodes));
     let (j, lowest_j) = frames
         .iter()
@@ -492,7 +554,11 @@ fn terms(
             .into();
             scatter(&POINTS[j], &g, &mut slopes)
         }
-        (lowest_j / scale - theta * scale * scale, slopes)
+        (
+            lowest_j / scale - theta * scale * scale,
+            slopes,
+            Default::default(),
+        )
     } else if lowest_sj <= theta {
         let area = scale * scale;
         if derivative {
@@ -513,9 +579,19 @@ fn terms(
                 .collect();
             scatter(&POINTS[s], &g, &mut slopes)
         }
-        ((lowest_sj - theta) * area, slopes)
+        ((lowest_sj - theta) * area, slopes, Default::default())
     } else {
-        (Quantity::default(), slopes)
+        let margin = lowest_sj - theta.max(Quantity::default());
+        let reach = if derivative && margin > Dimensionless::of(MARGIN) {
+            let shortest = frames
+                .iter()
+                .flat_map(|frame| frame.lengths.iter().copied())
+                .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
+            margin * shortest / 12.0
+        } else {
+            Default::default()
+        };
+        (Quantity::default(), slopes, reach)
     }
 }
 
