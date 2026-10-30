@@ -7,7 +7,7 @@ use crate::{
             EqualityConstraint, NoSearch, Optimization, OptimizationError, Tolerances, Wolfe,
         },
     },
-    units::{Area, Length},
+    units::{Area, Dimensionless, Length},
 };
 
 fn solver() -> LimitedMemoryBFGS {
@@ -17,8 +17,10 @@ fn solver() -> LimitedMemoryBFGS {
     }
 }
 
-fn rosenbrock(x: &Vector) -> Result<Scalar, String> {
-    Ok((1.0 - x[0]).powi(2) + 100.0 * (x[1] - x[0] * x[0]).powi(2))
+fn rosenbrock(x: &Vector) -> Result<Quantity, String> {
+    Ok(Dimensionless::of(
+        (1.0 - x[0]).powi(2) + 100.0 * (x[1] - x[0] * x[0]).powi(2),
+    ))
 }
 
 fn rosenbrock_gradient(x: &Vector) -> Result<Vector, String> {
@@ -29,8 +31,8 @@ fn rosenbrock_gradient(x: &Vector) -> Result<Vector, String> {
     .into())
 }
 
-fn bowl(x: &Vector) -> Result<Scalar, String> {
-    Ok(x.iter().map(|x| (x - 1.0).powi(2)).sum())
+fn bowl(x: &Vector) -> Result<Quantity, String> {
+    Ok(Dimensionless::of(x.iter().map(|x| (x - 1.0).powi(2)).sum()))
 }
 
 fn bowl_gradient(x: &Vector) -> Result<Vector, String> {
@@ -139,7 +141,7 @@ fn reports_where_it_got_to_when_the_budget_runs_out() -> Result<(), Optimization
 #[test]
 fn stops_when_no_step_decreases_the_function() -> Result<(), OptimizationError> {
     let lying = |_: &Vector| Ok(Vector::from([1.0]));
-    let rising = |x: &Vector| Ok(-x[0]);
+    let rising = |x: &Vector| Ok(Dimensionless::of(-x[0]));
     let descent = solver().descend(rising, lying, Vector::from([0.0]), Vec::new())?;
     assert!(!descent.converged);
     assert!(descent.steps < 500);
@@ -172,7 +174,7 @@ fn relative_tolerance_is_read_against_the_initial_gradient() -> Result<(), Optim
             constraint: 0.0,
             residual: 0.0,
         },
-        rel_tol: Some(1.0e-6),
+        rel_tol: Some(Dimensionless::of(1.0e-6)),
         ..solver()
     };
     let descent = solver.descend(bowl, bowl_gradient, Vector::from([10.0, -7.0]), Vec::new())?;
@@ -210,7 +212,7 @@ fn a_flat_function_gives_no_curvature_to_learn_from() -> Result<(), Optimization
         ..Default::default()
     };
     let descent = solver.descend(
-        |x: &Vector| Ok(x.iter().sum::<Scalar>()),
+        |x: &Vector| Ok(Dimensionless::of(x.iter().sum::<Scalar>())),
         |x: &Vector| Ok(x.iter().map(|_| 1.0).collect::<Vector>()),
         Vector::from([0.0, 0.0]),
         Vec::new(),
@@ -224,7 +226,7 @@ fn a_flat_function_gives_no_curvature_to_learn_from() -> Result<(), Optimization
 fn a_failing_function_is_an_error() {
     assert!(matches!(
         solver().descend(
-            |_: &Vector| Err::<Scalar, _>("broken".to_string()),
+            |_: &Vector| Err::<Quantity, _>("broken".to_string()),
             bowl_gradient,
             Vector::from([0.0]),
             Vec::new(),
@@ -273,11 +275,13 @@ fn descending_from_empty_corrections_is_descending() -> Result<(), OptimizationE
 #[test]
 fn kept_corrections_make_the_next_descent_better() -> Result<(), OptimizationError> {
     let curvature = [1.0, 10.0, 100.0, 1.0e3, 1.0e4];
-    let value = |x: &Vector| -> Result<Scalar, String> {
-        Ok(x.iter()
-            .zip(curvature)
-            .map(|(x, c)| 0.5 * c * (x - 1.0).powi(2))
-            .sum())
+    let value = |x: &Vector| -> Result<Quantity, String> {
+        Ok(Dimensionless::of(
+            x.iter()
+                .zip(curvature)
+                .map(|(x, c)| 0.5 * c * (x - 1.0).powi(2))
+                .sum(),
+        ))
     };
     let slope = |x: &Vector| -> Result<Vector, String> {
         Ok(x.iter()

@@ -28,7 +28,7 @@ pub struct LimitedMemoryBFGS<S = Armijo> {
     /// Maximum number of steps.
     pub max_steps: usize,
     /// Relative error tolerance, on the length of the gradient at the initial guess.
-    pub rel_tol: Option<Scalar>,
+    pub rel_tol: Option<Quantity>,
     /// Length of the first step, in the unit of the solution.
     pub typical: Scalar,
 }
@@ -69,17 +69,16 @@ impl Default for LimitedMemoryBFGS<Armijo> {
     }
 }
 
-impl<S, F, J, X, U> Optimization<F, J, (), X> for LimitedMemoryBFGS<S>
+impl<S, J, X, U> Optimization<Quantity<U>, J, (), X> for LimitedMemoryBFGS<S>
 where
     S: ObjectiveMerit,
-    F: Clone + Into<Quantity<U>> + Tensor,
     J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
     X: FlatView + Solution + Tensor,
     Dimensionless: UnitMul<U, Output = U>,
 {
     fn minimize(
         &self,
-        function: impl FnMut(&X) -> Result<F, String>,
+        function: impl FnMut(&X) -> Result<Quantity<U>, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         _hessian: impl FnMut(&X) -> Result<(), String>,
         initial_guess: X,
@@ -122,15 +121,14 @@ where
 {
     /// Descends until the tolerances are met, no step decreases the function,
     /// or the step budget is spent, returning where it got to in any case.
-    pub fn descend<F, J, X, U>(
+    pub fn descend<J, X, U>(
         &self,
-        function: impl FnMut(&X) -> Result<F, String>,
+        function: impl FnMut(&X) -> Result<Quantity<U>, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraints,
-    ) -> Result<Descent<F, X>, OptimizationError>
+    ) -> Result<Descent<Quantity<U>, X>, OptimizationError>
     where
-        F: Clone + Into<Quantity<U>> + Tensor,
         J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
         X: FlatView + Solution + Tensor,
         Dimensionless: UnitMul<U, Output = U>,
@@ -145,16 +143,15 @@ where
     }
     /// Descends as [`descend`](Self::descend) does, starting from the corrections kept by an
     /// earlier descent and leaving the ones it keeps in their place.
-    pub fn descend_from<F, J, X, U>(
+    pub fn descend_from<J, X, U>(
         &self,
         corrections: &mut Corrections,
-        mut function: impl FnMut(&X) -> Result<F, String>,
+        mut function: impl FnMut(&X) -> Result<Quantity<U>, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
         mut initial_guess: X,
         equality_constraint: EqualityConstraints,
-    ) -> Result<Descent<F, X>, OptimizationError>
+    ) -> Result<Descent<Quantity<U>, X>, OptimizationError>
     where
-        F: Clone + Into<Quantity<U>> + Tensor,
         J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
         X: FlatView + Solution + Tensor,
         Dimensionless: UnitMul<U, Output = U>,
@@ -200,17 +197,17 @@ where
             history.clear();
         }
         let initial = function(&solution)?;
-        let mut value = initial.clone();
+        let mut value = initial;
         let mut reference = None;
         let mut steps = 0;
         let mut converged = false;
         while steps < self.max_steps {
             let magnitude = residual.norm();
             let scale = *reference.get_or_insert(magnitude);
-            if magnitude.value() < self.abs_tol.residual
+            if magnitude < self.abs_tol.residual()
                 || self
                     .rel_tol
-                    .is_some_and(|rel_tol| magnitude.value() < rel_tol * scale.value())
+                    .is_some_and(|rel_tol| magnitude.ratio(scale) < rel_tol)
             {
                 converged = true;
                 break;
@@ -233,11 +230,10 @@ where
                 history.clear();
                 continue;
             }
-            let known: Quantity<U> = value.clone().into();
             let mut accepted = None;
             let mut merit = |step: Quantity<Dimensionless>| {
                 if step.value() == 0.0 {
-                    return Ok(known);
+                    return Ok(value);
                 }
                 let step = step.value();
                 trial
@@ -248,9 +244,8 @@ where
                         *trial = solution + direction * step
                     });
                 let candidate = function(&trial)?;
-                let merit: Quantity<U> = candidate.clone().into();
                 accepted = Some((candidate, step));
-                Ok(merit)
+                Ok(candidate)
             };
             let searched = self
                 .line_search
