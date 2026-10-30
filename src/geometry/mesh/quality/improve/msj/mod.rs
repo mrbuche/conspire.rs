@@ -18,6 +18,7 @@ use crate::{
 use std::{
     array::from_fn,
     iter::once,
+    mem::swap,
     sync::{LazyLock, Mutex},
     thread::{available_parallelism, scope},
 };
@@ -117,28 +118,46 @@ struct Plane {
     slot: usize,
 }
 
-type Part = (Quantity<Area>, CoordinateList<3, 8>, Quantity<Length>);
+type Bound = (Quantity, Quantity<Length>);
+type Part = (Quantity<Area>, CoordinateList<3, 8>, Bound);
 
 #[derive(Default)]
 struct Scratch {
     base: Option<(Coordinates<3>, Quantity)>,
+    bounds: Vec<Bound>,
+    fresh: Vec<Bound>,
     parts: Vec<Part>,
-    reach: Vec<Quantity<Length>>,
     values: Vec<Quantity<Area>>,
 }
 
 struct Reach<'a> {
     base: &'a Coordinates<3>,
-    reach: &'a [Quantity<Length>],
+    bounds: &'a [Bound],
 }
 
 impl Reach<'_> {
-    fn holds(&self, index: usize, hex: &[usize; 8], coordinates: &Coordinates<3>) -> bool {
-        let reach = self.reach[index] * (1.0 - SAFETY);
-        reach > Quantity::default()
-            && hex
-                .iter()
-                .all(|&node| (&coordinates[node] - &self.base[node]).norm() < reach)
+    fn within(
+        &self,
+        index: usize,
+        hex: &[usize; 8],
+        coordinates: &Coordinates<3>,
+    ) -> Option<Quantity<Length>> {
+        let (margin, shortest) = self.bounds[index];
+        let reach = (margin - Dimensionless::of(MARGIN)) * shortest / 12.0 * (1.0 - SAFETY);
+        let moved = hex
+            .iter()
+            .map(|&node| (&coordinates[node] - &self.base[node]).norm())
+            .fold(Quantity::default(), Quantity::max);
+        (reach > Quantity::default() && moved < reach).then_some(moved)
+    }
+    fn decayed(&self, index: usize, moved: Quantity<Length>) -> Bound {
+        let (margin, shortest) = self.bounds[index];
+        let margin = margin - moved / shortest * 12.0;
+        if margin > Dimensionless::of(MARGIN) {
+            (margin, shortest - moved * 2.0)
+        } else {
+            Default::default()
+        }
     }
 }
 
@@ -433,11 +452,15 @@ impl Energy<'_> {
                             |(offset, (slot, hex))| {
                                 let at = index * chunk + offset;
                                 *slot = map(
-                                    if skip
-                                        .as_ref()
-                                        .is_some_and(|skip| skip.holds(at, hex, coordinates))
-                                    {
-                                        Default::default()
+                                    if let Some((skip, moved)) = skip.as_ref().and_then(|skip| {
+                                        skip.within(at, hex, coordinates).map(|moved| (skip, moved))
+                                    }) {
+                                        let bound = if derivative {
+                                            skip.decayed(at, moved)
+                                        } else {
+                                            Default::default()
+                                        };
+                                        (Default::default(), Default::default(), bound)
                                     } else {
                                         let nodes = hex
                                             .iter()
@@ -468,33 +491,40 @@ impl Energy<'_> {
         let mut scratch = self.scratch.lock().unwrap();
         let Scratch {
             base,
+            bounds,
+            fresh,
             parts,
-            reach,
             values,
         } = &mut *scratch;
+        let skip = base
+            .as_ref()
+            .filter(|(_, theta)| *theta == self.theta)
+            .map(|(base, _)| Reach { base, bounds });
         match gradient.as_deref_mut() {
             Some(gradient) => {
                 parts.resize_with(self.hexes.len(), Default::default);
-                self.map_hexes(coordinates, None, true, parts, |part| part);
-                reach.clear();
+                self.map_hexes(coordinates, skip, true, parts, |part| part);
+                fresh.clear();
                 parts
                     .iter()
                     .zip(self.hexes)
-                    .for_each(|((value, slopes, margin), hex)| {
+                    .for_each(|((value, slopes, bound), hex)| {
                         total -= *value;
-                        reach.push(*margin);
-                        hex.iter()
-                            .zip(slopes.iter())
-                            .for_each(|(&node, slope)| gradient[node] -= slope)
+                        fresh.push(*bound);
+                        if slopes
+                            .iter()
+                            .any(|slope| (0..3).any(|i| slope[i] != Quantity::default()))
+                        {
+                            hex.iter()
+                                .zip(slopes.iter())
+                                .for_each(|(&node, slope)| gradient[node] -= slope)
+                        }
                     });
+                swap(bounds, fresh);
                 *base = Some((coordinates.clone(), self.theta))
             }
             None => {
                 values.resize_with(self.hexes.len(), Default::default);
-                let skip = base
-                    .as_ref()
-                    .filter(|(_, theta)| *theta == self.theta)
-                    .map(|(base, _)| Reach { base, reach });
                 self.map_hexes(coordinates, skip, false, values, |(value, _, _)| value);
                 values.iter().for_each(|&value| total -= value)
             }
@@ -592,16 +622,16 @@ fn bounded(
         ((lowest_sj - theta) * area, slopes, Default::default())
     } else {
         let margin = lowest_sj - theta.max(Quantity::default());
-        let reach = if derivative && margin > Dimensionless::of(MARGIN) {
+        let bound = if derivative && margin > Dimensionless::of(MARGIN) {
             let shortest = frames
                 .iter()
                 .flat_map(|frame| frame.lengths.iter().copied())
                 .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
-            margin * shortest / 12.0
+            (margin, shortest)
         } else {
             Default::default()
         };
-        (Quantity::default(), slopes, reach)
+        (Quantity::default(), slopes, bound)
     }
 }
 
