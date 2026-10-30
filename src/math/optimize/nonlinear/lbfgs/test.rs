@@ -3,7 +3,9 @@ use crate::{
     math::{
         Matrix, Quantity, Reference, Scalar, Tensor, TensorRank1Vec, Vector,
         assert::{Assert, AssertionError},
-        optimize::{EqualityConstraint, NoSearch, Optimization, OptimizationError, Tolerances},
+        optimize::{
+            EqualityConstraint, NoSearch, Optimization, OptimizationError, Tolerances, Wolfe,
+        },
     },
     units::{Area, Length},
 };
@@ -294,4 +296,27 @@ fn kept_corrections_make_the_next_descent_better() -> Result<(), OptimizationErr
     let fresh = short.descend(value, slope, first.solution, Vec::new())?;
     assert!(carried.value < 0.5 * fresh.value);
     Ok(())
+}
+
+#[test]
+fn the_wolfe_conditions_can_search() -> Result<(), AssertionError> {
+    let solver = solver().with_line_search(Wolfe {
+        control_1: 1.0e-4,
+        control_2: 0.9,
+        cut_back: 0.5,
+        max_steps: 27,
+        strong: false,
+    });
+    Assert::default().eq_within_tols(
+        &solver
+            .descend(
+                rosenbrock,
+                rosenbrock_gradient,
+                [-1.2, 1.0].into(),
+                Vec::new(),
+            )
+            .map_err(|error| AssertionError::from(format!("{error}")))?
+            .solution,
+        &[1.0, 1.0].into(),
+    )
 }

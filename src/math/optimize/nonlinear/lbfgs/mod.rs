@@ -2,14 +2,14 @@
 mod test;
 
 use crate::math::{
-    Erase, FlatView, Is, Scalar, Solution, Tensor, Vector,
+    ContractWith, FlatView, Quantity, Scalar, Solution, Tensor, Vector,
     optimize::{
         Armijo, EqualityConstraint, EqualityConstraints, ObjectiveMerit, Optimization,
         OptimizationError, Tolerances,
     },
     sparse::SparseSolver,
 };
-use crate::units::{UnitMul, UnitSum};
+use crate::units::{Dimensionless, UnitMul};
 use std::{collections::VecDeque, mem::swap};
 
 const CURVATURE_FLOOR: Scalar = 1.0e-12;
@@ -69,16 +69,13 @@ impl Default for LimitedMemoryBFGS<Armijo> {
     }
 }
 
-impl<S, F, J, X> Optimization<F, J, (), X> for LimitedMemoryBFGS<S>
+impl<S, F, J, X, U> Optimization<F, J, (), X> for LimitedMemoryBFGS<S>
 where
     S: ObjectiveMerit,
-    F: Erase<Erased = Scalar> + Tensor,
-    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
-    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
-    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
-        Is<<F as Tensor>::Unit>,
-    J: FlatView + Tensor,
+    F: Clone + Into<Quantity<U>> + Tensor,
+    J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
     X: FlatView + Solution + Tensor,
+    Dimensionless: UnitMul<U, Output = U>,
 {
     fn minimize(
         &self,
@@ -125,7 +122,7 @@ where
 {
     /// Descends until the tolerances are met, no step decreases the function,
     /// or the step budget is spent, returning where it got to in any case.
-    pub fn descend<F, J, X>(
+    pub fn descend<F, J, X, U>(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -133,13 +130,10 @@ where
         equality_constraint: EqualityConstraints,
     ) -> Result<Descent<F, X>, OptimizationError>
     where
-        F: Erase<Erased = Scalar> + Tensor,
-        <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
-        <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
-        <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
-            Is<<F as Tensor>::Unit>,
-        J: FlatView + Tensor,
+        F: Clone + Into<Quantity<U>> + Tensor,
+        J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
         X: FlatView + Solution + Tensor,
+        Dimensionless: UnitMul<U, Output = U>,
     {
         self.descend_from(
             &mut Corrections::default(),
@@ -151,7 +145,7 @@ where
     }
     /// Descends as [`descend`](Self::descend) does, starting from the corrections kept by an
     /// earlier descent and leaving the ones it keeps in their place.
-    pub fn descend_from<F, J, X>(
+    pub fn descend_from<F, J, X, U>(
         &self,
         corrections: &mut Corrections,
         mut function: impl FnMut(&X) -> Result<F, String>,
@@ -160,13 +154,10 @@ where
         equality_constraint: EqualityConstraints,
     ) -> Result<Descent<F, X>, OptimizationError>
     where
-        F: Erase<Erased = Scalar> + Tensor,
-        <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
-        <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
-        <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
-            Is<<F as Tensor>::Unit>,
-        J: FlatView + Tensor,
+        F: Clone + Into<Quantity<U>> + Tensor,
+        J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
         X: FlatView + Solution + Tensor,
+        Dimensionless: UnitMul<U, Output = U>,
     {
         let unsupported = || {
             OptimizationError::Intermediate(format!(
@@ -237,23 +228,51 @@ where
                 history.clear();
                 continue;
             }
+            let decrement: X = direction
+                .iter()
+                .map(|direction| -direction)
+                .collect::<Vector>()
+                .into();
+            let known: Quantity<U> = value.clone().into();
+            let initial_slope = residual.contract_with(&decrement);
             let mut accepted = None;
-            let mut merit = |step: Scalar| {
+            let mut merit = |step: Quantity<Dimensionless>| {
+                if step.value() == 0.0 {
+                    return Ok(known);
+                }
+                let step = step.value();
                 trial
                     .as_flat_mut()
                     .iter_mut()
-                    .zip(solution.as_flat().iter().zip(direction.iter()))
+                    .zip(solution.as_flat().iter().zip(&direction))
                     .for_each(|(trial, (solution, direction))| {
                         *trial = solution + direction * step
                     });
                 let candidate = function(&trial)?;
-                let merit = *candidate.erase();
+                let merit: Quantity<U> = candidate.clone().into();
                 accepted = Some((candidate, step));
                 Ok(merit)
             };
             let searched = self
                 .line_search
-                .search_merit(&mut merit, *value.erase(), -slope, 1.0)
+                .search(
+                    &mut merit,
+                    |step: Quantity<Dimensionless>| {
+                        if step.value() == 0.0 {
+                            return Ok(initial_slope);
+                        }
+                        let mut point = solution.clone();
+                        point
+                            .as_flat_mut()
+                            .iter_mut()
+                            .zip(solution.as_flat().iter().zip(&direction))
+                            .for_each(|(point, (solution, direction))| {
+                                *point = solution + direction * step.value()
+                            });
+                        Ok(gradient(&point)?.contract_with(&decrement))
+                    },
+                    Dimensionless::of(1.0),
+                )
                 .map_err(|error| OptimizationError::upstream(error, self))
                 .and_then(|step| {
                     if S::SEARCHES {
