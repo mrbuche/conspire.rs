@@ -10,6 +10,7 @@ use crate::{
     },
     units::{Area, Dimensionless, Length},
 };
+use std::collections::VecDeque;
 
 fn solver() -> LimitedMemoryBFGS {
     LimitedMemoryBFGS {
@@ -334,7 +335,7 @@ fn sample(index: usize, seed: Scalar) -> Scalar {
     (0.7 * index as Scalar + seed).sin()
 }
 
-fn recorded(length: usize, pairs: usize) -> std::collections::VecDeque<(Vector, Vector, Scalar)> {
+fn recorded(length: usize, pairs: usize) -> VecDeque<(Vector, Vector, Scalar)> {
     (0..pairs)
         .map(|k| {
             let s: Vector = (0..length).map(|i| sample(i, k as Scalar)).collect();
