@@ -348,8 +348,12 @@ fn recorded(length: usize, pairs: usize) -> VecDeque<(Vector, Vector, Scalar)> {
         .collect()
 }
 
+fn flat(values: &[Scalar]) -> Vector {
+    values.iter().copied().collect()
+}
+
 #[test]
-fn the_recursion_does_not_depend_on_the_number_of_workers() {
+fn the_recursion_does_not_depend_on_the_number_of_workers() -> Result<(), AssertionError> {
     let length = 5 * BLOCK + 17;
     let history = recorded(length, 4);
     let gradient: Vec<Scalar> = (0..length).map(|i| sample(i, 99.0)).collect();
@@ -358,36 +362,31 @@ fn the_recursion_does_not_depend_on_the_number_of_workers() {
     for workers in [2, 3, 5, 8, 64] {
         let mut result = vec![0.0; length];
         two_loop_with(workers, &gradient, &history, 0.3, &mut result);
-        assert!(
-            result
-                .iter()
-                .zip(&reference)
-                .all(|(a, b)| a.to_bits() == b.to_bits()),
-            "{workers} workers"
-        );
+        Assert::eq(flat(&result), flat(&reference))?
     }
+    Ok(())
 }
 
 #[test]
-fn the_recursion_is_the_textbook_one() {
+fn the_recursion_is_the_textbook_one() -> Result<(), AssertionError> {
     let length = 3 * BLOCK + 5;
     let history = recorded(length, 5);
     let gradient: Vec<Scalar> = (0..length).map(|i| sample(i, 7.0)).collect();
-    let flat = |a: &[Scalar], b: &[Scalar]| a.iter().zip(b).map(|(a, b)| a * b).sum::<Scalar>();
+    let sum = |a: &[Scalar], b: &[Scalar]| a.iter().zip(b).map(|(a, b)| a * b).sum::<Scalar>();
     let mut q = gradient.clone();
     let mut alphas = Vec::new();
     for (s, y, rho) in history.iter().rev() {
-        let alpha = rho * flat(s.as_slice(), &q);
+        let alpha = rho * sum(s.as_slice(), &q);
         q.iter_mut()
             .zip(y.iter())
             .for_each(|(q, y)| *q -= alpha * y);
         alphas.push(alpha);
     }
     let (s, y, _) = history.back().unwrap();
-    let gamma = flat(s.as_slice(), y.as_slice()) / flat(y.as_slice(), y.as_slice());
+    let gamma = sum(s.as_slice(), y.as_slice()) / sum(y.as_slice(), y.as_slice());
     q.iter_mut().for_each(|q| *q *= -gamma);
     for ((s, y, rho), alpha) in history.iter().zip(alphas.iter().rev()) {
-        let beta = rho * flat(y.as_slice(), &q);
+        let beta = rho * sum(y.as_slice(), &q);
         q.iter_mut()
             .zip(s.iter())
             .for_each(|(q, s)| *q -= (alpha + beta) * s);
@@ -395,10 +394,10 @@ fn the_recursion_is_the_textbook_one() {
     let mut result = vec![0.0; length];
     two_loop_with(4, &gradient, &history, 0.3, &mut result);
     let scale = q.iter().map(|q| q.abs()).fold(0.0, Scalar::max);
-    assert!(
-        result
-            .iter()
-            .zip(&q)
-            .all(|(a, b)| (a - b).abs() <= 1.0e-10 * scale)
-    );
+    Assert {
+        abs_tol: 1.0e-10 * scale,
+        rel_tol: 1.0e-10,
+        ..Default::default()
+    }
+    .eq_within_tols(flat(&result), flat(&q))
 }
