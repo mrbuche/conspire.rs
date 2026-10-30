@@ -345,55 +345,74 @@ impl<'a> Surface<'a> {
         coordinates: &Coordinates<3>,
     ) -> Vec<Plane> {
         let bvh = self.target.bvh();
-        let mut planes = Vec::new();
-        boundary.iter().enumerate().for_each(|(index, &node)| {
-            let position = &coordinates[node];
-            let Some((point, first)) = bvh.closest_point(position, self.surface, &self.elements)
-            else {
-                return;
-            };
-            let reach = sizes[node] * RADIUS;
-            let (low, high) = (
-                from_fn(|i| point[i] - reach).into(),
-                from_fn(|i| point[i] + reach).into(),
-            );
-            let query: BoundingBox<3> = [&low, &high]
+        let (surface, elements, normals) = (self.surface, &self.elements, &self.normals);
+        let chunk = chunk_size(boundary.len());
+        scope(|scope| {
+            boundary
+                .chunks(chunk)
+                .enumerate()
+                .map(|(block, nodes)| {
+                    scope.spawn(move || {
+                        let mut planes = Vec::new();
+                        nodes.iter().enumerate().for_each(|(offset, &node)| {
+                            let index = block * chunk + offset;
+                            let position = &coordinates[node];
+                            let Some((point, first)) =
+                                bvh.closest_point(position, surface, elements)
+                            else {
+                                return;
+                            };
+                            let reach = sizes[node] * RADIUS;
+                            let (low, high) = (
+                                from_fn(|i| point[i] - reach).into(),
+                                from_fn(|i| point[i] + reach).into(),
+                            );
+                            let query: BoundingBox<3> = [&low, &high]
+                                .into_iter()
+                                .collect::<CoordinatesRef<'_, 3>>()
+                                .into();
+                            let mut kept = Vec::<Direction<3>>::new();
+                            for triangle in once(first).chain(bvh.overlapping(&query)) {
+                                if kept.len() == CAP {
+                                    break;
+                                }
+                                let nodes = elements[triangle];
+                                if triangle != first
+                                    && !query.overlaps_triangle(
+                                        &surface[nodes[0]],
+                                        &surface[nodes[1]],
+                                        &surface[nodes[2]],
+                                    )
+                                {
+                                    continue;
+                                }
+                                let normal = normals[triangle].clone();
+                                if kept.iter().any(|other| (other * &normal).abs() > CREASE) {
+                                    continue;
+                                }
+                                let plane = Plane {
+                                    boundary: index,
+                                    offset: &surface[elements[triangle][0]] * &normal,
+                                    normal,
+                                    slot: kept.len(),
+                                };
+                                if triangle != first
+                                    && plane.residual(position).abs() > sizes[node] * TOLERANCE
+                                {
+                                    continue;
+                                }
+                                kept.push(plane.normal.clone());
+                                planes.push(plane)
+                            }
+                        });
+                        planes
+                    })
+                })
+                .collect::<Vec<_>>()
                 .into_iter()
-                .collect::<CoordinatesRef<'_, 3>>()
-                .into();
-            let mut kept = Vec::<Direction<3>>::new();
-            for triangle in once(first).chain(bvh.overlapping(&query)) {
-                if kept.len() == CAP {
-                    break;
-                }
-                let nodes = self.elements[triangle];
-                if triangle != first
-                    && !query.overlaps_triangle(
-                        &self.surface[nodes[0]],
-                        &self.surface[nodes[1]],
-                        &self.surface[nodes[2]],
-                    )
-                {
-                    continue;
-                }
-                let normal = self.normals[triangle].clone();
-                if kept.iter().any(|other| (other * &normal).abs() > CREASE) {
-                    continue;
-                }
-                let plane = Plane {
-                    boundary: index,
-                    offset: &self.surface[self.elements[triangle][0]] * &normal,
-                    normal,
-                    slot: kept.len(),
-                };
-                if triangle != first && plane.residual(position).abs() > sizes[node] * TOLERANCE {
-                    continue;
-                }
-                kept.push(plane.normal.clone());
-                planes.push(plane)
-            }
-        });
-        planes
+                .flat_map(|handle| handle.join().unwrap())
+                .collect()
+        })
     }
 }
 

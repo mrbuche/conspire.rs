@@ -1,5 +1,6 @@
 use super::{
-    Energy, Frame, Gradient, POINTS, Reach, SERIAL, bounded, displacements, scales, terms,
+    Energy, Frame, Gradient, POINTS, Reach, SERIAL, Surface, bounded, displacements, node_scales,
+    scales, terms,
 };
 use crate::{
     geometry::{
@@ -7,7 +8,10 @@ use crate::{
         mesh::{Connectivity, Dualization, Fitting, Mesh, MeshError, Tessellation, Verdict},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
-    math::{Quantity, Scalar, Tensor, TensorListVec},
+    math::{
+        Quantity, Scalar, Tensor, TensorListVec,
+        assert::{Assert, AssertionError},
+    },
     units::{Area, Dimensionless},
 };
 use std::{collections::BTreeSet, f64::consts::TAU, sync::Mutex, time::Instant};
@@ -625,4 +629,48 @@ fn the_decayed_bound_never_exceeds_what_the_moved_hexahedron_still_has() {
         assert!(margin >= lower && shortest >= shorter, "seed {seed}");
     }
     assert_eq!(skipped, 200);
+}
+
+#[test]
+fn planes_do_not_depend_on_how_the_nodes_are_shared_among_threads() -> Result<(), AssertionError> {
+    let mesh = grid(15, 0.5);
+    let hexes: Vec<[usize; 8]> = mesh
+        .iter()
+        .flat_map(|block| match block {
+            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
+            _ => unreachable!(),
+        })
+        .collect();
+    let mut boundary: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
+    boundary.sort_unstable();
+    boundary.dedup();
+    assert!(boundary.len() > 2 * SERIAL);
+    let coordinates = mesh.coordinates().clone();
+    let sizes = node_scales(
+        &boundary,
+        &hexes,
+        &scales(&hexes, &coordinates),
+        coordinates.len(),
+    );
+    let target = cube();
+    let surface = Surface::new(&target);
+    let planes = surface.planes(&boundary, &sizes, &coordinates);
+    let mut expected = Vec::new();
+    for (index, &node) in boundary.iter().enumerate() {
+        for mut plane in surface.planes(&[node], &sizes, &coordinates) {
+            plane.boundary = index;
+            expected.push(plane)
+        }
+    }
+    assert!(!planes.is_empty());
+    assert_eq!(planes.len(), expected.len());
+    for (plane, expected) in planes.iter().zip(&expected) {
+        assert_eq!(
+            (plane.boundary, plane.slot),
+            (expected.boundary, expected.slot)
+        );
+        Assert::eq(plane.offset.value(), expected.offset.value())?;
+        Assert::eq(&plane.normal, &expected.normal)?
+    }
+    Ok(())
 }
