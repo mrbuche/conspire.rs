@@ -4,7 +4,8 @@ use crate::{
         Matrix, Quantity, Reference, Scalar, Tensor, TensorRank1Vec, Vector,
         assert::{Assert, AssertionError},
         optimize::{
-            EqualityConstraint, NoSearch, Optimization, OptimizationError, Tolerances, Wolfe,
+            Armijo, EqualityConstraint, NoSearch, Optimization, OptimizationError, Tolerances,
+            Wolfe,
         },
     },
     units::{Area, Dimensionless, Length},
@@ -56,7 +57,11 @@ fn rosenbrock_converges() -> Result<(), AssertionError> {
 
 #[test]
 fn converges_on_a_typed_problem_with_units() -> Result<(), AssertionError> {
-    let solution = solver().minimize(
+    let solution = LimitedMemoryBFGS::<Armijo, Length> {
+        max_steps: 500,
+        ..Default::default()
+    }
+    .minimize(
         |x: &TensorRank1Vec<3, Reference, Length>| {
             Ok(Quantity::<Area>::new(
                 x.as_flat().iter().map(|x| (x - 1.0).powi(2)).sum(),
@@ -195,7 +200,7 @@ fn takes_whole_steps_without_a_line_search() -> Result<(), OptimizationError> {
 fn an_ascent_direction_is_never_followed() -> Result<(), OptimizationError> {
     let solver = LimitedMemoryBFGS {
         max_steps: 5,
-        typical: -1.0,
+        typical: Dimensionless::of(-1.0),
         ..Default::default()
     };
     let descent = solver.descend(bowl, bowl_gradient, Vector::from([3.0, 3.0]), Vec::new())?;

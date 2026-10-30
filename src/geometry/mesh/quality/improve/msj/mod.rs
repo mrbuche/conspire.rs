@@ -35,7 +35,7 @@ const STALL: Quantity = Dimensionless::of(1.0e-6);
 const STEP: Quantity = Dimensionless::of(0.01);
 const TOLERANCE: Quantity = Dimensionless::of(1.0e-3);
 
-fn solver(typical: Scalar) -> LimitedMemoryBFGS {
+fn solver(typical: Quantity<Length>) -> LimitedMemoryBFGS<Armijo, Length> {
     LimitedMemoryBFGS {
         abs_tol: Tolerances {
             constraint: 0.0,
@@ -185,7 +185,7 @@ impl Mesh<3> {
                         sweeps,
                     });
                 }
-                let descent = solver((FIRST * energy.typical()).value())
+                let descent = solver(FIRST * energy.typical())
                     .descend_from(
                         &mut corrections,
                         |x| Ok(energy.evaluate(x, None)),

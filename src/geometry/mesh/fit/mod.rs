@@ -49,7 +49,7 @@ const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
 
-fn solver(typical: Scalar, residual: Scalar) -> LimitedMemoryBFGS {
+fn solver(typical: Quantity<Length>, residual: Scalar) -> LimitedMemoryBFGS<Armijo, Length> {
     LimitedMemoryBFGS {
         abs_tol: Tolerances {
             constraint: 0.0,
@@ -562,13 +562,12 @@ impl Sweep<'_> {
         &self,
         coordinates: &mut Coordinates<3>,
     ) -> Result<(Scalar, Quantity<Length>, bool), &'static str> {
-        let typical = (self
+        let typical = self
             .nodes
             .iter()
             .map(|&node| self.lengths[node])
             .sum::<Quantity<Length>>()
-            / self.nodes.len().max(1) as Scalar)
-            .value();
+            / self.nodes.len().max(1) as Scalar;
         let initial: Coordinates<3> = self
             .nodes
             .iter()

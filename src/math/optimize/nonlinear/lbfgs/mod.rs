@@ -9,7 +9,8 @@ use crate::math::{
     },
     sparse::SparseSolver,
 };
-use crate::units::{Dimensionless, UnitMul};
+use crate::units::{Dimensionless, UnitDiv, UnitMul};
+use std::fmt::{self, Debug, Formatter};
 use std::{collections::VecDeque, mem::swap};
 
 const CURVATURE_FLOOR: Scalar = 1.0e-12;
@@ -17,8 +18,8 @@ const CURVATURE_FLOOR: Scalar = 1.0e-12;
 /// The limited-memory Broyden-Fletcher-Goldfarb-Shanno method.[^1]
 ///
 /// [^1]: D.C. Liu and J. Nocedal, [Math. Program. **45**, 503 (1989)](https://doi.org/10.1007/BF01589116).
-#[derive(Clone, Debug)]
-pub struct LimitedMemoryBFGS<S = Armijo> {
+#[derive(Clone)]
+pub struct LimitedMemoryBFGS<S = Armijo, W = Dimensionless> {
     /// Absolute error tolerances, the residual being the length of the gradient.
     pub abs_tol: Tolerances,
     /// Number of corrections kept.
@@ -30,7 +31,25 @@ pub struct LimitedMemoryBFGS<S = Armijo> {
     /// Relative error tolerance, on the length of the gradient at the initial guess.
     pub rel_tol: Option<Quantity>,
     /// Length of the first step, in the unit of the solution.
-    pub typical: Scalar,
+    pub typical: Quantity<W>,
+}
+
+impl<S, W> Debug for LimitedMemoryBFGS<S, W>
+where
+    S: Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "LimitedMemoryBFGS {{ abs_tol: {:?}, history: {:?}, line_search: {:?}, max_steps: {:?}, rel_tol: {:?}, typical: {:?} }}",
+            self.abs_tol,
+            self.history,
+            self.line_search,
+            self.max_steps,
+            self.rel_tol,
+            self.typical
+        )
+    }
 }
 
 /// The corrections a descent has kept, which a later descent on a nearby function can start from.
@@ -52,7 +71,7 @@ pub struct Descent<F, X> {
     pub value: F,
 }
 
-impl Default for LimitedMemoryBFGS<Armijo> {
+impl<W> Default for LimitedMemoryBFGS<Armijo, W> {
     fn default() -> Self {
         Self {
             abs_tol: Tolerances::default(),
@@ -64,17 +83,18 @@ impl Default for LimitedMemoryBFGS<Armijo> {
             },
             max_steps: 250,
             rel_tol: None,
-            typical: 1.0,
+            typical: Quantity::new(1.0),
         }
     }
 }
 
-impl<S, J, X, U> Optimization<Quantity<U>, J, (), X> for LimitedMemoryBFGS<S>
+impl<S, W, J, X, U> Optimization<Quantity<U>, J, (), X> for LimitedMemoryBFGS<S, W>
 where
     S: ObjectiveMerit,
     J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
-    X: FlatView + Solution + Tensor,
+    X: FlatView + Solution + Tensor<Unit = W>,
     Dimensionless: UnitMul<U, Output = U>,
+    W: UnitDiv<<J as Tensor>::Unit>,
 {
     fn minimize(
         &self,
@@ -101,9 +121,9 @@ where
     }
 }
 
-impl<S> LimitedMemoryBFGS<S> {
+impl<S, W> LimitedMemoryBFGS<S, W> {
     /// The same solver, searching along each direction with another line search.
-    pub fn with_line_search<T>(self, line_search: T) -> LimitedMemoryBFGS<T> {
+    pub fn with_line_search<T>(self, line_search: T) -> LimitedMemoryBFGS<T, W> {
         LimitedMemoryBFGS {
             abs_tol: self.abs_tol,
             history: self.history,
@@ -115,7 +135,7 @@ impl<S> LimitedMemoryBFGS<S> {
     }
 }
 
-impl<S> LimitedMemoryBFGS<S>
+impl<S, W> LimitedMemoryBFGS<S, W>
 where
     S: ObjectiveMerit,
 {
@@ -130,8 +150,9 @@ where
     ) -> Result<Descent<Quantity<U>, X>, OptimizationError>
     where
         J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
-        X: FlatView + Solution + Tensor,
+        X: FlatView + Solution + Tensor<Unit = W>,
         Dimensionless: UnitMul<U, Output = U>,
+        W: UnitDiv<<J as Tensor>::Unit>,
     {
         self.descend_from(
             &mut Corrections::default(),
@@ -153,8 +174,9 @@ where
     ) -> Result<Descent<Quantity<U>, X>, OptimizationError>
     where
         J: ContractWith<X, Output = Quantity<U>> + FlatView + Tensor,
-        X: FlatView + Solution + Tensor,
+        X: FlatView + Solution + Tensor<Unit = W>,
         Dimensionless: UnitMul<U, Output = U>,
+        W: UnitDiv<<J as Tensor>::Unit>,
     {
         let unsupported = || {
             OptimizationError::Intermediate(format!(
@@ -216,7 +238,7 @@ where
             two_loop(
                 residual.as_flat(),
                 &*history,
-                self.typical / magnitude.value(),
+                (self.typical / magnitude).value(),
                 direction.as_mut_slice(),
                 &mut alphas,
             );
