@@ -11,8 +11,18 @@ use crate::math::{
 };
 use crate::units::{Dimensionless, UnitDiv, UnitMul};
 use std::fmt::{self, Debug, Formatter};
-use std::{collections::VecDeque, mem::swap};
+use std::{
+    collections::VecDeque,
+    mem::swap,
+    ops::Range,
+    sync::{
+        Barrier,
+        atomic::{AtomicU64, Ordering},
+    },
+    thread::{available_parallelism, scope},
+};
 
+const BLOCK: usize = 4096;
 const CURVATURE_FLOOR: Scalar = 1.0e-12;
 
 /// The limited-memory Broyden-Fletcher-Goldfarb-Shanno method.[^1]
@@ -210,7 +220,6 @@ where
         let mut trial = solution.clone();
         let mut residual = gradient(&solution)?;
         let mut direction = Vector::zero(n);
-        let mut alphas = Vec::with_capacity(self.history);
         let history = &mut corrections.0;
         if history
             .front()
@@ -240,7 +249,6 @@ where
                 &*history,
                 (self.typical / magnitude).value(),
                 direction.as_mut_slice(),
-                &mut alphas,
             );
             let decrement: X = direction
                 .iter()
@@ -335,43 +343,140 @@ where
     }
 }
 
+struct Reduction {
+    barrier: Barrier,
+    slots: [Vec<AtomicU64>; 2],
+}
+
+impl Reduction {
+    fn new(workers: usize, blocks: usize) -> Self {
+        Self {
+            barrier: Barrier::new(workers),
+            slots: [(); 2].map(|()| (0..blocks).map(|_| AtomicU64::new(0)).collect()),
+        }
+    }
+    fn sum(&self, turn: &mut usize, mine: Range<usize>, block: impl Fn(usize) -> Scalar) -> Scalar {
+        let slots = &self.slots[*turn % 2];
+        *turn += 1;
+        mine.for_each(|index| slots[index].store(block(index).to_bits(), Ordering::Relaxed));
+        self.barrier.wait();
+        slots
+            .iter()
+            .map(|slot| Scalar::from_bits(slot.load(Ordering::Relaxed)))
+            .fold(0.0, Scalar::algebraic_add)
+    }
+}
+
+fn view(vector: &Vector, offset: usize, length: usize) -> &[Scalar] {
+    &vector.as_slice()[offset..offset + length]
+}
+
 fn two_loop(
     gradient: &[Scalar],
     history: &VecDeque<(Vector, Vector, Scalar)>,
     fallback: Scalar,
     q: &mut [Scalar],
-    alphas: &mut Vec<Scalar>,
+) {
+    let workers = if q.len() < 4 * BLOCK {
+        1
+    } else {
+        available_parallelism().map_or(1, |threads| threads.get())
+    };
+    two_loop_with(workers, gradient, history, fallback, q)
+}
+
+fn two_loop_with(
+    workers: usize,
+    gradient: &[Scalar],
+    history: &VecDeque<(Vector, Vector, Scalar)>,
+    fallback: Scalar,
+    q: &mut [Scalar],
 ) {
     q.iter_mut()
         .zip(gradient.iter())
         .for_each(|(q, gradient)| *q = *gradient);
-    alphas.clear();
-    history.iter().rev().for_each(|(s, y, rho)| {
-        let alpha = rho * dot(s.as_slice(), q);
-        q.iter_mut()
-            .zip(y.iter())
-            .for_each(|(q, y)| *q -= alpha * y);
-        alphas.push(alpha)
-    });
-    let gamma = history.back().map_or(fallback, |(s, y, _)| {
-        dot(s.as_slice(), y.as_slice()) / dot(y.as_slice(), y.as_slice())
-    });
-    q.iter_mut().for_each(|q| *q *= -gamma);
-    history
-        .iter()
-        .zip(alphas.iter().rev())
-        .for_each(|((s, y, rho), alpha)| {
-            let beta = rho * dot(y.as_slice(), q);
+    if q.is_empty() {
+        return;
+    }
+    let blocks = q.len().div_ceil(BLOCK);
+    let per = blocks.div_ceil(workers.clamp(1, blocks));
+    let reduction = Reduction::new(blocks.div_ceil(per), blocks);
+    let recursion = |worker: usize, q: &mut [Scalar]| {
+        let first = worker * per;
+        let offset = first * BLOCK;
+        let length = q.len();
+        let mine = first..first + length.div_ceil(BLOCK);
+        let span = |index: usize| {
+            let low = (index - first) * BLOCK;
+            (low, (low + BLOCK).min(length))
+        };
+        let mut turn = 0;
+        let mut alphas = Vec::with_capacity(history.len());
+        for (s, y, rho) in history.iter().rev() {
+            let s = view(s, offset, length);
+            let alpha = rho
+                * reduction.sum(&mut turn, mine.clone(), |index| {
+                    let (low, high) = span(index);
+                    partial(&s[low..high], &q[low..high])
+                });
             q.iter_mut()
-                .zip(s.iter())
+                .zip(view(y, offset, length))
+                .for_each(|(q, y)| *q -= alpha * y);
+            alphas.push(alpha)
+        }
+        let gamma = match history.back() {
+            Some((s, y, _)) => {
+                let (s, y) = (view(s, offset, length), view(y, offset, length));
+                let sy = reduction.sum(&mut turn, mine.clone(), |index| {
+                    let (low, high) = span(index);
+                    partial(&s[low..high], &y[low..high])
+                });
+                let yy = reduction.sum(&mut turn, mine.clone(), |index| {
+                    let (low, high) = span(index);
+                    partial(&y[low..high], &y[low..high])
+                });
+                sy / yy
+            }
+            None => fallback,
+        };
+        q.iter_mut().for_each(|q| *q *= -gamma);
+        for ((s, y, rho), alpha) in history.iter().zip(alphas.iter().rev()) {
+            let y = view(y, offset, length);
+            let beta = rho
+                * reduction.sum(&mut turn, mine.clone(), |index| {
+                    let (low, high) = span(index);
+                    partial(&y[low..high], &q[low..high])
+                });
+            q.iter_mut()
+                .zip(view(s, offset, length))
                 .for_each(|(q, s)| *q -= (alpha + beta) * s)
+        }
+    };
+    if blocks.div_ceil(per) == 1 {
+        recursion(0, q)
+    } else {
+        scope(|scope| {
+            q.chunks_mut(per * BLOCK)
+                .enumerate()
+                .for_each(|(worker, q)| {
+                    let recursion = &recursion;
+                    scope.spawn(move || recursion(worker, q));
+                })
         });
+    }
 }
 
-fn dot(a: &[Scalar], b: &[Scalar]) -> Scalar {
+fn partial(a: &[Scalar], b: &[Scalar]) -> Scalar {
     a.iter()
         .zip(b.iter())
         .map(|(a, b)| a.algebraic_mul(*b))
+        .fold(0.0, Scalar::algebraic_add)
+}
+
+fn dot(a: &[Scalar], b: &[Scalar]) -> Scalar {
+    a.chunks(BLOCK)
+        .zip(b.chunks(BLOCK))
+        .map(|(a, b)| partial(a, b))
         .fold(0.0, Scalar::algebraic_add)
 }
 

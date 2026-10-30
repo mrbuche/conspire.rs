@@ -1,4 +1,4 @@
-use super::{Corrections, LimitedMemoryBFGS};
+use super::{BLOCK, Corrections, LimitedMemoryBFGS, dot, two_loop_with};
 use crate::{
     math::{
         Matrix, Quantity, Reference, Scalar, Tensor, TensorRank1Vec, Vector,
@@ -328,4 +328,76 @@ fn the_wolfe_conditions_can_search() -> Result<(), AssertionError> {
             .solution,
         &[1.0, 1.0].into(),
     )
+}
+
+fn sample(index: usize, seed: Scalar) -> Scalar {
+    (0.7 * index as Scalar + seed).sin()
+}
+
+fn recorded(length: usize, pairs: usize) -> std::collections::VecDeque<(Vector, Vector, Scalar)> {
+    (0..pairs)
+        .map(|k| {
+            let s: Vector = (0..length).map(|i| sample(i, k as Scalar)).collect();
+            let y: Vector = (0..length)
+                .map(|i| sample(i, 10.0 + k as Scalar) + 2.0 * s[i])
+                .collect();
+            let rho = 1.0 / dot(s.as_slice(), y.as_slice());
+            (s, y, rho)
+        })
+        .collect()
+}
+
+#[test]
+fn the_recursion_does_not_depend_on_the_number_of_workers() {
+    let length = 5 * BLOCK + 17;
+    let history = recorded(length, 4);
+    let gradient: Vec<Scalar> = (0..length).map(|i| sample(i, 99.0)).collect();
+    let mut reference = vec![0.0; length];
+    two_loop_with(1, &gradient, &history, 0.3, &mut reference);
+    for workers in [2, 3, 5, 8, 64] {
+        let mut result = vec![0.0; length];
+        two_loop_with(workers, &gradient, &history, 0.3, &mut result);
+        assert!(
+            result
+                .iter()
+                .zip(&reference)
+                .all(|(a, b)| a.to_bits() == b.to_bits()),
+            "{workers} workers"
+        );
+    }
+}
+
+#[test]
+fn the_recursion_is_the_textbook_one() {
+    let length = 3 * BLOCK + 5;
+    let history = recorded(length, 5);
+    let gradient: Vec<Scalar> = (0..length).map(|i| sample(i, 7.0)).collect();
+    let flat = |a: &[Scalar], b: &[Scalar]| a.iter().zip(b).map(|(a, b)| a * b).sum::<Scalar>();
+    let mut q = gradient.clone();
+    let mut alphas = Vec::new();
+    for (s, y, rho) in history.iter().rev() {
+        let alpha = rho * flat(s.as_slice(), &q);
+        q.iter_mut()
+            .zip(y.iter())
+            .for_each(|(q, y)| *q -= alpha * y);
+        alphas.push(alpha);
+    }
+    let (s, y, _) = history.back().unwrap();
+    let gamma = flat(s.as_slice(), y.as_slice()) / flat(y.as_slice(), y.as_slice());
+    q.iter_mut().for_each(|q| *q *= -gamma);
+    for ((s, y, rho), alpha) in history.iter().zip(alphas.iter().rev()) {
+        let beta = rho * flat(y.as_slice(), &q);
+        q.iter_mut()
+            .zip(s.iter())
+            .for_each(|(q, s)| *q -= (alpha + beta) * s);
+    }
+    let mut result = vec![0.0; length];
+    two_loop_with(4, &gradient, &history, 0.3, &mut result);
+    let scale = q.iter().map(|q| q.abs()).fold(0.0, Scalar::max);
+    assert!(
+        result
+            .iter()
+            .zip(&q)
+            .all(|(a, b)| (a - b).abs() <= 1.0e-10 * scale)
+    );
 }
