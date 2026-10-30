@@ -1,14 +1,14 @@
 use super::{Energy, Frame, Gradient, POINTS, SERIAL, scales, terms};
 use crate::{
     geometry::{
-        Coordinate, CoordinateList,
+        Coordinate, CoordinateList, Coordinates,
         mesh::{Connectivity, Dualization, Fitting, Mesh, MeshError, Tessellation, Verdict},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
     math::{Quantity, Scalar, Tensor, TensorListVec},
     units::{Area, Dimensionless},
 };
-use std::{collections::BTreeSet, f64::consts::TAU, time::Instant};
+use std::{collections::BTreeSet, f64::consts::TAU, sync::Mutex, time::Instant};
 
 const SWEEPS: usize = 20;
 const UNREACHABLE: Quantity = Dimensionless::of(1.0);
@@ -409,6 +409,7 @@ fn parallel_evaluation_matches_the_serial_sum_exactly() {
         planes: Vec::new(),
         rho: Quantity::new(1.0),
         scales,
+        scratch: Mutex::default(),
         theta,
     };
     let mut parallel = Gradient::zero(coordinates.len());
@@ -421,4 +422,56 @@ fn parallel_evaluation_matches_the_serial_sum_exactly() {
         energy.evaluate(&coordinates, None).value().to_bits(),
         total.value().to_bits()
     );
+}
+
+#[test]
+fn evaluation_keeps_nothing_from_the_previous_call() {
+    let mesh = grid(11, 0.9);
+    let hexes: Vec<[usize; 8]> = mesh
+        .iter()
+        .flat_map(|block| match block {
+            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
+            _ => unreachable!(),
+        })
+        .collect();
+    assert!(hexes.len() > 2 * SERIAL);
+    let coordinates = mesh.coordinates().clone();
+    let mut stretched = coordinates.clone();
+    stretched.iter_mut().for_each(|node| node[0] *= 1.1);
+    let scales = scales(&hexes, &coordinates);
+    let energy = || Energy {
+        boundary: &[],
+        hexes: &hexes,
+        lambda: TensorListVec::default(),
+        planes: Vec::new(),
+        rho: Quantity::new(1.0),
+        scales: scales.clone(),
+        scratch: Mutex::default(),
+        theta: Quantity::new(0.3),
+    };
+    let gradient = |energy: &Energy, at: &Coordinates<3>| {
+        let mut slopes = Gradient::zero(at.len());
+        let value = energy.evaluate(at, Some(&mut slopes));
+        (value.value().to_bits(), slopes)
+    };
+    let value = |energy: &Energy, at: &Coordinates<3>| energy.evaluate(at, None).value().to_bits();
+    let (fresh_a, fresh_b) = (energy(), energy());
+    let reference_a = gradient(&fresh_a, &coordinates);
+    let reference_b = gradient(&fresh_b, &stretched);
+    assert_ne!(reference_a.0, reference_b.0);
+    let reused = energy();
+    for (at, reference) in [
+        (&coordinates, &reference_a),
+        (&stretched, &reference_b),
+        (&coordinates, &reference_a),
+    ] {
+        let (bits, slopes) = gradient(&reused, at);
+        assert_eq!(bits, reference.0);
+        slopes.iter().zip(reference.1.iter()).for_each(|(a, b)| {
+            (0..3).for_each(|i| assert_eq!(a[i].value().to_bits(), b[i].value().to_bits()))
+        });
+    }
+    assert_eq!(value(&reused, &stretched), reference_b.0);
+    assert_eq!(value(&reused, &coordinates), reference_a.0);
+    assert_eq!(value(&reused, &stretched), reference_b.0);
 }

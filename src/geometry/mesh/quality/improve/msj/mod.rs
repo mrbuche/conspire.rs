@@ -18,7 +18,7 @@ use crate::{
 use std::{
     array::from_fn,
     iter::once,
-    sync::LazyLock,
+    sync::{LazyLock, Mutex},
     thread::{available_parallelism, scope},
 };
 
@@ -104,6 +104,12 @@ struct Plane {
     slot: usize,
 }
 
+#[derive(Default)]
+struct Scratch {
+    parts: Vec<(Quantity<Area>, CoordinateList<3, 8>)>,
+    values: Vec<Quantity<Area>>,
+}
+
 struct Energy<'a> {
     boundary: &'a [usize],
     hexes: &'a [[usize; 8]],
@@ -111,6 +117,7 @@ struct Energy<'a> {
     planes: Vec<Plane>,
     rho: Quantity,
     scales: QuantityVector<Length>,
+    scratch: Mutex<Scratch>,
     theta: Quantity,
 }
 
@@ -142,6 +149,7 @@ impl Mesh<3> {
             planes: Vec::new(),
             rho: RHO,
             scales: QuantityVector::zero(0),
+            scratch: Mutex::default(),
             theta: Quantity::default(),
         };
         let mut current = coordinates.clone();
@@ -374,13 +382,12 @@ impl Energy<'_> {
         &self,
         coordinates: &Coordinates<3>,
         derivative: bool,
+        mapped: &mut [R],
         map: impl Fn((Quantity<Area>, CoordinateList<3, 8>)) -> R + Sync,
-    ) -> Vec<R>
-    where
-        R: Clone + Default + Send,
+    ) where
+        R: Send,
     {
         let chunk = chunk_size(self.hexes.len());
-        let mut mapped = vec![R::default(); self.hexes.len()];
         let map = &map;
         scope(|scope| {
             mapped
@@ -400,7 +407,6 @@ impl Energy<'_> {
                     });
                 })
         });
-        mapped
     }
     fn evaluate(
         &self,
@@ -408,22 +414,30 @@ impl Energy<'_> {
         mut gradient: Option<&mut Gradient>,
     ) -> Quantity<Area> {
         let mut total = Quantity::<Area>::default();
+        let mut scratch = self.scratch.lock().unwrap();
         match gradient.as_deref_mut() {
-            Some(gradient) => self
-                .map_hexes(coordinates, true, |part| part)
-                .into_iter()
-                .zip(self.hexes)
-                .for_each(|((value, slopes), hex)| {
-                    total -= value;
-                    hex.iter()
-                        .zip(slopes)
-                        .for_each(|(&node, slope)| gradient[node] -= slope)
-                }),
-            None => self
-                .map_hexes(coordinates, false, |(value, _)| value)
-                .into_iter()
-                .for_each(|value| total -= value),
+            Some(gradient) => {
+                let parts = &mut scratch.parts;
+                parts.resize_with(self.hexes.len(), Default::default);
+                self.map_hexes(coordinates, true, parts, |part| part);
+                parts
+                    .iter()
+                    .zip(self.hexes)
+                    .for_each(|((value, slopes), hex)| {
+                        total -= *value;
+                        hex.iter()
+                            .zip(slopes.iter())
+                            .for_each(|(&node, slope)| gradient[node] -= slope)
+                    })
+            }
+            None => {
+                let values = &mut scratch.values;
+                values.resize_with(self.hexes.len(), Default::default);
+                self.map_hexes(coordinates, false, values, |(value, _)| value);
+                values.iter().for_each(|&value| total -= value)
+            }
         }
+        drop(scratch);
         self.planes.iter().for_each(|plane| {
             let node = self.boundary[plane.boundary];
             let residual = plane.residual(&coordinates[node]);
