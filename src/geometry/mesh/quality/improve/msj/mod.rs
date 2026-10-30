@@ -120,15 +120,16 @@ struct Plane {
 }
 
 type Bound = (Quantity, Quantity<Length>);
+type Active = (usize, CoordinateList<3, 8>);
 type Part = (Quantity<Area>, CoordinateList<3, 8>, Bound);
 
 #[derive(Default)]
 struct Scratch {
+    actives: Vec<Vec<Active>>,
     base: Option<(Coordinates<3>, Quantity)>,
     bounds: Vec<Bound>,
     fresh: Vec<Bound>,
     moved: Vec<Quantity<Area>>,
-    parts: Vec<Part>,
     values: Vec<Quantity<Area>>,
 }
 
@@ -433,56 +434,99 @@ impl Energy<'_> {
             self.lambda[plane.boundary][plane.slot] += self.rho * plane.residual(&coordinates[node])
         })
     }
-    fn map_hexes<R>(
+    fn part(
+        &self,
+        at: usize,
+        hex: &[usize; 8],
+        coordinates: &Coordinates<3>,
+        skip: &Option<Reach>,
+        derivative: bool,
+    ) -> Part {
+        if let Some((skip, moved)) = skip
+            .as_ref()
+            .and_then(|skip| skip.within(at, hex).map(|moved| (skip, moved)))
+        {
+            let bound = if derivative {
+                skip.decayed(at, moved)
+            } else {
+                Default::default()
+            };
+            return (Default::default(), Default::default(), bound);
+        }
+        let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
+        let scale = self.scales[at];
+        if derivative {
+            bounded(self.theta, scale, &nodes, true)
+        } else {
+            let (value, slopes) = terms(self.theta, scale, &nodes, false);
+            (value, slopes, Default::default())
+        }
+    }
+    fn map_values(
         &self,
         coordinates: &Coordinates<3>,
         skip: Option<Reach>,
-        derivative: bool,
-        mapped: &mut [R],
-        map: impl Fn(Part) -> R + Sync,
-    ) where
-        R: Send,
-    {
+        values: &mut [Quantity<Area>],
+    ) {
         let chunk = chunk_size(self.hexes.len());
-        let map = &map;
         let skip = &skip;
         scope(|scope| {
-            mapped
+            values
                 .chunks_mut(chunk)
                 .zip(self.hexes.chunks(chunk))
                 .enumerate()
-                .for_each(|(index, (mapped, hexes))| {
+                .for_each(|(index, (values, hexes))| {
                     scope.spawn(move || {
-                        mapped.iter_mut().zip(hexes).enumerate().for_each(
-                            |(offset, (slot, hex))| {
-                                let at = index * chunk + offset;
-                                *slot = map(
-                                    if let Some((skip, moved)) = skip.as_ref().and_then(|skip| {
-                                        skip.within(at, hex).map(|moved| (skip, moved))
-                                    }) {
-                                        let bound = if derivative {
-                                            skip.decayed(at, moved)
-                                        } else {
-                                            Default::default()
-                                        };
-                                        (Default::default(), Default::default(), bound)
-                                    } else {
-                                        let nodes = hex
-                                            .iter()
-                                            .map(|&node| coordinates[node].clone())
-                                            .collect();
-                                        let scale = self.scales[at];
-                                        if derivative {
-                                            bounded(self.theta, scale, &nodes, true)
-                                        } else {
-                                            let (value, slopes) =
-                                                terms(self.theta, scale, &nodes, false);
-                                            (value, slopes, Default::default())
-                                        }
-                                    },
-                                )
+                        values.iter_mut().zip(hexes).enumerate().for_each(
+                            |(offset, (value, hex))| {
+                                *value = self
+                                    .part(index * chunk + offset, hex, coordinates, skip, false)
+                                    .0
                             },
                         )
+                    });
+                })
+        });
+    }
+    fn map_gradient(
+        &self,
+        coordinates: &Coordinates<3>,
+        skip: Option<Reach>,
+        values: &mut [Quantity<Area>],
+        bounds: &mut [Bound],
+        actives: &mut Vec<Vec<Active>>,
+    ) {
+        let chunk = chunk_size(self.hexes.len());
+        actives.resize_with(self.hexes.len().div_ceil(chunk), Vec::new);
+        let skip = &skip;
+        scope(|scope| {
+            values
+                .chunks_mut(chunk)
+                .zip(bounds.chunks_mut(chunk))
+                .zip(self.hexes.chunks(chunk))
+                .zip(actives.iter_mut())
+                .enumerate()
+                .for_each(|(index, (((values, bounds), hexes), active))| {
+                    scope.spawn(move || {
+                        active.clear();
+                        values
+                            .iter_mut()
+                            .zip(bounds.iter_mut())
+                            .zip(hexes)
+                            .enumerate()
+                            .for_each(|(offset, ((value, bound), hex))| {
+                                let at = index * chunk + offset;
+                                let (part, slopes, fresh) =
+                                    self.part(at, hex, coordinates, skip, true);
+                                *value = part;
+                                *bound = fresh;
+                                if slopes
+                                    .iter()
+                                    .any(|slope| (0..3).any(|i| slope[i] != Quantity::default()))
+                                {
+                                    active.push((at, slopes))
+                                }
+                            })
                     });
                 })
         });
@@ -495,11 +539,11 @@ impl Energy<'_> {
         let mut total = Quantity::<Area>::default();
         let mut scratch = self.scratch.lock().unwrap();
         let Scratch {
+            actives,
             base,
             bounds,
             fresh,
             moved,
-            parts,
             values,
         } = &mut *scratch;
         let skip = match base.as_ref().filter(|(_, theta)| *theta == self.theta) {
@@ -514,30 +558,22 @@ impl Energy<'_> {
         };
         match gradient.as_deref_mut() {
             Some(gradient) => {
-                parts.resize_with(self.hexes.len(), Default::default);
-                self.map_hexes(coordinates, skip, true, parts, |part| part);
-                fresh.clear();
-                parts
-                    .iter()
-                    .zip(self.hexes)
-                    .for_each(|((value, slopes, bound), hex)| {
-                        total -= *value;
-                        fresh.push(*bound);
-                        if slopes
-                            .iter()
-                            .any(|slope| (0..3).any(|i| slope[i] != Quantity::default()))
-                        {
-                            hex.iter()
-                                .zip(slopes.iter())
-                                .for_each(|(&node, slope)| gradient[node] -= slope)
-                        }
-                    });
+                values.resize_with(self.hexes.len(), Default::default);
+                fresh.resize_with(self.hexes.len(), Default::default);
+                self.map_gradient(coordinates, skip, values, fresh, actives);
+                values.iter().for_each(|&value| total -= value);
+                actives.iter().flatten().for_each(|(at, slopes)| {
+                    self.hexes[*at]
+                        .iter()
+                        .zip(slopes.iter())
+                        .for_each(|(&node, slope)| gradient[node] -= slope)
+                });
                 swap(bounds, fresh);
                 *base = Some((coordinates.clone(), self.theta))
             }
             None => {
                 values.resize_with(self.hexes.len(), Default::default);
-                self.map_hexes(coordinates, skip, false, values, |(value, _, _)| value);
+                self.map_values(coordinates, skip, values);
                 values.iter().for_each(|&value| total -= value)
             }
         }
