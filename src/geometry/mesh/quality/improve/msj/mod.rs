@@ -370,52 +370,60 @@ impl Energy<'_> {
             self.lambda[plane.boundary][plane.slot] += self.rho * plane.residual(&coordinates[node])
         })
     }
+    fn map_hexes<R>(
+        &self,
+        coordinates: &Coordinates<3>,
+        derivative: bool,
+        map: impl Fn((Quantity<Area>, CoordinateList<3, 8>)) -> R + Sync,
+    ) -> Vec<R>
+    where
+        R: Clone + Default + Send,
+    {
+        let chunk = chunk_size(self.hexes.len());
+        let mut mapped = vec![R::default(); self.hexes.len()];
+        let map = &map;
+        scope(|scope| {
+            mapped
+                .chunks_mut(chunk)
+                .zip(self.hexes.chunks(chunk))
+                .enumerate()
+                .for_each(|(index, (mapped, hexes))| {
+                    scope.spawn(move || {
+                        mapped.iter_mut().zip(hexes).enumerate().for_each(
+                            |(offset, (slot, hex))| {
+                                let nodes =
+                                    hex.iter().map(|&node| coordinates[node].clone()).collect();
+                                let scale = self.scales[index * chunk + offset];
+                                *slot = map(terms(self.theta, scale, &nodes, derivative))
+                            },
+                        )
+                    });
+                })
+        });
+        mapped
+    }
     fn evaluate(
         &self,
         coordinates: &Coordinates<3>,
         mut gradient: Option<&mut Gradient>,
     ) -> Quantity<Area> {
         let mut total = Quantity::<Area>::default();
-        let derivative = gradient.is_some();
-        let chunk = chunk_size(self.hexes.len());
-        let mut parts = vec![
-            (
-                Quantity::<Area>::default(),
-                CoordinateList::<3, 8>::default()
-            );
-            self.hexes.len()
-        ];
-        scope(|scope| {
-            parts
-                .chunks_mut(chunk)
-                .zip(self.hexes.chunks(chunk))
-                .enumerate()
-                .for_each(|(index, (parts, hexes))| {
-                    scope.spawn(move || {
-                        parts
-                            .iter_mut()
-                            .zip(hexes)
-                            .enumerate()
-                            .for_each(|(offset, (part, hex))| {
-                                let nodes =
-                                    hex.iter().map(|&node| coordinates[node].clone()).collect();
-                                let scale = self.scales[index * chunk + offset];
-                                *part = terms(self.theta, scale, &nodes, derivative)
-                            })
-                    });
-                })
-        });
-        parts
-            .into_iter()
-            .zip(self.hexes)
-            .for_each(|((value, slopes), hex)| {
-                total -= value;
-                if let Some(gradient) = gradient.as_deref_mut() {
+        match gradient.as_deref_mut() {
+            Some(gradient) => self
+                .map_hexes(coordinates, true, |part| part)
+                .into_iter()
+                .zip(self.hexes)
+                .for_each(|((value, slopes), hex)| {
+                    total -= value;
                     hex.iter()
                         .zip(slopes)
                         .for_each(|(&node, slope)| gradient[node] -= slope)
-                }
-            });
+                }),
+            None => self
+                .map_hexes(coordinates, false, |(value, _)| value)
+                .into_iter()
+                .for_each(|value| total -= value),
+        }
         self.planes.iter().for_each(|plane| {
             let node = self.boundary[plane.boundary];
             let residual = plane.residual(&coordinates[node]);
