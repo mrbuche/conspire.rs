@@ -205,12 +205,12 @@ where
         let mut steps = 0;
         let mut converged = false;
         while steps < self.max_steps {
-            let magnitude = norm(residual.as_flat());
+            let magnitude = residual.norm();
             let scale = *reference.get_or_insert(magnitude);
-            if magnitude < self.abs_tol.residual
+            if magnitude.value() < self.abs_tol.residual
                 || self
                     .rel_tol
-                    .is_some_and(|rel_tol| magnitude < rel_tol * scale)
+                    .is_some_and(|rel_tol| magnitude.value() < rel_tol * scale.value())
             {
                 converged = true;
                 break;
@@ -219,22 +219,21 @@ where
             two_loop(
                 residual.as_flat(),
                 &*history,
-                self.typical / magnitude,
+                self.typical / magnitude.value(),
                 direction.as_mut_slice(),
                 &mut alphas,
             );
-            let slope = dot(residual.as_flat(), direction.as_slice());
-            if slope >= 0.0 {
-                history.clear();
-                continue;
-            }
             let decrement: X = direction
                 .iter()
                 .map(|direction| -direction)
                 .collect::<Vector>()
                 .into();
-            let known: Quantity<U> = value.clone().into();
             let initial_slope = residual.contract_with(&decrement);
+            if initial_slope <= Quantity::default() {
+                history.clear();
+                continue;
+            }
+            let known: Quantity<U> = value.clone().into();
             let mut accepted = None;
             let mut merit = |step: Quantity<Dimensionless>| {
                 if step.value() == 0.0 {
