@@ -334,6 +334,10 @@ impl UnitRoot for Dimensionless {
     type Output = Dimensionless;
 }
 
+impl UnitRoot for Area {
+    type Output = Length;
+}
+
 impl UnitRoot for RateSquared {
     type Output = Rate;
 }

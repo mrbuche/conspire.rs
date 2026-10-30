@@ -1,4 +1,6 @@
-use super::{Energy, Frame, Gradient, POINTS, Reach, SERIAL, bounded, scales, terms};
+use super::{
+    Energy, Frame, Gradient, POINTS, Reach, SERIAL, bounded, displacements, scales, terms,
+};
 use crate::{
     geometry::{
         Coordinate, CoordinateList, Coordinates,
@@ -591,10 +593,6 @@ fn the_decayed_bound_never_exceeds_what_the_moved_hexahedron_still_has() {
     let (_, _, bound) = bounded(theta, Quantity::new(1.0), &typed(&nodes), true);
     let base: Coordinates<3> = nodes.to_vec().into();
     let bounds = [bound];
-    let reach = Reach {
-        base: &base,
-        bounds: &bounds,
-    };
     let hex = [0, 1, 2, 3, 4, 5, 6, 7];
     let (margin, shortest) = bound;
     let step = (margin - Quantity::new(1.0e-9)) * shortest / 12.0 * 0.9;
@@ -612,7 +610,13 @@ fn the_decayed_bound_never_exceeds_what_the_moved_hexahedron_still_has() {
             })
         });
         let current: Coordinates<3> = moved.to_vec().into();
-        let Some(distance) = reach.within(0, &hex, &current) else {
+        let mut displaced = Vec::new();
+        displacements(&current, &base, &mut displaced);
+        let reach = Reach {
+            bounds: &bounds,
+            moved: &displaced,
+        };
+        let Some(distance) = reach.within(0, &hex) else {
             continue;
         };
         skipped += 1;

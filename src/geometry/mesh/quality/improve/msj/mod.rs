@@ -27,6 +27,7 @@ type Gradient = TensorRank1Vec<3, Reference, Length>;
 type Weights = [[Scalar; 8]; 3];
 
 const CAP: usize = 4;
+const LIGHT: usize = 1 << 15;
 const SERIAL: usize = 512;
 const CREASE: Quantity = Dimensionless::of(0.866);
 const FIRST: Quantity = Dimensionless::of(0.01);
@@ -126,29 +127,33 @@ struct Scratch {
     base: Option<(Coordinates<3>, Quantity)>,
     bounds: Vec<Bound>,
     fresh: Vec<Bound>,
+    moved: Vec<Quantity<Area>>,
     parts: Vec<Part>,
     values: Vec<Quantity<Area>>,
 }
 
 struct Reach<'a> {
-    base: &'a Coordinates<3>,
     bounds: &'a [Bound],
+    moved: &'a [Quantity<Area>],
 }
 
 impl Reach<'_> {
-    fn within(
-        &self,
-        index: usize,
-        hex: &[usize; 8],
-        coordinates: &Coordinates<3>,
-    ) -> Option<Quantity<Length>> {
+    fn within(&self, index: usize, hex: &[usize; 8]) -> Option<Quantity<Length>> {
         let (margin, shortest) = self.bounds[index];
         let reach = (margin - Dimensionless::of(MARGIN)) * shortest / 12.0 * (1.0 - SAFETY);
-        let moved = hex
-            .iter()
-            .map(|&node| (&coordinates[node] - &self.base[node]).norm())
-            .fold(Quantity::default(), Quantity::max);
-        (reach > Quantity::default() && moved < reach).then_some(moved)
+        if reach <= Quantity::default() {
+            return None;
+        }
+        let limit = reach * reach;
+        let mut farthest = Quantity::default();
+        for &node in hex {
+            let squared = self.moved[node];
+            if squared >= limit {
+                return None;
+            }
+            farthest = farthest.max(squared)
+        }
+        Some(farthest.sqrt())
     }
     fn decayed(&self, index: usize, moved: Quantity<Length>) -> Bound {
         let (margin, shortest) = self.bounds[index];
@@ -453,7 +458,7 @@ impl Energy<'_> {
                                 let at = index * chunk + offset;
                                 *slot = map(
                                     if let Some((skip, moved)) = skip.as_ref().and_then(|skip| {
-                                        skip.within(at, hex, coordinates).map(|moved| (skip, moved))
+                                        skip.within(at, hex).map(|moved| (skip, moved))
                                     }) {
                                         let bound = if derivative {
                                             skip.decayed(at, moved)
@@ -493,13 +498,20 @@ impl Energy<'_> {
             base,
             bounds,
             fresh,
+            moved,
             parts,
             values,
         } = &mut *scratch;
-        let skip = base
-            .as_ref()
-            .filter(|(_, theta)| *theta == self.theta)
-            .map(|(base, _)| Reach { base, bounds });
+        let skip = match base.as_ref().filter(|(_, theta)| *theta == self.theta) {
+            Some((base, _)) => {
+                displacements(coordinates, base, moved);
+                Some(Reach {
+                    bounds,
+                    moved: &*moved,
+                })
+            }
+            None => None,
+        };
         match gradient.as_deref_mut() {
             Some(gradient) => {
                 parts.resize_with(self.hexes.len(), Default::default);
@@ -541,6 +553,33 @@ impl Energy<'_> {
         });
         total
     }
+}
+
+fn displacements(
+    coordinates: &Coordinates<3>,
+    base: &Coordinates<3>,
+    moved: &mut Vec<Quantity<Area>>,
+) {
+    moved.resize_with(coordinates.len(), Default::default);
+    let chunk = if moved.len() < LIGHT {
+        moved.len().max(1)
+    } else {
+        chunk_size(moved.len())
+    };
+    scope(|scope| {
+        moved
+            .chunks_mut(chunk)
+            .enumerate()
+            .for_each(|(index, moved)| {
+                scope.spawn(move || {
+                    moved.iter_mut().enumerate().for_each(|(offset, moved)| {
+                        let at = index * chunk + offset;
+                        let step = &coordinates[at] - &base[at];
+                        *moved = &step * &step
+                    })
+                });
+            })
+    });
 }
 
 fn chunk_size(items: usize) -> usize {
