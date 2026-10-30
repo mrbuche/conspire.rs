@@ -55,7 +55,12 @@ fn solver(typical: Quantity<Length>) -> LimitedMemoryBFGS<Armijo, Length> {
     }
 }
 
-static POINTS: LazyLock<[Weights; 9]> = LazyLock::new(|| {
+struct Point {
+    sparse: [Vec<(usize, Scalar)>; 3],
+    weights: Weights,
+}
+
+static POINTS: LazyLock<[Point; 9]> = LazyLock::new(|| {
     let corners = [
         (0, [1, 3, 4]),
         (1, [2, 0, 5]),
@@ -88,7 +93,13 @@ static POINTS: LazyLock<[Weights; 9]> = LazyLock::new(|| {
                     low.iter().for_each(|&node| row[node] -= 0.25)
                 })
         }
-        weights
+        let sparse = from_fn(|i| {
+            (0..8)
+                .filter(|&node| weights[i][node] != 0.0)
+                .map(|node| (node, weights[i][node]))
+                .collect()
+        });
+        Point { sparse, weights }
     })
 });
 
@@ -249,16 +260,15 @@ impl Mesh<3> {
 }
 
 impl Frame {
-    fn new(weights: &Weights, nodes: &CoordinateList<3, 8>) -> Self {
-        let edges: CoordinateList<3, 3> = weights
+    fn new(point: &Point, nodes: &CoordinateList<3, 8>) -> Self {
+        let edges: CoordinateList<3, 3> = point
+            .sparse
             .iter()
-            .map(|weight_i| {
-                nodes
+            .map(|terms| {
+                terms
                     .iter()
-                    .zip(weight_i)
-                    .filter(|(_, weight)| **weight != 0.0)
-                    .fold(Coordinate::default(), |sum, (node, weight)| {
-                        sum + node * *weight
+                    .fold(Coordinate::default(), |sum, &(node, weight)| {
+                        sum + &nodes[node] * weight
                     })
             })
             .collect();
@@ -552,7 +562,7 @@ fn bounded(
                 (e[0].cross(&e[1]) / scale).with_unit(),
             ]
             .into();
-            scatter(&POINTS[j], &g, &mut slopes)
+            scatter(&POINTS[j].weights, &g, &mut slopes)
         }
         (
             lowest_j / scale - theta * scale * scale,
@@ -577,7 +587,7 @@ fn bounded(
                     (slope * area).with_unit()
                 })
                 .collect();
-            scatter(&POINTS[s], &g, &mut slopes)
+            scatter(&POINTS[s].weights, &g, &mut slopes)
         }
         ((lowest_sj - theta) * area, slopes, Default::default())
     } else {
