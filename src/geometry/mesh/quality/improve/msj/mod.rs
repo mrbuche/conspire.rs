@@ -17,6 +17,7 @@ use crate::{
 };
 use std::{
     array::from_fn,
+    cell::RefCell,
     iter::once,
     mem::swap,
     sync::{LazyLock, Mutex},
@@ -27,6 +28,7 @@ type Gradient = TensorRank1Vec<3, Reference, Length>;
 type Weights = [[Scalar; 8]; 3];
 
 const CAP: usize = 4;
+const DELTA: Scalar = 0.05;
 const LIGHT: usize = 1 << 15;
 const SERIAL: usize = 512;
 const CREASE: Quantity = Dimensionless::of(0.866);
@@ -213,6 +215,7 @@ impl Mesh<3> {
         let mut best: Option<Coordinates<3>> = None;
         let mut first = true;
         let mut corrections = Corrections::default();
+        let mut nodes = Vec::<usize>::new();
         let stop = 'ratchet: loop {
             let mut stalled = false;
             let mut sweep = 0;
@@ -250,16 +253,63 @@ impl Mesh<3> {
                         sweeps,
                     });
                 }
+                let mut active = energy.active(&current, DELTA);
+                let kept = corrections.nonzero();
+                if kept.len() == 3 * nodes.len() {
+                    nodes
+                        .iter()
+                        .enumerate()
+                        .filter(|(position, _)| (0..3).any(|i| kept[3 * position + i]))
+                        .for_each(|(_, &node)| active[node] = true)
+                }
+                let next: Vec<usize> = (0..active.len()).filter(|&node| active[node]).collect();
+                let mut position = vec![usize::MAX; active.len()];
+                next.iter()
+                    .enumerate()
+                    .for_each(|(index, &node)| position[node] = index);
+                corrections.remap(
+                    &nodes
+                        .iter()
+                        .flat_map(|&node| {
+                            let index = position[node];
+                            (0..3).map(move |i| match index {
+                                usize::MAX => usize::MAX,
+                                index => 3 * index + i,
+                            })
+                        })
+                        .collect::<Vec<_>>(),
+                    3 * next.len(),
+                );
+                nodes = next;
+                let full = RefCell::new(current.clone());
+                let put = |full: &mut Coordinates<3>, x: &Coordinates<3>| {
+                    nodes
+                        .iter()
+                        .zip(x.iter())
+                        .for_each(|(&node, entry)| full[node] = entry.clone())
+                };
                 let descent = solver(FIRST * energy.typical())
                     .descend_from(
                         &mut corrections,
-                        |x| Ok(energy.evaluate(x, None)),
-                        |x| {
-                            let mut slopes = Gradient::zero(x.len());
-                            energy.evaluate(x, Some(&mut slopes));
-                            Ok(slopes)
+                        |x: &Coordinates<3>| {
+                            let mut full = full.borrow_mut();
+                            put(&mut full, x);
+                            Ok(energy.evaluate(&full, None))
                         },
-                        current,
+                        |x: &Coordinates<3>| {
+                            let mut full = full.borrow_mut();
+                            put(&mut full, x);
+                            let mut slopes = Gradient::zero(full.len());
+                            energy.evaluate(&full, Some(&mut slopes));
+                            Ok(nodes
+                                .iter()
+                                .map(|&node| slopes[node].clone())
+                                .collect::<Gradient>())
+                        },
+                        nodes
+                            .iter()
+                            .map(|&node| current[node].clone())
+                            .collect::<Coordinates<3>>(),
                         Vec::new(),
                     )
                     .map_err(|_| MeshError::Minimization)?;
@@ -268,7 +318,10 @@ impl Mesh<3> {
                         .initial
                         .abs()
                         .max(Quantity::new(Scalar::MIN_POSITIVE));
-                current = descent.solution;
+                nodes
+                    .iter()
+                    .zip(descent.solution.iter())
+                    .for_each(|(&node, entry)| current[node] = entry.clone());
                 energy.settle(&current);
                 sweep += 1;
                 if decrease < STALL {
@@ -436,6 +489,20 @@ impl Energy<'_> {
                     .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
             })
             .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
+    }
+    fn active(&self, coordinates: &Coordinates<3>, delta: Scalar) -> Vec<bool> {
+        self.evaluate(coordinates, Some(&mut Gradient::zero(coordinates.len())));
+        let mut active = vec![false; coordinates.len()];
+        let scratch = self.scratch.lock().unwrap();
+        self.hexes
+            .iter()
+            .zip(&scratch.bounds)
+            .filter(|(_, (margin, _))| margin.value() < delta)
+            .for_each(|(hex, _)| hex.iter().for_each(|&node| active[node] = true));
+        self.planes
+            .iter()
+            .for_each(|plane| active[self.boundary[plane.boundary]] = true);
+        active
     }
     fn gap(&self, coordinates: &Coordinates<3>) -> Quantity {
         let sizes = node_scales(self.boundary, self.hexes, &self.scales, coordinates.len());
