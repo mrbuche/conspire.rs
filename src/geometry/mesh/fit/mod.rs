@@ -42,6 +42,7 @@ const ITERATIONS: usize = 100;
 const NORMAL_FLOOR: Quantity = Dimensionless::of(1.0e-9);
 const RELAXATION: Scalar = 0.1;
 const CREASE: Quantity = Dimensionless::of(0.866);
+const SNAP_SWEEPS: usize = 6;
 const STAGNATION: Scalar = 5.0e-4;
 const SWEEPS: usize = 50;
 const TIE_TOLERANCE: Scalar = 1.0e-6;
@@ -161,7 +162,11 @@ impl Mesh<3> {
         target: &Tessellation,
         fitting: Fitting,
     ) -> Result<(), &'static str> {
-        self.fit(free, target)?;
+        let sweeps = match fitting {
+            Fitting::Soft => SWEEPS,
+            Fitting::Snap => SNAP_SWEEPS,
+        };
+        self.fit_for(free, target, sweeps)?;
         if let Fitting::Snap = fitting {
             self.project(target, boundary)?;
             let pinned: HashSet<usize> = boundary.iter().copied().collect();
@@ -196,6 +201,14 @@ impl Mesh<3> {
         &mut self,
         nodes: &[usize],
         target: &Tessellation,
+    ) -> Result<(), &'static str> {
+        self.fit_for(nodes, target, SWEEPS)
+    }
+    fn fit_for(
+        &mut self,
+        nodes: &[usize],
+        target: &Tessellation,
+        sweeps: usize,
     ) -> Result<(), &'static str> {
         let mut elements = Elements {
             corners: Vec::new(),
@@ -257,7 +270,7 @@ impl Mesh<3> {
         let mut epsilon: Scalar = 1.0;
         let mut previous = Quantity::<Length>::new(Scalar::INFINITY);
         let mut window = VecDeque::<Quantity<Length>>::with_capacity(WINDOW);
-        for sweep in 0..SWEEPS {
+        for sweep in 0..sweeps {
             let (lengths, scales) = sizes(&neighbors, &elements, coordinates);
             let mut state = Sweep {
                 element_chunk,
