@@ -526,7 +526,7 @@ impl Sweep<'_> {
         })
     }
     fn derivative(&self, coordinates: &Coordinates<3>) -> Gradient {
-        let mut gradient = scope(|scope| {
+        let partials = scope(|scope| {
             self.tracked
                 .chunks(self.element_chunk)
                 .map(|chunk| {
@@ -552,28 +552,34 @@ impl Sweep<'_> {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .map(|handle| handle.join().unwrap())
-                .fold(self.empty(), |mut sum, partial| {
-                    sum += &partial;
-                    sum
-                })
+                .collect::<Vec<_>>()
         });
+        let mut gradient = self.empty();
         scope(|scope| {
+            let partials = &partials;
             gradient
                 .as_mut_slice()
                 .chunks_mut(self.node_chunk)
                 .zip(self.nodes.chunks(self.node_chunk))
-                .for_each(|(entries, nodes)| {
+                .enumerate()
+                .for_each(|(block, (entries, nodes))| {
                     scope.spawn(move || {
-                        entries.iter_mut().zip(nodes).for_each(|(entry, &node)| {
-                            self.node_faces[node].iter().for_each(|&face| {
-                                let (point, normal, distance) = &self.targets[face];
-                                let weight = weight(*distance, self.lengths[node]);
-                                let deviation = (&coordinates[node] - point) * normal;
-                                let factor =
-                                    2.0 * BALANCE / self.lengths[node] * weight * deviation;
-                                *entry += normal * factor.value()
-                            })
-                        });
+                        entries.iter_mut().zip(nodes).enumerate().for_each(
+                            |(offset, (entry, &node))| {
+                                let index = block * self.node_chunk + offset;
+                                partials
+                                    .iter()
+                                    .for_each(|partial| *entry += &partial[index]);
+                                self.node_faces[node].iter().for_each(|&face| {
+                                    let (point, normal, distance) = &self.targets[face];
+                                    let weight = weight(*distance, self.lengths[node]);
+                                    let deviation = (&coordinates[node] - point) * normal;
+                                    let factor =
+                                        2.0 * BALANCE / self.lengths[node] * weight * deviation;
+                                    *entry += normal * factor.value()
+                                })
+                            },
+                        );
                     });
                 });
         });
