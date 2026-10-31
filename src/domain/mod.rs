@@ -26,6 +26,7 @@ pub mod feti;
 pub(crate) mod from;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod multiphysics;
+pub(crate) mod parallel;
 pub(crate) mod solid;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod thermal;

@@ -4,6 +4,7 @@ use crate::{
         ProvidesTangent, Root, SolverFor,
         block::element::{Elements, Items},
         boundary::{Constrain, Load, LoadStiffness},
+        parallel::ItemIndex,
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
@@ -84,8 +85,7 @@ where
 /// The storage that a run reuses for the forces of the items of one block.
 pub struct ItemScratch<F> {
     forces: Vec<Option<F>>,
-    offsets: Vec<usize>,
-    entries: Vec<(usize, usize)>,
+    index: ItemIndex,
 }
 
 impl<T, const D: usize> ParallelElasticElements<D> for T
@@ -95,31 +95,9 @@ where
 {
     type Scratch = ItemScratch<T::Forces>;
     fn scratch(&self) -> Self::Scratch {
-        let items = self.number_of_items();
-        let nodes = (0..items)
-            .flat_map(|item| self.nodes_of(item))
-            .max()
-            .map_or(0, |&node| node + 1);
-        let mut offsets = vec![0; nodes + 1];
-        (0..items)
-            .flat_map(|item| self.nodes_of(item))
-            .for_each(|&node| offsets[node + 1] += 1);
-        (0..nodes).for_each(|node| offsets[node + 1] += offsets[node]);
-        let mut next = offsets.clone();
-        let mut entries = vec![(0, 0); offsets[nodes]];
-        (0..items).for_each(|item| {
-            self.nodes_of(item)
-                .iter()
-                .enumerate()
-                .for_each(|(local, &node)| {
-                    entries[next[node]] = (item, local);
-                    next[node] += 1;
-                })
-        });
         ItemScratch {
-            forces: (0..items).map(|_| None).collect(),
-            offsets,
-            entries,
+            forces: (0..self.number_of_items()).map(|_| None).collect(),
+            index: ItemIndex::new(self),
         }
     }
     fn nodal_forces_parallel_into(
@@ -129,11 +107,7 @@ where
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_forces: &mut NodalForcesSolid<D>,
     ) -> Result<(), ElementModelError> {
-        let ItemScratch {
-            forces,
-            offsets,
-            entries,
-        } = scratch;
+        let ItemScratch { forces, index } = scratch;
         workers.install(|| {
             forces
                 .par_iter_mut()
@@ -143,33 +117,17 @@ where
                     Ok::<(), ElementModelError>(())
                 })
         })?;
-        let (forces, offsets, entries) = (&*forces, &*offsets, &*entries);
-        let nodes = offsets.len() - 1;
-        workers.install(|| {
-            nodal_forces.as_mut_slice()[..nodes]
-                .par_chunks_mut(GATHER_CHUNK)
-                .enumerate()
-                .for_each(|(chunk, nodal_forces)| {
-                    nodal_forces
-                        .iter_mut()
-                        .enumerate()
-                        .for_each(|(index, nodal_force)| {
-                            let node = chunk * GATHER_CHUNK + index;
-                            entries[offsets[node]..offsets[node + 1]].iter().for_each(
-                                |&(item, local)| {
-                                    *nodal_force +=
-                                        &forces[item].as_ref().expect("the forces")[local]
-                                },
-                            )
-                        })
-                })
-        });
+        let forces = &*forces;
+        index.gather(
+            workers,
+            nodal_forces.as_mut_slice(),
+            |nodal_force, item, local| {
+                *nodal_force += &forces[item].as_ref().expect("the forces")[local]
+            },
+        );
         Ok(())
     }
 }
-
-/// The nodes that one task of the gather fills.
-const GATHER_CHUNK: usize = 512;
 
 pub trait ElasticElements<const D: usize>
 where
@@ -311,26 +269,7 @@ where
     }
 }
 
-/// TEMPORARY EXPERIMENT: the threads of one run of explicit dynamics.
-///
-/// This is the only type that names the thread pool, so replacing it replaces the backend.
-#[cfg_attr(not(feature = "fem"), allow(dead_code))]
-pub struct Workers(rayon::ThreadPool);
-
-#[cfg_attr(not(feature = "fem"), allow(dead_code))]
-impl Workers {
-    /// Starts the given number of threads, which stop when the workers are dropped.
-    pub fn new(threads: usize) -> Result<Self, String> {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .map(Self)
-            .map_err(|error| error.to_string())
-    }
-    pub(crate) fn install<R: Send>(&self, operation: impl FnOnce() -> R + Send) -> R {
-        self.0.install(operation)
-    }
-}
+pub use crate::domain::parallel::Workers;
 
 /// Nodal forces that can be computed in parallel, with the storage of one run kept outside of
 /// the model, so that the serial [`ElasticElements`] are untouched.
