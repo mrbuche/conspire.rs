@@ -52,7 +52,7 @@ pub struct Block<
 /// TEMPORARY EXPERIMENT: element forces kept between calls so the parallel pass does not
 /// allocate, and the nodes' incident (element, local node) pairs for a deterministic gather.
 pub(crate) struct Scratch<const N: usize> {
-    pub(crate) forces: std::sync::Mutex<Vec<crate::mechanics::ForceList<N>>>,
+    pub(crate) forces: std::sync::RwLock<Vec<crate::mechanics::ForceList<N>>>,
     pub(crate) gather: std::sync::OnceLock<Gather>,
 }
 
@@ -93,7 +93,7 @@ impl Gather {
 impl<const N: usize> Default for Scratch<N> {
     fn default() -> Self {
         Self {
-            forces: std::sync::Mutex::new(Vec::new()),
+            forces: std::sync::RwLock::new(Vec::new()),
             gather: std::sync::OnceLock::new(),
         }
     }

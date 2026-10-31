@@ -1,7 +1,10 @@
 pub mod internal_variables;
 
+use rayon::prelude::*;
+
 use crate::{
     constitutive::solid::elastic::Elastic,
+    domain::solid::elastic::{parallel_nodal_forces_into, pool},
     fem::{
         ElementModelError, NodalCoordinates,
         block::{
@@ -13,19 +16,9 @@ use crate::{
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
-    math::TensorArray,
+    math::{Current, TensorArray, TensorRank1},
+    units::Force,
 };
-
-/// TEMPORARY EXPERIMENT: a persistent pool with one thread per physical core.
-fn pool() -> &'static rayon::ThreadPool {
-    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
-    POOL.get_or_init(|| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(4)
-            .build()
-            .expect("the thread pool")
-    })
-}
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> ElasticElements<3>
     for Block<C, F, G, M, N, P, R, H>
@@ -35,13 +28,12 @@ where
     R: Sync,
     H: Sync,
 {
-    fn nodal_forces_into(
+    const PARALLEL: bool = true;
+    fn compute_element_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-        nodal_forces: &mut NodalForcesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        use rayon::prelude::*;
-        let mut scratch = self.scratch.forces.lock().expect("the scratch forces");
+        let mut scratch = self.scratch.forces.write().expect("the scratch forces");
         scratch.resize_with(
             self.elements().len(),
             crate::mechanics::ForceList::<N>::zero,
@@ -61,27 +53,31 @@ where
                         Ok::<(), FiniteElementError>(())
                     })
             })
-            .map_err(|error| ElementModelError::upstream(error, self))?;
+            .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    fn add_node_forces(&self, first_node: usize, forces: &mut [TensorRank1<3, Current, Force>]) {
         let gather = self
             .scratch
             .gather
             .get_or_init(|| super::super::Gather::new(self.connectivity().iter().as_slice()));
-        let slots = &*slots;
-        pool().install(|| {
-            nodal_forces
-                .as_mut_slice()
-                .par_iter_mut()
-                .with_min_len(512)
-                .enumerate()
-                .for_each(|(node, nodal_force)| {
-                    if let Some(range) = gather.offsets.get(node..node + 2) {
-                        gather.entries[range[0]..range[1]]
-                            .iter()
-                            .for_each(|&entry| *nodal_force += &slots[entry / N][entry % N])
-                    }
-                })
-        });
-        Ok(())
+        let slots = self.scratch.forces.read().expect("the scratch forces");
+        forces.iter_mut().enumerate().for_each(|(index, force)| {
+            if let Some(range) = gather
+                .offsets
+                .get(first_node + index..first_node + index + 2)
+            {
+                gather.entries[range[0]..range[1]]
+                    .iter()
+                    .for_each(|&entry| *force += &slots[entry / N][entry % N])
+            }
+        })
+    }
+    fn nodal_forces_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_forces: &mut NodalForcesSolid<3>,
+    ) -> Result<(), ElementModelError> {
+        parallel_nodal_forces_into(self, nodal_coordinates, nodal_forces)
     }
     fn nodal_stiffnesses_into(
         &self,

@@ -109,7 +109,7 @@ impl<B, const D: usize> Model<B, D> {
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 #[derive(Debug)]
-pub struct Blocks<B1, B2>(pub(crate) B1, pub(crate) B2);
+pub struct Blocks<B1, B2>(pub B1, pub B2);
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 #[derive(Debug)]
