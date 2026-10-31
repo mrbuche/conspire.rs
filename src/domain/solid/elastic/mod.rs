@@ -23,7 +23,12 @@ pub(crate) fn pool() -> &'static rayon::ThreadPool {
     static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
     POOL.get_or_init(|| {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(4)
+            .num_threads(
+                std::env::var("CONSPIRE_THREADS")
+                    .ok()
+                    .and_then(|threads| threads.parse().ok())
+                    .unwrap_or(4),
+            )
             .build()
             .expect("the thread pool")
     })
