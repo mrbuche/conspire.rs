@@ -13,7 +13,7 @@ use conspire::{
         boundary::{BoundaryConditions, Solid},
         solid::{ElasticExplicitDynamics, elastic::ElasticElements},
     },
-    math::{Quantity, integrate::VelocityVerlet},
+    math::{Quantity, Tensor, integrate::VelocityVerlet},
     units::{Density, Stress, Time},
 };
 use std::{hint::black_box, time::Instant};
@@ -111,6 +111,13 @@ fn explicit_baseline() {
                 })
                 .collect(),
         );
+        let checksum = model
+            .nodal_forces(&current)
+            .unwrap()
+            .iter()
+            .flat_map(|force| force.iter().map(|component| component.value().to_bits()))
+            .fold(0u64, |sum, bits| sum.rotate_left(5) ^ bits);
+        println!("checksum {cells}: {checksum:016x}");
         let masses = model.nodal_lumped_masses();
         let dt = 1e-8;
         let time = [Time::seconds(0.0), Time::seconds(STEPS as f64 * dt)];

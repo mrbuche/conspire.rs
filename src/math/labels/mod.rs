@@ -2,12 +2,12 @@
 mod test;
 
 use crate::math::FxHashMap;
-use std::cell::OnceCell;
+use std::sync::OnceLock;
 
 /// External labels for a collection of items, one label for each item.
 pub struct Labels {
     labels: Vec<usize>,
-    indices: OnceCell<FxHashMap<usize, usize>>,
+    indices: OnceLock<FxHashMap<usize, usize>>,
 }
 
 impl Labels {
@@ -23,7 +23,7 @@ impl Labels {
         );
         Self {
             labels,
-            indices: OnceCell::new(),
+            indices: OnceLock::new(),
         }
     }
     /// The label of each item.
