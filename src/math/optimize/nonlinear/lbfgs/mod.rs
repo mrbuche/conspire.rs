@@ -23,6 +23,7 @@ use std::{
 };
 
 const BLOCK: usize = 4096;
+const GRAIN: usize = 3 * BLOCK;
 const CURVATURE_FLOOR: Scalar = 1.0e-12;
 
 /// The limited-memory Broyden-Fletcher-Goldfarb-Shanno method.[^1]
@@ -408,12 +409,14 @@ fn two_loop(
     fallback: Scalar,
     q: &mut [Scalar],
 ) {
-    let workers = if q.len() < 4 * BLOCK {
-        1
-    } else {
-        available_parallelism().map_or(1, |threads| threads.get())
-    };
-    two_loop_with(workers, gradient, history, fallback, q)
+    let threads = available_parallelism().map_or(1, |threads| threads.get());
+    two_loop_with(
+        (q.len() / GRAIN).clamp(1, threads),
+        gradient,
+        history,
+        fallback,
+        q,
+    )
 }
 
 fn two_loop_with(
