@@ -66,6 +66,37 @@ where
 #[derive(Clone, Debug, Default)]
 pub struct Corrections(VecDeque<(Vector, Vector, Scalar)>);
 
+impl Corrections {
+    /// The entries that are not zero in some kept correction.
+    pub fn nonzero(&self) -> Vec<bool> {
+        let mut nonzero = vec![false; self.0.front().map_or(0, |(s, _, _)| s.as_slice().len())];
+        self.0.iter().for_each(|(s, y, _)| {
+            [s, y].into_iter().for_each(|vector| {
+                nonzero
+                    .iter_mut()
+                    .zip(vector.iter())
+                    .for_each(|(nonzero, &entry)| *nonzero |= entry != 0.0)
+            })
+        });
+        nonzero
+    }
+    /// Moves the entries of the kept corrections to the positions `map` gives, in vectors of
+    /// `length` entries that are zero elsewhere. Entries that `map` sends to `usize::MAX` must
+    /// be zero, as the entries of a descent confined to the others are.
+    pub fn remap(&mut self, map: &[usize], length: usize) {
+        self.0.iter_mut().for_each(|(s, y, _)| {
+            [s, y].into_iter().for_each(|vector| {
+                let mut moved = Vector::zero(length);
+                map.iter()
+                    .zip(vector.iter())
+                    .filter(|(_, entry)| **entry != 0.0)
+                    .for_each(|(&to, &entry)| moved.as_mut_slice()[to] = entry);
+                *vector = moved
+            })
+        })
+    }
+}
+
 /// The outcome of a descent, which may end before the tolerances are met.
 #[derive(Clone, Debug)]
 pub struct Descent<F, X> {

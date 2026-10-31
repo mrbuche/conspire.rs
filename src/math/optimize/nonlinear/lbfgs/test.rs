@@ -401,3 +401,33 @@ fn the_recursion_is_the_textbook_one() -> Result<(), AssertionError> {
     }
     .eq_within_tols(flat(&result), flat(&q))
 }
+
+#[test]
+fn the_corrections_follow_a_remap_of_their_entries() -> Result<(), AssertionError> {
+    let mut corrections = Corrections(
+        [
+            (
+                [1.0, 0.0, 2.0, 0.0].into(),
+                [0.0, 0.0, 3.0, 0.0].into(),
+                0.5,
+            ),
+            (
+                [0.0, 0.0, 4.0, 0.0].into(),
+                [5.0, 0.0, 0.0, 0.0].into(),
+                0.25,
+            ),
+        ]
+        .into(),
+    );
+    assert_eq!(corrections.nonzero(), vec![true, false, true, false]);
+    corrections.remap(&[1, usize::MAX, 3, usize::MAX], 5);
+    assert_eq!(corrections.nonzero(), vec![false, true, false, true, false]);
+    let (s, y, rho) = &corrections.0[0];
+    Assert::eq(s, &[0.0, 1.0, 0.0, 2.0, 0.0].into())?;
+    Assert::eq(y, &[0.0, 0.0, 0.0, 3.0, 0.0].into())?;
+    Assert::eq(*rho, 0.5)?;
+    let (s, y, rho) = &corrections.0[1];
+    Assert::eq(s, &[0.0, 0.0, 0.0, 4.0, 0.0].into())?;
+    Assert::eq(y, &[0.0, 5.0, 0.0, 0.0, 0.0].into())?;
+    Assert::eq(*rho, 0.25)
+}
