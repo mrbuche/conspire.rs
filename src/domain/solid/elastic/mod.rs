@@ -2,7 +2,7 @@ use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalState,
         ProvidesTangent, Root, SolverFor,
-        block::element::Elements,
+        block::element::{Elements, Items},
         boundary::{Constrain, Load, LoadStiffness},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
@@ -25,16 +25,12 @@ type NodalStiffness<const D: usize> = TensorRank2<D, Current, Current, ForcePerL
 /// to their nodes in the order of the items, and is [`ParallelElasticElements`] if it is `Sync`.
 pub trait ElasticItems<const D: usize>
 where
-    Self: Elements,
+    Self: Items,
 {
     /// The forces of an item, indexed by the position of a node among the nodes of the item.
     type Forces: Index<usize, Output = NodalForce<D>>;
     /// The stiffnesses of an item, indexed by the positions of two of its nodes.
     type Stiffnesses: Index<usize, Output: Index<usize, Output = NodalStiffness<D>>>;
-    /// The number of items.
-    fn number_of_items(&self) -> usize;
-    /// The nodes of an item.
-    fn nodes_of(&self, item: usize) -> &[usize];
     /// The forces of an item.
     fn forces_of(
         &self,

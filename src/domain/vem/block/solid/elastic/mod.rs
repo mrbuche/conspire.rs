@@ -20,12 +20,6 @@ where
 {
     type Forces = ElementNodalForcesSolid;
     type Stiffnesses = ElementNodalStiffnessesSolid;
-    fn number_of_items(&self) -> usize {
-        self.elements().len()
-    }
-    fn nodes_of(&self, item: usize) -> &[usize] {
-        &self.elements_nodes()[item]
-    }
     fn forces_of(
         &self,
         item: usize,

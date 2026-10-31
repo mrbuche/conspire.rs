@@ -2,7 +2,10 @@ pub(crate) mod solid;
 #[cfg(test)]
 pub(crate) mod test;
 
-use crate::math::{Style, StyledError, assert::AssertionError, defeat_message};
+use crate::{
+    domain::block::add_node_neighbors,
+    math::{Style, StyledError, assert::AssertionError, defeat_message},
+};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
@@ -13,6 +16,32 @@ where
     Self: Debug,
 {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]);
+}
+
+/// The structure of a block: the items it is made of, and the nodes of each.
+///
+/// An item is an element, or whatever else contributes to a set of nodes. Every [`Items`] is
+/// [`Elements`], and the traits that assemble over the items extend this one with their kernels.
+pub trait Items
+where
+    Self: Debug,
+{
+    /// The number of items.
+    fn number_of_items(&self) -> usize;
+    /// The nodes of an item.
+    fn nodes_of(&self, item: usize) -> &[usize];
+}
+
+impl<T> Elements for T
+where
+    T: Items,
+{
+    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
+        add_node_neighbors(
+            (0..self.number_of_items()).map(|item| self.nodes_of(item)),
+            neighbors,
+        )
+    }
 }
 
 pub trait ElementKind {

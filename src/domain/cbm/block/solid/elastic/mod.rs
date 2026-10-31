@@ -17,12 +17,6 @@ where
 {
     type Forces = Vec<NodalForce>;
     type Stiffnesses = Vec<Vec<NodalStiffness>>;
-    fn number_of_items(&self) -> usize {
-        self.nodes.len()
-    }
-    fn nodes_of(&self, item: usize) -> &[usize] {
-        self.nodes[item].neighbors()
-    }
     fn forces_of(
         &self,
         item: usize,

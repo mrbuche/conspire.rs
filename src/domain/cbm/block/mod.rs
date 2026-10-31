@@ -12,10 +12,7 @@ pub mod time_scale;
 mod volume;
 
 use crate::{
-    domain::{
-        NodalReferenceCoordinates,
-        block::{add_node_neighbors, element::Elements},
-    },
+    domain::{NodalReferenceCoordinates, block::element::Items},
     geometry::mesh::PrimitiveConnectivity,
 };
 use density::NoDensity;
@@ -85,8 +82,11 @@ impl<C>
     }
 }
 
-impl<C, R> Elements for Block<C, R> {
-    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        add_node_neighbors(self.nodes.iter().map(Node::neighbors), neighbors)
+impl<C, R> Items for Block<C, R> {
+    fn number_of_items(&self) -> usize {
+        self.nodes.len()
+    }
+    fn nodes_of(&self, item: usize) -> &[usize] {
+        self.nodes[item].neighbors()
     }
 }
