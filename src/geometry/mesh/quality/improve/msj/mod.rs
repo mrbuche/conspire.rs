@@ -130,6 +130,7 @@ struct Scratch {
     actives: Vec<Vec<Active>>,
     base: Option<(Coordinates<3>, Quantity)>,
     bounds: Vec<Bound>,
+    focus: Option<Vec<usize>>,
     fresh: Vec<Bound>,
     moved: Vec<Quantity<Area>>,
     values: Vec<Quantity<Area>>,
@@ -281,6 +282,7 @@ impl Mesh<3> {
                     3 * next.len(),
                 );
                 nodes = next;
+                energy.focus(Some(nodes.clone()));
                 let full = RefCell::new(current.clone());
                 let put = |full: &mut Coordinates<3>, x: &Coordinates<3>| {
                     nodes
@@ -318,6 +320,7 @@ impl Mesh<3> {
                         .initial
                         .abs()
                         .max(Quantity::new(Scalar::MIN_POSITIVE));
+                energy.focus(None);
                 nodes
                     .iter()
                     .zip(descent.solution.iter())
@@ -478,17 +481,34 @@ impl Energy<'_> {
     fn typical(&self) -> Quantity<Length> {
         self.scales.iter().copied().sum::<Quantity<Length>>() / self.scales.len().max(1) as Scalar
     }
+    fn focus(&self, nodes: Option<Vec<usize>>) {
+        self.scratch.lock().unwrap().focus = nodes
+    }
     fn quality(&self, coordinates: &Coordinates<3>) -> Quantity {
-        self.hexes
-            .iter()
-            .map(|hex| {
-                let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
-                POINTS
-                    .iter()
-                    .map(|weights| Frame::new(weights, &nodes).scaled)
-                    .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
-            })
-            .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
+        let chunk = chunk_size(self.hexes.len());
+        scope(|scope| {
+            self.hexes
+                .chunks(chunk)
+                .map(|hexes| {
+                    scope.spawn(move || {
+                        hexes
+                            .iter()
+                            .map(|hex| {
+                                let nodes =
+                                    hex.iter().map(|&node| coordinates[node].clone()).collect();
+                                POINTS
+                                    .iter()
+                                    .map(|weights| Frame::new(weights, &nodes).scaled)
+                                    .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
+                            })
+                            .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
+        })
     }
     fn active(&self, coordinates: &Coordinates<3>, delta: Scalar) -> Vec<bool> {
         self.evaluate(coordinates, Some(&mut Gradient::zero(coordinates.len())));
@@ -628,6 +648,7 @@ impl Energy<'_> {
             actives,
             base,
             bounds,
+            focus,
             fresh,
             moved,
             values,
@@ -655,7 +676,16 @@ impl Energy<'_> {
                         .for_each(|(&node, slope)| gradient[node] -= slope)
                 });
                 swap(bounds, fresh);
-                *base = Some((coordinates.clone(), self.theta))
+                match (base.as_mut(), focus.as_ref()) {
+                    (Some((held, theta)), Some(nodes))
+                        if *theta == self.theta && held.len() == coordinates.len() =>
+                    {
+                        nodes
+                            .iter()
+                            .for_each(|&node| held[node] = coordinates[node].clone())
+                    }
+                    _ => *base = Some((coordinates.clone(), self.theta)),
+                }
             }
             None => {
                 values.resize_with(self.hexes.len(), Default::default);
@@ -820,16 +850,29 @@ fn scales(hexes: &[[usize; 8]], coordinates: &Coordinates<3>) -> QuantityVector<
         [2, 6],
         [3, 7],
     ];
-    hexes
-        .iter()
-        .map(|hex| {
-            EDGES
-                .iter()
-                .map(|&[a, b]| (&coordinates[hex[a]] - &coordinates[hex[b]]).norm())
-                .sum::<Quantity<Length>>()
-                / 12.0
-        })
-        .collect()
+    let chunk = chunk_size(hexes.len());
+    scope(|scope| {
+        hexes
+            .chunks(chunk)
+            .map(|hexes| {
+                scope.spawn(move || {
+                    hexes
+                        .iter()
+                        .map(|hex| {
+                            EDGES
+                                .iter()
+                                .map(|&[a, b]| (&coordinates[hex[a]] - &coordinates[hex[b]]).norm())
+                                .sum::<Quantity<Length>>()
+                                / 12.0
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .flat_map(|handle| handle.join().unwrap())
+            .collect()
+    })
 }
 
 fn node_scales(
