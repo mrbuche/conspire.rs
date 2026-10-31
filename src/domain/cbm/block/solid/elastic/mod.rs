@@ -1,72 +1,44 @@
 use super::super::{Block, node::solid::elastic::ElasticElement};
 use crate::{
-    constitutive::{ConstitutiveError, solid::elastic::Elastic},
-    domain::{
-        ElementModelError, NodalCoordinates,
-        solid::{NodalForcesSolid, NodalStiffnessesSolid},
-    },
+    constitutive::solid::elastic::Elastic,
+    domain::{ElementModelError, NodalCoordinates, solid::elastic::ElasticItems},
+    math::{Current, TensorRank1, TensorRank2},
+    units::{Force, ForcePerLength},
 };
 
 pub use crate::domain::solid::elastic::ElasticElements;
 
-impl<C, R> ElasticElements<3> for Block<C, R>
-where
-    C: Elastic,
-{
-    fn nodal_forces_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        nodal_forces: &mut NodalForcesSolid<3>,
-    ) -> Result<(), ElementModelError> {
-        self.nodes
-            .iter()
-            .try_for_each(|node| {
-                node.nodal_forces(&self.constitutive_model, nodal_coordinates)?
-                    .into_iter()
-                    .zip(node.neighbors())
-                    .for_each(|(force, &neighbor)| nodal_forces[neighbor] += force);
-                Ok::<(), ConstitutiveError>(())
-            })
-            .map_err(|error| ElementModelError::upstream(error, self))
-    }
-    fn nodal_stiffnesses_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
-    ) -> Result<(), ElementModelError> {
-        self.nodes
-            .iter()
-            .try_for_each(|node| {
-                node.nodal_stiffnesses(&self.constitutive_model, nodal_coordinates)?
-                    .into_iter()
-                    .zip(node.neighbors())
-                    .for_each(|(row, &neighbor_a)| {
-                        row.into_iter()
-                            .zip(node.neighbors())
-                            .for_each(|(block, &neighbor_b)| {
-                                nodal_stiffnesses[neighbor_a][neighbor_b] += block
-                            })
-                    });
-                Ok::<(), ConstitutiveError>(())
-            })
-            .map_err(|error| ElementModelError::upstream(error, self))
-    }
-}
+type NodalForce = TensorRank1<3, Current, Force>;
+type NodalStiffness = TensorRank2<3, Current, Current, ForcePerLength>;
 
-/// TEMPORARY EXPERIMENT: a block with no parallel forces computes them serially.
-impl<C, R> crate::domain::solid::elastic::ParallelElasticElements<3> for Block<C, R>
+impl<C, R> ElasticItems<3> for Block<C, R>
 where
     C: Elastic,
 {
-    type Scratch = ();
-    fn scratch(&self) {}
-    fn nodal_forces_parallel_into(
+    type Forces = Vec<NodalForce>;
+    type Stiffnesses = Vec<Vec<NodalStiffness>>;
+    fn number_of_items(&self) -> usize {
+        self.nodes.len()
+    }
+    fn nodes_of(&self, item: usize) -> &[usize] {
+        self.nodes[item].neighbors()
+    }
+    fn forces_of(
         &self,
-        _: &mut (),
-        _: &crate::domain::solid::elastic::Workers,
+        item: usize,
         nodal_coordinates: &NodalCoordinates<3>,
-        nodal_forces: &mut NodalForcesSolid<3>,
-    ) -> Result<(), ElementModelError> {
-        self.nodal_forces_into(nodal_coordinates, nodal_forces)
+    ) -> Result<Vec<NodalForce>, ElementModelError> {
+        self.nodes[item]
+            .nodal_forces(&self.constitutive_model, nodal_coordinates)
+            .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    fn stiffnesses_of(
+        &self,
+        item: usize,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<Vec<Vec<NodalStiffness>>, ElementModelError> {
+        self.nodes[item]
+            .nodal_stiffnesses(&self.constitutive_model, nodal_coordinates)
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }
