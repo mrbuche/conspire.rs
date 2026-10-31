@@ -46,6 +46,16 @@ pub struct Block<
     elements: Vec<F>,
     density: R,
     heat_capacity: H,
+    scratch: Scratch<N>,
+}
+
+/// TEMPORARY EXPERIMENT: element forces kept between calls so the parallel pass does not allocate.
+pub(crate) struct Scratch<const N: usize>(std::sync::Mutex<Vec<crate::mechanics::ForceList<N>>>);
+
+impl<const N: usize> Default for Scratch<N> {
+    fn default() -> Self {
+        Self(std::sync::Mutex::new(Vec::new()))
+    }
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
@@ -130,6 +140,7 @@ where
             elements,
             density: NoDensity,
             heat_capacity: NoHeatCapacity,
+            scratch: Scratch::default(),
         }
     }
 }
@@ -181,6 +192,7 @@ where
             elements,
             density: NoDensity,
             heat_capacity: NoHeatCapacity,
+            scratch: Scratch::default(),
         }
     }
 }

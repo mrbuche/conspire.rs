@@ -13,6 +13,7 @@ use crate::{
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
+    math::{Tensor, TensorArray},
 };
 
 /// TEMPORARY EXPERIMENT: a persistent pool with one thread per physical core.
@@ -40,29 +41,37 @@ where
         nodal_forces: &mut NodalForcesSolid<3>,
     ) -> Result<(), ElementModelError> {
         use rayon::prelude::*;
-        let forces = pool().install(|| {
-            self.elements()
-                .par_iter()
-                .zip(self.connectivity().iter().as_slice().par_iter())
-                .map(|(element, nodes)| {
-                    element.nodal_forces(
-                        self.constitutive_model(),
-                        &Self::element_coordinates(nodal_coordinates, nodes),
-                    )
-                })
-                .collect::<Vec<Result<_, FiniteElementError>>>()
-        });
-        forces
-            .into_iter()
+        let mut scratch = self.scratch.0.lock().expect("the scratch forces");
+        scratch.resize_with(
+            self.elements().len(),
+            crate::mechanics::ForceList::<N>::zero,
+        );
+        let slots = scratch.as_mut_slice();
+        pool()
+            .install(|| {
+                slots
+                    .par_iter_mut()
+                    .zip(self.elements().par_iter())
+                    .zip(self.connectivity().iter().as_slice().par_iter())
+                    .try_for_each(|((slot, element), nodes)| {
+                        *slot = element.nodal_forces(
+                            self.constitutive_model(),
+                            &Self::element_coordinates(nodal_coordinates, nodes),
+                        )?;
+                        Ok::<(), FiniteElementError>(())
+                    })
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))?;
+        slots
+            .iter()
             .zip(self.connectivity())
-            .try_for_each(|(forces, nodes)| {
-                forces?
-                    .into_iter()
+            .for_each(|(forces, nodes)| {
+                forces
+                    .iter()
                     .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), FiniteElementError>(())
-            })
-            .map_err(|error| ElementModelError::upstream(error, self))
+            });
+        Ok(())
     }
     fn nodal_stiffnesses_into(
         &self,
