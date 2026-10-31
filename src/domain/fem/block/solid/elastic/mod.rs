@@ -13,7 +13,7 @@ use crate::{
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
-    math::{Tensor, TensorArray},
+    math::TensorArray,
 };
 
 /// TEMPORARY EXPERIMENT: a persistent pool with one thread per physical core.
@@ -41,7 +41,7 @@ where
         nodal_forces: &mut NodalForcesSolid<3>,
     ) -> Result<(), ElementModelError> {
         use rayon::prelude::*;
-        let mut scratch = self.scratch.0.lock().expect("the scratch forces");
+        let mut scratch = self.scratch.forces.lock().expect("the scratch forces");
         scratch.resize_with(
             self.elements().len(),
             crate::mechanics::ForceList::<N>::zero,
@@ -62,15 +62,25 @@ where
                     })
             })
             .map_err(|error| ElementModelError::upstream(error, self))?;
-        slots
-            .iter()
-            .zip(self.connectivity())
-            .for_each(|(forces, nodes)| {
-                forces
-                    .iter()
-                    .zip(nodes)
-                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-            });
+        let gather = self
+            .scratch
+            .gather
+            .get_or_init(|| super::super::Gather::new(self.connectivity().iter().as_slice()));
+        let slots = &*slots;
+        pool().install(|| {
+            nodal_forces
+                .as_mut_slice()
+                .par_iter_mut()
+                .with_min_len(512)
+                .enumerate()
+                .for_each(|(node, nodal_force)| {
+                    if let Some(range) = gather.offsets.get(node..node + 2) {
+                        gather.entries[range[0]..range[1]]
+                            .iter()
+                            .for_each(|&entry| *nodal_force += &slots[entry / N][entry % N])
+                    }
+                })
+        });
         Ok(())
     }
     fn nodal_stiffnesses_into(

@@ -49,12 +49,53 @@ pub struct Block<
     scratch: Scratch<N>,
 }
 
-/// TEMPORARY EXPERIMENT: element forces kept between calls so the parallel pass does not allocate.
-pub(crate) struct Scratch<const N: usize>(std::sync::Mutex<Vec<crate::mechanics::ForceList<N>>>);
+/// TEMPORARY EXPERIMENT: element forces kept between calls so the parallel pass does not
+/// allocate, and the nodes' incident (element, local node) pairs for a deterministic gather.
+pub(crate) struct Scratch<const N: usize> {
+    pub(crate) forces: std::sync::Mutex<Vec<crate::mechanics::ForceList<N>>>,
+    pub(crate) gather: std::sync::OnceLock<Gather>,
+}
+
+/// For each node, the flat indices `N * element + local` of its contributions, in element order.
+pub(crate) struct Gather {
+    pub(crate) offsets: Vec<usize>,
+    pub(crate) entries: Vec<usize>,
+}
+
+impl Gather {
+    pub(crate) fn new<const N: usize>(connectivity: &[[usize; N]]) -> Self {
+        let nodes = connectivity
+            .iter()
+            .flatten()
+            .max()
+            .map_or(0, |&node| node + 1);
+        let mut offsets = vec![0; nodes + 1];
+        connectivity
+            .iter()
+            .flatten()
+            .for_each(|&node| offsets[node + 1] += 1);
+        (0..nodes).for_each(|node| offsets[node + 1] += offsets[node]);
+        let mut next = offsets.clone();
+        let mut entries = vec![0; connectivity.len() * N];
+        connectivity
+            .iter()
+            .enumerate()
+            .for_each(|(element, nodes)| {
+                nodes.iter().enumerate().for_each(|(local, &node)| {
+                    entries[next[node]] = N * element + local;
+                    next[node] += 1;
+                })
+            });
+        Self { offsets, entries }
+    }
+}
 
 impl<const N: usize> Default for Scratch<N> {
     fn default() -> Self {
-        Self(std::sync::Mutex::new(Vec::new()))
+        Self {
+            forces: std::sync::Mutex::new(Vec::new()),
+            gather: std::sync::OnceLock::new(),
+        }
     }
 }
 
