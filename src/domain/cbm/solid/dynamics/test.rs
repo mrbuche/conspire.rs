@@ -1,7 +1,8 @@
 use crate::{
     cbm::{
-        ElasticElements, ElasticExplicitDynamics, HyperelasticElements, Model, NodalAccelerations,
-        NodalCoordinates, NodalReferenceCoordinates, NodalVelocities, block::Block,
+        ElasticElements, ElasticExplicitDynamics, Execution, HyperelasticElements, Model,
+        NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        block::Block,
     },
     constitutive::solid::hyperelastic::NeoHookean,
     domain::{
@@ -120,6 +121,7 @@ fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionE
     let (model, dt) = (model(), 1e-4);
     let masses = model.nodal_lumped_masses();
     let (times, coordinates, ..) = model.integrate(
+        Execution::Serial,
         &integrator(dt),
         &time(dt),
         (
@@ -145,6 +147,7 @@ fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
     let masses = model.nodal_lumped_masses();
     let weights = weights(&masses);
     let (times, coordinates, velocities, accelerations) = model.integrate(
+        Execution::Serial,
         &integrator(dt),
         &time(dt),
         (
@@ -178,6 +181,7 @@ fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
     let masses = model.nodal_lumped_masses();
     let weights = weights(&masses);
     let (_, coordinates, velocities, accelerations) = model.integrate(
+        Execution::Serial,
         &integrator(dt),
         &time(dt),
         (
@@ -204,6 +208,7 @@ fn the_total_energy_of_a_released_stretch_is_conserved() -> Result<(), Assertion
     let mut stretched = COORDINATES;
     stretched[4][0] += 0.01;
     let (_, coordinates, velocities, _) = model.integrate(
+        Execution::Serial,
         &integrator(dt),
         &[Time::seconds(0.0), Time::seconds(2000.0 * dt)],
         (
@@ -367,6 +372,7 @@ mod implicit {
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
+            Execution::Serial,
             &super::integrator(dt),
             &interval,
             state(),

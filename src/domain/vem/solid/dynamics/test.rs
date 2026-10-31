@@ -10,7 +10,7 @@ use crate::{
     },
     units::{Density, Energy, STANDARD_GRAVITY, Stress, Time},
     vem::{
-        ElasticExplicitDynamics, ElasticImplicitDynamics, Model, NodalAccelerations,
+        ElasticExplicitDynamics, ElasticImplicitDynamics, Execution, Model, NodalAccelerations,
         NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{
             Block,
@@ -123,6 +123,7 @@ mod explicit {
         let weights = weights(&masses);
         let (times, coordinates, velocities, accelerations) = ElasticExplicitDynamics::integrate(
             &model,
+            Execution::Serial,
             &VelocityVerlet::new(Time::seconds(dt)),
             &time(dt, 100),
             (
@@ -256,6 +257,7 @@ mod implicit {
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
+            Execution::Serial,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),

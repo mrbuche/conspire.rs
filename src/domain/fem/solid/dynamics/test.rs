@@ -9,7 +9,7 @@ use crate::{
         block::Block,
         block::element::linear::Tetrahedron,
         boundary::{Enforcement, Rows},
-        solid::{ElasticExplicitDynamics, NodalForcesSolid, elastic::ElasticElements},
+        solid::{ElasticExplicitDynamics, Execution, NodalForcesSolid, elastic::ElasticElements},
     },
     math::{
         Quantity, Tensor,
@@ -207,6 +207,7 @@ mod integrate {
         let (model, dt) = (model(), 1e-4);
         let masses = model.nodal_lumped_masses();
         let (times, coordinates, ..) = model.integrate(
+            Execution::Serial,
             &integrator(dt),
             &time(dt),
             (
@@ -244,6 +245,7 @@ mod integrate {
                 Length::meters(2.0 * time.value())
             });
         let (times, coordinates, ..) = model.integrate(
+            Execution::Serial,
             &integrator(dt),
             &time(dt),
             (
@@ -268,6 +270,7 @@ mod integrate {
         let masses = model.nodal_lumped_masses();
         let weights = weights(&masses);
         let (times, coordinates, velocities, accelerations) = model.integrate(
+            Execution::Serial,
             &integrator(dt),
             &time(dt),
             (
@@ -302,6 +305,7 @@ mod integrate {
         let masses = model.nodal_lumped_masses();
         let weights = weights(&masses);
         let (_, coordinates, velocities, accelerations) = model.integrate(
+            Execution::Serial,
             &integrator(dt),
             &time(dt),
             (
@@ -328,6 +332,7 @@ mod integrate {
         stretched[4][0] += 0.01;
         let stretched = NodalCoordinates::from(stretched);
         let (_, coordinates, velocities, _) = model.integrate(
+            Execution::Serial,
             &integrator(dt),
             &[Time::seconds(0.0), Time::seconds(2000.0 * dt)],
             (stretched, uniform_velocities([0.0; 3])),
@@ -356,6 +361,7 @@ mod integrate {
         let (model, dt) = (model(), 1e-4);
         let masses = model.nodal_lumped_masses();
         let result = model.integrate(
+            Execution::Serial,
             &integrator(dt),
             &time(dt),
             (
@@ -555,6 +561,7 @@ mod integrate_implicit {
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
+            Execution::Serial,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),
@@ -688,6 +695,7 @@ mod integrate_implicit {
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
+            Execution::Serial,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),
@@ -828,6 +836,7 @@ mod consistent_masses {
         let masses = model.nodal_masses();
         let weights = weights(&masses);
         let (times, coordinates, ..) = model.integrate(
+            Execution::Serial,
             &integrator(),
             &[Time::seconds(0.0), Time::seconds(0.01)],
             (
@@ -853,6 +862,7 @@ mod consistent_masses {
         let masses = model.nodal_masses();
         let weights = weights(&masses);
         let (_, coordinates, velocities, accelerations) = model.integrate(
+            Execution::Serial,
             &integrator(),
             &[Time::seconds(0.0), Time::seconds(0.01)],
             (
@@ -967,6 +977,7 @@ mod bar_wave {
             )
             .unwrap();
         let (times, coordinates, ..) = model.integrate(
+            Execution::Serial,
             integrator,
             time,
             (

@@ -5,7 +5,7 @@ mod explicit;
 mod implicit;
 mod motion;
 
-pub use explicit::ElasticExplicitDynamics;
+pub use explicit::{ElasticExplicitDynamics, Execution};
 pub use implicit::ElasticImplicitDynamics;
 
 use crate::{

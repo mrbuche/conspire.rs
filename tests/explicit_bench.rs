@@ -14,7 +14,7 @@ use conspire::{
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
-            ElasticExplicitDynamics, NodalForcesSolid,
+            ElasticExplicitDynamics, Execution, NodalForcesSolid,
             elastic::{ElasticElements, ParallelElasticElements, Workers},
         },
     },
@@ -214,6 +214,7 @@ fn single_block_steps() {
         let start = Instant::now();
         let serial = model
             .integrate(
+                Execution::Serial,
                 &integrator,
                 &time,
                 (current.clone(), velocities()),
@@ -225,8 +226,8 @@ fn single_block_steps() {
         let serial_time = start.elapsed().as_secs_f64() * 1e3 / STEPS as f64;
         let start = Instant::now();
         let parallel = model
-            .integrate_parallel(
-                threads(),
+            .integrate(
+                Execution::Threads(threads()),
                 &integrator,
                 &time,
                 (current.clone(), velocities()),

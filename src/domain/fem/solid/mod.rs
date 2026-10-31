@@ -12,7 +12,9 @@ pub mod mass;
 pub mod time_scale;
 pub mod viscoelastic;
 
-pub use crate::domain::solid::dynamics::{ElasticExplicitDynamics, ElasticImplicitDynamics};
+pub use crate::domain::solid::dynamics::{
+    ElasticExplicitDynamics, ElasticImplicitDynamics, Execution,
+};
 
 pub use crate::domain::solid::{
     NodalDampingsSolid, NodalDampingsSolidSymmetric, NodalForcesSolid, NodalStiffnessesSolid,

@@ -1,6 +1,6 @@
 use crate::{
     cbm::{
-        ElasticElements, ElasticExplicitDynamics, Model, NodalCoordinates,
+        ElasticElements, ElasticExplicitDynamics, Execution, Model, NodalCoordinates,
         NodalReferenceCoordinates, NodalVelocities, block::Block,
     },
     constitutive::solid::hyperelastic::NeoHookean,
@@ -142,6 +142,7 @@ fn a_bounded_integration_runs_below_the_limit_and_errors_above_it() {
         .in_seconds();
     let run = |dt: f64| {
         model.integrate_bounded(
+            Execution::Serial,
             &VelocityVerlet::new(Time::seconds(dt)),
             1.0,
             1,

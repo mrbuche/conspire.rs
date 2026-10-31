@@ -17,6 +17,77 @@ use crate::{
     },
     units::Time,
 };
+use std::thread::available_parallelism;
+
+/// How the nodal forces of a run of explicit dynamics are computed.
+///
+/// The choice never changes the results, which are identical in either case, and only the run
+/// is affected: the threads and their storage are created when the run starts and dropped
+/// when it ends.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum Execution {
+    /// On the calling thread, with nothing created for the run.
+    #[default]
+    Serial,
+    /// On the given number of threads, which live for the run. Any number, including one,
+    /// takes the parallel pathway, which [`Serial`](Self::Serial) avoids, and zero is as many
+    /// threads as the machine offers.
+    Threads(usize),
+}
+
+/// The threads and storage of one run.
+enum Run<S> {
+    Serial,
+    Parallel(Workers, S),
+}
+
+impl Execution {
+    fn start<B>(self, model: &Model<B, 3>) -> Result<Run<B::Scratch>, IntegrationError>
+    where
+        B: ParallelElasticElements<3>,
+    {
+        let threads = match self {
+            Self::Serial => return Ok(Run::Serial),
+            Self::Threads(0) => available_parallelism().map_or(1, usize::from),
+            Self::Threads(threads) => threads,
+        };
+        Ok(Run::Parallel(
+            Workers::new(threads).map_err(IntegrationError::Intermediate)?,
+            model.scratch(),
+        ))
+    }
+}
+
+impl<B> Model<B, 3>
+where
+    B: ParallelElasticElements<3>,
+{
+    fn nodal_accelerations_in(
+        &self,
+        run: &mut Run<B::Scratch>,
+        nodal_coordinates: &NodalCoordinates<3>,
+        time: Quantity<Time>,
+        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
+        masses: &impl InverseMass<3>,
+    ) -> Result<NodalAccelerations<3>, ElementModelError> {
+        match run {
+            Run::Serial => self.nodal_accelerations(nodal_coordinates, time, applied_loads, masses),
+            Run::Parallel(workers, scratch) => {
+                let mut unbalanced_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+                self.nodal_forces_parallel_into(
+                    scratch,
+                    workers,
+                    nodal_coordinates,
+                    &mut unbalanced_forces,
+                )?;
+                applied_loads
+                    .subtract_at(time, nodal_coordinates, &mut unbalanced_forces)
+                    .map_err(|error| ElementModelError::upstream(error, "the applied loads"))?;
+                Ok(masses.nodal_accelerations(&unbalanced_forces))
+            }
+        }
+    }
+}
 
 /// The motion of an elastic model with explicit time integration.
 pub trait ElasticExplicitDynamics {
@@ -32,8 +103,10 @@ pub trait ElasticExplicitDynamics {
     /// The masses may be lumped or consistent. Fixed degrees of freedom, whose indices are
     /// `D * node + component`, are held by giving them no velocity, and no acceleration
     /// from the inverse of the masses. Linear constraints are not supported.
+    #[expect(clippy::too_many_arguments)]
     fn integrate(
         &self,
+        execution: Execution,
         integrator: &impl ExplicitDynamics<
             NodalCoordinates<3>,
             NodalCoordinatesHistory<3>,
@@ -46,29 +119,6 @@ pub trait ElasticExplicitDynamics {
         masses: &impl MassMatrix<3>,
         conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError>;
-    /// Integrates the motion of the model like [`integrate`](Self::integrate), computing the
-    /// nodal forces on `threads` threads that live for the whole run.
-    ///
-    /// The results are identical to those of [`integrate`](Self::integrate). Nothing else in the
-    /// model, including the solves, is affected.
-    #[expect(clippy::too_many_arguments)]
-    fn integrate_parallel(
-        &self,
-        threads: usize,
-        integrator: &impl ExplicitDynamics<
-            NodalCoordinates<3>,
-            NodalCoordinatesHistory<3>,
-            NodalVelocitiesHistory<3>,
-            NodalAccelerationsHistory<3>,
-        >,
-        time: &[Quantity<Time>],
-        initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
-        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        masses: &impl MassMatrix<3>,
-        conditions: &impl ConstrainAt<Solid<3>>,
-    ) -> Result<Solution, IntegrationError>
-    where
-        Self: ParallelElasticElements<3>;
     /// Integrates the motion of the model like [`integrate`](Self::integrate), with a time
     /// step limited by the fastest time scale of the elements.
     ///
@@ -80,6 +130,7 @@ pub trait ElasticExplicitDynamics {
     #[expect(clippy::too_many_arguments)]
     fn integrate_bounded(
         &self,
+        execution: Execution,
         integrator: &impl ExplicitDynamics<
             NodalCoordinates<3>,
             NodalCoordinatesHistory<3>,
@@ -100,7 +151,7 @@ pub trait ElasticExplicitDynamics {
 
 impl<B> ElasticExplicitDynamics for Model<B, 3>
 where
-    B: ElasticElements<3>,
+    B: ParallelElasticElements<3>,
 {
     fn nodal_accelerations(
         &self,
@@ -117,6 +168,7 @@ where
     }
     fn integrate(
         &self,
+        execution: Execution,
         integrator: &impl ExplicitDynamics<
             NodalCoordinates<3>,
             NodalCoordinatesHistory<3>,
@@ -140,68 +192,13 @@ where
             initial_velocities,
             Stepping::Explicit,
         )?;
+        let mut run = execution.start(self)?;
         let (times, mut coordinates, velocities, accelerations) = integrator.integrate(
             |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
                 let mut coordinates = coordinates.clone();
                 motion.apply(time, &mut coordinates);
-                self.nodal_accelerations(&coordinates, time, applied_loads, &masses)
+                self.nodal_accelerations_in(&mut run, &coordinates, time, applied_loads, &masses)
                     .map_err(|error| error.to_string())
-            },
-            time,
-            initial_coordinates,
-            initial_velocities,
-        )?;
-        motion.record(&times, &mut coordinates);
-        Ok((times, coordinates, velocities, accelerations))
-    }
-    fn integrate_parallel(
-        &self,
-        threads: usize,
-        integrator: &impl ExplicitDynamics<
-            NodalCoordinates<3>,
-            NodalCoordinatesHistory<3>,
-            NodalVelocitiesHistory<3>,
-            NodalAccelerationsHistory<3>,
-        >,
-        time: &[Quantity<Time>],
-        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
-        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        masses: &impl MassMatrix<3>,
-        conditions: &impl ConstrainAt<Solid<3>>,
-    ) -> Result<Solution, IntegrationError>
-    where
-        Self: ParallelElasticElements<3>,
-    {
-        let initial_time = *time
-            .first()
-            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
-        let (masses, initial_velocities, motion) = Motion::held(
-            masses,
-            conditions,
-            initial_time,
-            &mut initial_coordinates,
-            initial_velocities,
-            Stepping::Explicit,
-        )?;
-        let workers = Workers::new(threads).map_err(IntegrationError::Intermediate)?;
-        let mut scratch = self.scratch();
-        let (times, mut coordinates, velocities, accelerations) = integrator.integrate(
-            |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
-                let mut coordinates = coordinates.clone();
-                motion.apply(time, &mut coordinates);
-                let mut unbalanced_forces = NodalForcesSolid::zero(coordinates.len());
-                self.nodal_forces_parallel_into(
-                    &mut scratch,
-                    &workers,
-                    &coordinates,
-                    &mut unbalanced_forces,
-                )
-                .map_err(|error| error.to_string())?;
-                applied_loads
-                    .subtract_at(time, &coordinates, &mut unbalanced_forces)
-                    .map_err(|error| ElementModelError::upstream(error, "the applied loads"))
-                    .map_err(|error| error.to_string())?;
-                Ok(masses.nodal_accelerations(&unbalanced_forces))
             },
             time,
             initial_coordinates,
@@ -212,6 +209,7 @@ where
     }
     fn integrate_bounded(
         &self,
+        execution: Execution,
         integrator: &impl ExplicitDynamics<
             NodalCoordinates<3>,
             NodalCoordinatesHistory<3>,
@@ -246,13 +244,14 @@ where
             initial_velocities,
             Stepping::Explicit,
         )?;
+        let mut run = execution.start(self)?;
         let mut evaluations = 0;
         let mut time_scale = Time::seconds(Scalar::INFINITY);
         let (times, mut coordinates, velocities, accelerations) = integrator.integrate_bounded(
             |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
                 let mut coordinates = coordinates.clone();
                 motion.apply(time, &mut coordinates);
-                self.nodal_accelerations(&coordinates, time, applied_loads, &masses)
+                self.nodal_accelerations_in(&mut run, &coordinates, time, applied_loads, &masses)
                     .map_err(|error| error.to_string())
             },
             |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {

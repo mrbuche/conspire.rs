@@ -67,7 +67,7 @@ pub use crate::domain::{
     block::element::Elements,
     solid::{
         NodalDampingsSolid, NodalForcesSolid, NodalStiffnessesSolid, SolidElements,
-        dynamics::{ElasticExplicitDynamics, ElasticImplicitDynamics},
+        dynamics::{ElasticExplicitDynamics, ElasticImplicitDynamics, Execution},
         elastic::ElasticElements,
         elastic_hyperviscous::ElasticHyperviscousElements,
         elastic_viscoplastic::ElasticViscoplasticElements,
