@@ -94,9 +94,27 @@ struct Oracle<'a> {
     corners: Vec<[Direction<3>; 3]>,
 }
 
+struct Elements {
+    corners: Vec<&'static CornerTable>,
+    nodes: Vec<usize>,
+    offsets: Vec<usize>,
+}
+
+impl Elements {
+    fn len(&self) -> usize {
+        self.corners.len()
+    }
+    fn get(&self, index: usize) -> (&'static CornerTable, &[usize]) {
+        (
+            self.corners[index],
+            &self.nodes[self.offsets[index]..self.offsets[index + 1]],
+        )
+    }
+}
+
 struct Sweep<'a> {
     element_chunk: usize,
-    elements: &'a [(&'static CornerTable, Vec<usize>)],
+    elements: &'a Elements,
     epsilon: Scalar,
     lengths: Vec<Quantity<Length>>,
     node_chunk: usize,
@@ -179,7 +197,11 @@ impl Mesh<3> {
         nodes: &[usize],
         target: &Tessellation,
     ) -> Result<(), &'static str> {
-        let mut elements: Vec<(&'static CornerTable, Vec<usize>)> = Vec::new();
+        let mut elements = Elements {
+            corners: Vec::new(),
+            nodes: Vec::new(),
+            offsets: vec![0],
+        };
         for block in self.iter() {
             let corners: &'static CornerTable = match block {
                 Connectivity::Hexahedral(_) => &hexahedron::CORNERS,
@@ -188,7 +210,11 @@ impl Mesh<3> {
                 Connectivity::Wedge(_) => &wedge::CORNERS,
                 _ => return Err("fit requires hexahedra, tetrahedra, pyramids or wedges"),
             };
-            elements.extend(block.iter().map(|element| (corners, element.to_vec())));
+            block.iter().for_each(|element| {
+                elements.corners.push(corners);
+                elements.nodes.extend_from_slice(element);
+                elements.offsets.push(elements.nodes.len())
+            });
         }
         let oracle = Oracle::new(target);
         let number_of_nodes = self.number_of_nodes();
@@ -434,7 +460,7 @@ impl Sweep<'_> {
             .iter()
             .map(|&element| {
                 let scale = self.scales[element].value();
-                let (corners, nodes) = &self.elements[element];
+                let (corners, nodes) = self.elements.get(element);
                 (
                     self.scales[element]
                         * energy(corners, nodes, coordinates, scale.powi(3) * self.epsilon),
@@ -455,7 +481,7 @@ impl Sweep<'_> {
                         chunk
                             .iter()
                             .map(|&element| {
-                                let (corners, nodes) = &self.elements[element];
+                                let (corners, nodes) = self.elements.get(element);
                                 self.scales[element]
                                     * energy(
                                         corners,
@@ -507,7 +533,7 @@ impl Sweep<'_> {
                     scope.spawn(move || {
                         let mut partial = self.empty();
                         chunk.iter().for_each(|&element| {
-                            let (corners, nodes) = &self.elements[element];
+                            let (corners, nodes) = self.elements.get(element);
                             let local = scatter(
                                 corners,
                                 nodes,
@@ -613,7 +639,7 @@ impl Sweep<'_> {
 
 fn sizes(
     neighbors: &[Vec<usize>],
-    elements: &[(&'static CornerTable, Vec<usize>)],
+    elements: &Elements,
     coordinates: &Coordinates<3>,
 ) -> (Vec<Quantity<Length>>, Vec<Quantity<Length>>) {
     let lengths: Vec<Quantity<Length>> = (0..coordinates.len())
@@ -625,9 +651,9 @@ fn sizes(
                 / neighbors[node].len().max(1) as Scalar
         })
         .collect();
-    let scales = elements
-        .iter()
-        .map(|(_, element)| {
+    let scales = (0..elements.len())
+        .map(|index| {
+            let (_, element) = elements.get(index);
             element
                 .iter()
                 .map(|&node| lengths[node])
