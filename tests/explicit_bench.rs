@@ -1,9 +1,11 @@
 #![cfg(feature = "fem")]
 
-//! Serial baseline for explicit dynamics on structured hexahedral grids.
+//! Serial and parallel explicit dynamics on structured hexahedral grids.
 //!
-//! Run alone, so only the library and this file are compiled:
-//! `CARGO_BUILD_JOBS=1 cargo test --release -F fem --test explicit_bench -- --ignored --nocapture`
+//! Run alone, one test at a time, so only the library and this file are compiled and the tests
+//! do not compete for cores:
+//! `CARGO_BUILD_JOBS=1 cargo test --release -F fem --test explicit_bench -- --ignored --nocapture --test-threads=1`
+//! The threads default to 4 and can be set with `THREADS`.
 
 use conspire::{
     constitutive::solid::hyperelastic::{NeoHookean, SaintVenantKirchhoff},
@@ -12,35 +14,45 @@ use conspire::{
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
-            ElasticExplicitDynamics,
-            elastic::{ElasticElements, SEQUENTIAL_BLOCKS},
+            ElasticExplicitDynamics, NodalForcesSolid,
+            elastic::{ElasticElements, ParallelElasticElements, Workers},
         },
     },
     math::{Quantity, Tensor, integrate::VelocityVerlet},
     units::{Density, Stress, Time},
 };
-use std::{hint::black_box, ops::Range, sync::atomic::Ordering, time::Instant};
+use std::{hint::black_box, ops::Range, time::Instant};
 
 type Grid = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
+type Steel = Block<SaintVenantKirchhoff, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
 
 const STEPS: usize = 50;
 
-fn model(cells: usize) -> (Model<Grid, 3>, Vec<[f64; 3]>) {
-    let nodes = cells + 1;
-    let index = |i: usize, j: usize, k: usize| (k * nodes + j) * nodes + i;
-    let spacing = 1.0 / cells as f64;
-    let coordinates = (0..nodes)
+fn threads() -> usize {
+    std::env::var("THREADS")
+        .ok()
+        .and_then(|threads| threads.parse().ok())
+        .unwrap_or(4)
+}
+
+fn density() -> Quantity<Density> {
+    Density::kilograms_per_cubic_meter(7.8e3)
+}
+
+fn rubber(shear: f64, bulk: f64) -> NeoHookean {
+    NeoHookean {
+        shear_modulus: Stress::pascals(shear),
+        bulk_modulus: Stress::pascals(bulk),
+    }
+}
+
+/// Hexahedra filling the layers `layers` of an `nx` by `ny` column grid.
+fn slab(nx: usize, ny: usize, layers: Range<usize>) -> Vec<[usize; 8]> {
+    let index = |i: usize, j: usize, k: usize| (k * (ny + 1) + j) * (nx + 1) + i;
+    layers
         .flat_map(|k| {
-            (0..nodes).flat_map(move |j| {
-                (0..nodes)
-                    .map(move |i| [i as f64 * spacing, j as f64 * spacing, k as f64 * spacing])
-            })
-        })
-        .collect::<Vec<_>>();
-    let connectivity = (0..cells)
-        .flat_map(|k| {
-            (0..cells).flat_map(move |j| {
-                (0..cells).map(move |i| {
+            (0..ny).flat_map(move |j| {
+                (0..nx).map(move |i| {
                     [
                         index(i, j, k),
                         index(i + 1, j, k),
@@ -54,24 +66,23 @@ fn model(cells: usize) -> (Model<Grid, 3>, Vec<[f64; 3]>) {
                 })
             })
         })
-        .collect::<Vec<[usize; 8]>>();
-    let reference = NodalReferenceCoordinates::from(coordinates.clone());
-    (
-        (
-            Grid::from((
-                NeoHookean {
-                    shear_modulus: Stress::pascals(3.0e9),
-                    bulk_modulus: Stress::pascals(13.0e9),
-                },
-                Density::kilograms_per_cubic_meter(7.8e3),
-                connectivity,
-                &reference,
-            )),
-            reference,
-        )
-            .into(),
-        coordinates,
-    )
+        .collect()
+}
+
+fn lattice(nx: usize, ny: usize, layers: usize) -> Vec<[f64; 3]> {
+    (0..=layers)
+        .flat_map(|k| {
+            (0..=ny).flat_map(move |j| {
+                (0..=nx).map(move |i| {
+                    [
+                        i as f64 / nx as f64,
+                        j as f64 / ny as f64,
+                        k as f64 / nx as f64,
+                    ]
+                })
+            })
+        })
+        .collect()
 }
 
 /// A smooth, small displacement so that every element has a nonzero stress.
@@ -94,132 +105,181 @@ fn median(mut samples: Vec<f64>) -> f64 {
     samples[samples.len() / 2]
 }
 
+fn checksum<T, U>(forces: &T) -> u64
+where
+    T: Tensor,
+    T::Item: Tensor<Item = Quantity<U>>,
+{
+    forces
+        .iter()
+        .flat_map(|force| force.iter().map(|component| component.value().to_bits()))
+        .fold(0u64, |sum, bits| sum.rotate_left(5) ^ bits)
+}
+
+fn time_of(repetitions: usize, mut operation: impl FnMut()) -> f64 {
+    median(
+        (0..repetitions)
+            .map(|_| {
+                let start = Instant::now();
+                operation();
+                start.elapsed().as_secs_f64() * 1e3
+            })
+            .collect(),
+    )
+}
+
+/// Times the serial and parallel nodal forces of a model, and checks that they are identical.
+fn compare<B>(label: &str, model: &Model<B, 3>, current: &NodalCoordinates<3>, repetitions: usize)
+where
+    B: ElasticElements<3> + ParallelElasticElements<3>,
+{
+    let workers = Workers::new(threads()).unwrap();
+    let mut scratch = model.scratch();
+    let serial = time_of(repetitions, || {
+        black_box(model.nodal_forces(black_box(current)).unwrap());
+    });
+    let parallel = time_of(repetitions, || {
+        let mut forces = NodalForcesSolid::<3>::zero(current.len());
+        model
+            .nodal_forces_parallel_into(&mut scratch, &workers, black_box(current), &mut forces)
+            .unwrap();
+        black_box(forces);
+    });
+    let expected = checksum(&model.nodal_forces(current).unwrap());
+    let mut forces = NodalForcesSolid::<3>::zero(current.len());
+    model
+        .nodal_forces_parallel_into(&mut scratch, &workers, current, &mut forces)
+        .unwrap();
+    let found = checksum(&forces);
+    println!(
+        "{label:>30}: serial {serial:>8.3} ms  parallel {parallel:>8.3} ms  {:>5.2}x  {}",
+        serial / parallel,
+        if expected == found {
+            format!("identical {expected:016x}")
+        } else {
+            format!("DIFFERENT {expected:016x} {found:016x}")
+        }
+    );
+    assert_eq!(expected, found);
+}
+
+fn grid_model(cells: usize) -> (Model<Grid, 3>, Vec<[f64; 3]>) {
+    let coordinates = lattice(cells, cells, cells);
+    let reference = NodalReferenceCoordinates::from(coordinates.clone());
+    (
+        (
+            Grid::from((
+                rubber(3.0e9, 13.0e9),
+                density(),
+                slab(cells, cells, 0..cells),
+                &reference,
+            )),
+            reference,
+        )
+            .into(),
+        coordinates,
+    )
+}
+
 #[test]
 #[ignore]
-fn explicit_baseline() {
-    println!(
-        "\n{:>9} {:>9} {:>14} {:>14} {:>14}",
-        "elements", "nodes", "forces (ms)", "step (ms)", "forces/step"
-    );
+fn single_block() {
+    println!("\nthreads: {}", threads());
     for cells in [10, 22, 46] {
-        let (model, coordinates) = model(cells);
+        let (model, coordinates) = grid_model(cells);
         let current = deformed(&coordinates);
         let repetitions = (2_000_000 / cells.pow(3)).clamp(5, 200);
-        let forces = median(
-            (0..repetitions)
-                .map(|_| {
-                    let start = Instant::now();
-                    black_box(model.nodal_forces(black_box(&current)).unwrap());
-                    start.elapsed().as_secs_f64() * 1e3
-                })
-                .collect(),
-        );
-        let checksum = model
-            .nodal_forces(&current)
-            .unwrap()
-            .iter()
-            .flat_map(|force| force.iter().map(|component| component.value().to_bits()))
-            .fold(0u64, |sum, bits| sum.rotate_left(5) ^ bits);
-        println!("checksum {cells}: {checksum:016x}");
-        let masses = model.nodal_lumped_masses();
-        let dt = 1e-8;
-        let time = [Time::seconds(0.0), Time::seconds(STEPS as f64 * dt)];
-        let velocities = NodalVelocities::from(vec![[0.0; 3]; coordinates.len()]);
-        let start = Instant::now();
-        black_box(
-            model
-                .integrate(
-                    &VelocityVerlet::new(Time::seconds(dt)),
-                    &time,
-                    (current.clone(), velocities),
-                    &(),
-                    &masses,
-                    &BoundaryConditions::<Solid<3>>::new(),
-                )
-                .unwrap(),
-        );
-        let step = start.elapsed().as_secs_f64() * 1e3 / STEPS as f64;
-        println!(
-            "{:>9} {:>9} {:>14.3} {:>14.3} {:>13.0}%",
-            cells.pow(3),
-            (cells + 1).pow(3),
-            forces,
-            step,
-            100.0 * forces / step
+        compare(
+            &format!("{} elements", cells.pow(3)),
+            &model,
+            &current,
+            repetitions,
         );
     }
 }
 
-type Steel = Block<SaintVenantKirchhoff, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
+#[test]
+#[ignore]
+fn single_block_steps() {
+    println!("\nthreads: {}", threads());
+    for cells in [10, 22, 46] {
+        let (model, coordinates) = grid_model(cells);
+        let current = deformed(&coordinates);
+        let masses = model.nodal_lumped_masses();
+        let dt = 1e-8;
+        let time = [Time::seconds(0.0), Time::seconds(STEPS as f64 * dt)];
+        let velocities = || NodalVelocities::from(vec![[0.0; 3]; coordinates.len()]);
+        let integrator = VelocityVerlet::new(Time::seconds(dt));
+        let conditions = BoundaryConditions::<Solid<3>>::new();
+        let start = Instant::now();
+        let serial = model
+            .integrate(
+                &integrator,
+                &time,
+                (current.clone(), velocities()),
+                &(),
+                &masses,
+                &conditions,
+            )
+            .unwrap();
+        let serial_time = start.elapsed().as_secs_f64() * 1e3 / STEPS as f64;
+        let start = Instant::now();
+        let parallel = model
+            .integrate_parallel(
+                threads(),
+                &integrator,
+                &time,
+                (current.clone(), velocities()),
+                &(),
+                &masses,
+                &conditions,
+            )
+            .unwrap();
+        let parallel_time = start.elapsed().as_secs_f64() * 1e3 / STEPS as f64;
+        let same = checksum(serial.1.iter().last().unwrap())
+            == checksum(parallel.1.iter().last().unwrap());
+        println!(
+            "{:>9} elements: step serial {serial_time:>8.3} ms  parallel {parallel_time:>8.3} ms  {:>5.2}x  {}",
+            cells.pow(3),
+            serial_time / parallel_time,
+            if same { "identical" } else { "DIFFERENT" }
+        );
+        assert!(same);
+    }
+}
+
 type Three = Blocks<Grid, Blocks<Steel, Grid>>;
 
 const COLUMNS: usize = 32;
-
-/// Hexahedra filling the layers `layers` of a `COLUMNS` by `COLUMNS` column grid.
-fn slab(layers: Range<usize>) -> Vec<[usize; 8]> {
-    let nodes = COLUMNS + 1;
-    let index = |i: usize, j: usize, k: usize| (k * nodes + j) * nodes + i;
-    layers
-        .flat_map(|k| {
-            (0..COLUMNS).flat_map(move |j| {
-                (0..COLUMNS).map(move |i| {
-                    [
-                        index(i, j, k),
-                        index(i + 1, j, k),
-                        index(i + 1, j + 1, k),
-                        index(i, j + 1, k),
-                        index(i, j, k + 1),
-                        index(i + 1, j, k + 1),
-                        index(i + 1, j + 1, k + 1),
-                        index(i, j + 1, k + 1),
-                    ]
-                })
-            })
-        })
-        .collect()
-}
 
 /// Three slabs of about 100k, 30k and 1k elements, with different constitutive models, that share
 /// the nodes on their interfaces.
 fn three_blocks() -> (Model<Three, 3>, Vec<[f64; 3]>) {
     let (first, second) = (98, 29);
     let layers = first + second + 1;
-    let nodes = COLUMNS + 1;
-    let coordinates = (0..=layers)
-        .flat_map(|k| {
-            (0..nodes).flat_map(move |j| {
-                (0..nodes).map(move |i| {
-                    [
-                        i as f64 / COLUMNS as f64,
-                        j as f64 / COLUMNS as f64,
-                        k as f64 / COLUMNS as f64,
-                    ]
-                })
-            })
-        })
-        .collect::<Vec<_>>();
+    let coordinates = lattice(COLUMNS, COLUMNS, layers);
     let reference = NodalReferenceCoordinates::from(coordinates.clone());
-    let density = Density::kilograms_per_cubic_meter(7.8e3);
-    let rubber = |shear: f64, bulk: f64| NeoHookean {
-        shear_modulus: Stress::pascals(shear),
-        bulk_modulus: Stress::pascals(bulk),
-    };
     let blocks = Blocks(
-        Grid::from((rubber(3.0e9, 13.0e9), density, slab(0..first), &reference)),
+        Grid::from((
+            rubber(3.0e9, 13.0e9),
+            density(),
+            slab(COLUMNS, COLUMNS, 0..first),
+            &reference,
+        )),
         Blocks(
             Steel::from((
                 SaintVenantKirchhoff {
                     bulk_modulus: Stress::pascals(160.0e9),
                     shear_modulus: Stress::pascals(80.0e9),
                 },
-                density,
-                slab(first..first + second),
+                density(),
+                slab(COLUMNS, COLUMNS, first..first + second),
                 &reference,
             )),
             Grid::from((
                 rubber(1.0e9, 5.0e9),
-                density,
-                slab(first + second..layers),
+                density(),
+                slab(COLUMNS, COLUMNS, first + second..layers),
                 &reference,
             )),
         ),
@@ -227,80 +287,17 @@ fn three_blocks() -> (Model<Three, 3>, Vec<[f64; 3]>) {
     ((blocks, reference).into(), coordinates)
 }
 
-fn checksum(
-    forces: &impl Tensor<Item = impl Tensor<Item = Quantity<conspire::units::Force>>>,
-) -> u64 {
-    forces
-        .iter()
-        .flat_map(|force| force.iter().map(|component| component.value().to_bits()))
-        .fold(0u64, |sum, bits| sum.rotate_left(5) ^ bits)
-}
-
-#[test]
-#[ignore]
-fn heterogeneous_blocks() {
-    let (model, coordinates) = three_blocks();
-    let current = deformed(&coordinates);
-    println!(
-        "\nthree blocks, {} nodes: 100,352 + 29,696 + 1,024 elements",
-        coordinates.len()
-    );
-    let mut results = Vec::new();
-    for sequential in [true, false, true, false] {
-        SEQUENTIAL_BLOCKS.store(sequential, Ordering::Relaxed);
-        let samples = (0..30)
-            .map(|_| {
-                let start = Instant::now();
-                black_box(model.nodal_forces(black_box(&current)).unwrap());
-                start.elapsed().as_secs_f64() * 1e3
-            })
-            .collect::<Vec<_>>();
-        let sum = checksum(&model.nodal_forces(&current).unwrap());
-        let time = median(samples);
-        println!(
-            "{:>22}: {:>8.3} ms   checksum {:016x}",
-            if sequential {
-                "blocks one at a time"
-            } else {
-                "blocks joined"
-            },
-            time,
-            sum
-        );
-        results.push(sum);
-    }
-    assert!(results.windows(2).all(|pair| pair[0] == pair[1]));
-}
-
 type Four = Blocks<Grid, Blocks<Grid, Blocks<Grid, Grid>>>;
 
 /// Four small slabs of 1, 2, 3 and 4 layers, about 1k to 4k elements each.
 fn four_blocks() -> (Model<Four, 3>, Vec<[f64; 3]>) {
-    let layers = 10;
-    let nodes = COLUMNS + 1;
-    let coordinates = (0..=layers)
-        .flat_map(|k| {
-            (0..nodes).flat_map(move |j| {
-                (0..nodes).map(move |i| {
-                    [
-                        i as f64 / COLUMNS as f64,
-                        j as f64 / COLUMNS as f64,
-                        k as f64 / COLUMNS as f64,
-                    ]
-                })
-            })
-        })
-        .collect::<Vec<_>>();
+    let coordinates = lattice(COLUMNS, COLUMNS, 10);
     let reference = NodalReferenceCoordinates::from(coordinates.clone());
-    let density = Density::kilograms_per_cubic_meter(7.8e3);
     let block = |shear: f64, layers: Range<usize>| {
         Grid::from((
-            NeoHookean {
-                shear_modulus: Stress::pascals(shear),
-                bulk_modulus: Stress::pascals(4.0 * shear),
-            },
-            density,
-            slab(layers),
+            rubber(shear, 4.0 * shear),
+            density(),
+            slab(COLUMNS, COLUMNS, layers),
             &reference,
         ))
     };
@@ -316,35 +313,20 @@ fn four_blocks() -> (Model<Four, 3>, Vec<[f64; 3]>) {
 
 #[test]
 #[ignore]
-fn small_blocks() {
-    let (model, coordinates) = four_blocks();
-    let current = deformed(&coordinates);
-    println!(
-        "\nfour blocks, {} nodes: 1,024 + 2,048 + 3,072 + 4,096 elements",
-        coordinates.len()
+fn heterogeneous_blocks() {
+    println!("\nthreads: {}", threads());
+    let (model, coordinates) = three_blocks();
+    compare(
+        "100,352 + 29,696 + 1,024",
+        &model,
+        &deformed(&coordinates),
+        30,
     );
-    let mut results = Vec::new();
-    for sequential in [true, false, true, false] {
-        SEQUENTIAL_BLOCKS.store(sequential, Ordering::Relaxed);
-        let samples = (0..300)
-            .map(|_| {
-                let start = Instant::now();
-                black_box(model.nodal_forces(black_box(&current)).unwrap());
-                start.elapsed().as_secs_f64() * 1e3
-            })
-            .collect::<Vec<_>>();
-        let sum = checksum(&model.nodal_forces(&current).unwrap());
-        println!(
-            "{:>22}: {:>8.3} ms   checksum {:016x}",
-            if sequential {
-                "blocks one at a time"
-            } else {
-                "blocks joined"
-            },
-            median(samples),
-            sum
-        );
-        results.push(sum);
-    }
-    assert!(results.windows(2).all(|pair| pair[0] == pair[1]));
+    let (model, coordinates) = four_blocks();
+    compare(
+        "1,024 + 2,048 + 3,072 + 4,096",
+        &model,
+        &deformed(&coordinates),
+        300,
+    );
 }

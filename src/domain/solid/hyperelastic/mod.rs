@@ -58,8 +58,8 @@ where
 
 impl<B1, B2, const D: usize> HyperelasticElements<D> for Blocks<B1, B2>
 where
-    B1: HyperelasticElements<D> + Sync,
-    B2: HyperelasticElements<D> + Sync,
+    B1: HyperelasticElements<D>,
+    B2: HyperelasticElements<D>,
 {
     fn helmholtz_free_energy(
         &self,

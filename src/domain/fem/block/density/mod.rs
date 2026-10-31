@@ -44,7 +44,6 @@ impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
             elements: self.elements,
             density,
             heat_capacity: self.heat_capacity,
-            scratch: self.scratch,
         }
     }
     pub fn density(&self) -> &R {

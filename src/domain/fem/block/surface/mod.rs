@@ -47,7 +47,6 @@ where
             elements,
             density: NoDensity,
             heat_capacity: NoHeatCapacity,
-            scratch: Default::default(),
         }
     }
 }

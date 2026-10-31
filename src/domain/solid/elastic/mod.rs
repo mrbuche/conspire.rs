@@ -7,73 +7,15 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
-        Current, Tensor, TensorRank1,
+        Tensor,
         optimize::{Direct, NewtonRaphson, OptimizationError, RootFinding},
     },
-    units::Force,
 };
-use rayon::prelude::*;
-use std::sync::atomic::{AtomicBool, Ordering};
-
-/// TEMPORARY EXPERIMENT: when set, blocks are assembled one after another, each in parallel.
-pub static SEQUENTIAL_BLOCKS: AtomicBool = AtomicBool::new(false);
-
-/// TEMPORARY EXPERIMENT: a persistent pool with one thread per physical core.
-pub(crate) fn pool() -> &'static rayon::ThreadPool {
-    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
-    POOL.get_or_init(|| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(
-                std::env::var("CONSPIRE_THREADS")
-                    .ok()
-                    .and_then(|threads| threads.parse().ok())
-                    .unwrap_or(4),
-            )
-            .build()
-            .expect("the thread pool")
-    })
-}
-
-/// The nodes handed to one task of the gather.
-const GATHER_CHUNK: usize = 512;
-
-/// Computes the element forces of all blocks concurrently, then gathers them by node.
-pub(crate) fn parallel_nodal_forces_into<B, const D: usize>(
-    blocks: &B,
-    nodal_coordinates: &NodalCoordinates<D>,
-    nodal_forces: &mut NodalForcesSolid<D>,
-) -> Result<(), ElementModelError>
-where
-    B: ElasticElements<D> + Sync,
-{
-    pool().install(|| blocks.compute_element_forces(nodal_coordinates))?;
-    pool().install(|| {
-        nodal_forces
-            .as_mut_slice()
-            .par_chunks_mut(GATHER_CHUNK)
-            .enumerate()
-            .for_each(|(chunk, forces)| blocks.add_node_forces(chunk * GATHER_CHUNK, forces))
-    });
-    Ok(())
-}
 
 pub trait ElasticElements<const D: usize>
 where
     Self: Elements,
 {
-    /// TEMPORARY EXPERIMENT: whether the forces can be split into a parallel computation of the
-    /// element forces and a gather of them by node.
-    const PARALLEL: bool = false;
-    /// Computes the element forces into storage kept by the block. Only called if `PARALLEL`.
-    fn compute_element_forces(
-        &self,
-        _nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<(), ElementModelError> {
-        Ok(())
-    }
-    /// Adds the forces on the nodes `first_node..first_node + forces.len()`, in element order.
-    /// Only called if `PARALLEL`, after `compute_element_forces`.
-    fn add_node_forces(&self, _first_node: usize, _forces: &mut [TensorRank1<D, Current, Force>]) {}
     fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -106,16 +48,6 @@ impl<B, const D: usize> ElasticElements<D> for Model<B, D>
 where
     B: ElasticElements<D>,
 {
-    const PARALLEL: bool = B::PARALLEL;
-    fn compute_element_forces(
-        &self,
-        nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<(), ElementModelError> {
-        self.blocks.compute_element_forces(nodal_coordinates)
-    }
-    fn add_node_forces(&self, first_node: usize, forces: &mut [TensorRank1<D, Current, Force>]) {
-        self.blocks.add_node_forces(first_node, forces)
-    }
     fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -136,36 +68,16 @@ where
 
 impl<B1, B2, const D: usize> ElasticElements<D> for Blocks<B1, B2>
 where
-    B1: ElasticElements<D> + Sync,
-    B2: ElasticElements<D> + Sync,
+    B1: ElasticElements<D>,
+    B2: ElasticElements<D>,
 {
-    const PARALLEL: bool = B1::PARALLEL && B2::PARALLEL;
-    fn compute_element_forces(
-        &self,
-        nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<(), ElementModelError> {
-        let (first, second) = rayon::join(
-            || self.0.compute_element_forces(nodal_coordinates),
-            || self.1.compute_element_forces(nodal_coordinates),
-        );
-        first?;
-        second
-    }
-    fn add_node_forces(&self, first_node: usize, forces: &mut [TensorRank1<D, Current, Force>]) {
-        self.0.add_node_forces(first_node, forces);
-        self.1.add_node_forces(first_node, forces)
-    }
     fn nodal_forces_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_forces: &mut NodalForcesSolid<D>,
     ) -> Result<(), ElementModelError> {
-        if Self::PARALLEL && !SEQUENTIAL_BLOCKS.load(Ordering::Relaxed) {
-            parallel_nodal_forces_into(self, nodal_coordinates, nodal_forces)
-        } else {
-            self.0.nodal_forces_into(nodal_coordinates, nodal_forces)?;
-            self.1.nodal_forces_into(nodal_coordinates, nodal_forces)
-        }
+        self.0.nodal_forces_into(nodal_coordinates, nodal_forces)?;
+        self.1.nodal_forces_into(nodal_coordinates, nodal_forces)
     }
     fn nodal_stiffnesses_into(
         &self,
@@ -242,5 +154,90 @@ where
             equality_constraint,
             sparse,
         )
+    }
+}
+
+/// TEMPORARY EXPERIMENT: the threads of one run of explicit dynamics.
+///
+/// This is the only type that names the thread pool, so replacing it replaces the backend.
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub struct Workers(rayon::ThreadPool);
+
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+impl Workers {
+    /// Starts the given number of threads, which stop when the workers are dropped.
+    pub fn new(threads: usize) -> Result<Self, String> {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .map(Self)
+            .map_err(|error| error.to_string())
+    }
+    pub(crate) fn install<R: Send>(&self, operation: impl FnOnce() -> R + Send) -> R {
+        self.0.install(operation)
+    }
+}
+
+/// Nodal forces that can be computed in parallel, with the storage of one run kept outside of
+/// the model, so that the serial [`ElasticElements`] are untouched.
+pub trait ParallelElasticElements<const D: usize>
+where
+    Self: ElasticElements<D>,
+{
+    /// The storage that a run reuses from one call to the next.
+    type Scratch;
+    /// Creates the storage for a run.
+    fn scratch(&self) -> Self::Scratch;
+    /// Adds the nodal forces to `nodal_forces`, in the same floating-point order as
+    /// [`nodal_forces_into`](ElasticElements::nodal_forces_into).
+    fn nodal_forces_parallel_into(
+        &self,
+        scratch: &mut Self::Scratch,
+        workers: &Workers,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError>;
+}
+
+impl<B, const D: usize> ParallelElasticElements<D> for Model<B, D>
+where
+    B: ParallelElasticElements<D>,
+{
+    type Scratch = B::Scratch;
+    fn scratch(&self) -> Self::Scratch {
+        self.blocks.scratch()
+    }
+    fn nodal_forces_parallel_into(
+        &self,
+        scratch: &mut Self::Scratch,
+        workers: &Workers,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.blocks
+            .nodal_forces_parallel_into(scratch, workers, nodal_coordinates, nodal_forces)
+    }
+}
+
+impl<B1, B2, const D: usize> ParallelElasticElements<D> for Blocks<B1, B2>
+where
+    B1: ParallelElasticElements<D>,
+    B2: ParallelElasticElements<D>,
+{
+    type Scratch = (B1::Scratch, B2::Scratch);
+    fn scratch(&self) -> Self::Scratch {
+        (self.0.scratch(), self.1.scratch())
+    }
+    fn nodal_forces_parallel_into(
+        &self,
+        (first, second): &mut Self::Scratch,
+        workers: &Workers,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_forces_parallel_into(first, workers, nodal_coordinates, nodal_forces)?;
+        self.1
+            .nodal_forces_parallel_into(second, workers, nodal_coordinates, nodal_forces)
     }
 }

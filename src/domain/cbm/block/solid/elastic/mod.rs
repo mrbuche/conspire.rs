@@ -52,3 +52,21 @@ where
             .map_err(|error| ElementModelError::upstream(error, self))
     }
 }
+
+/// TEMPORARY EXPERIMENT: a block with no parallel forces computes them serially.
+impl<C, R> crate::domain::solid::elastic::ParallelElasticElements<3> for Block<C, R>
+where
+    C: Elastic,
+{
+    type Scratch = ();
+    fn scratch(&self) {}
+    fn nodal_forces_parallel_into(
+        &self,
+        _: &mut (),
+        _: &crate::domain::solid::elastic::Workers,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_forces: &mut NodalForcesSolid<3>,
+    ) -> Result<(), ElementModelError> {
+        self.nodal_forces_into(nodal_coordinates, nodal_forces)
+    }
+}

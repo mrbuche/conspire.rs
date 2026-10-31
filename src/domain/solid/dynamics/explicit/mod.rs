@@ -6,13 +6,13 @@ use crate::{
         boundary::{ConstrainAt, LoadAt, Solid},
         solid::{
             NodalForcesSolid,
-            elastic::ElasticElements,
+            elastic::{ElasticElements, ParallelElasticElements, Workers},
             mass::{InverseMass, MassMatrix, NodalLumpedMasses},
             time_scale::TimeScaleElements,
         },
     },
     math::{
-        Quantity, Scalar,
+        Quantity, Scalar, Tensor,
         integrate::{ExplicitDynamics, IntegrationError},
     },
     units::Time,
@@ -46,6 +46,29 @@ pub trait ElasticExplicitDynamics {
         masses: &impl MassMatrix<3>,
         conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError>;
+    /// Integrates the motion of the model like [`integrate`](Self::integrate), computing the
+    /// nodal forces on `threads` threads that live for the whole run.
+    ///
+    /// The results are identical to those of [`integrate`](Self::integrate). Nothing else in the
+    /// model, including the solves, is affected.
+    #[expect(clippy::too_many_arguments)]
+    fn integrate_parallel(
+        &self,
+        threads: usize,
+        integrator: &impl ExplicitDynamics<
+            NodalCoordinates<3>,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+        >,
+        time: &[Quantity<Time>],
+        initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
+        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
+        masses: &impl MassMatrix<3>,
+        conditions: &impl ConstrainAt<Solid<3>>,
+    ) -> Result<Solution, IntegrationError>
+    where
+        Self: ParallelElasticElements<3>;
     /// Integrates the motion of the model like [`integrate`](Self::integrate), with a time
     /// step limited by the fastest time scale of the elements.
     ///
@@ -123,6 +146,62 @@ where
                 motion.apply(time, &mut coordinates);
                 self.nodal_accelerations(&coordinates, time, applied_loads, &masses)
                     .map_err(|error| error.to_string())
+            },
+            time,
+            initial_coordinates,
+            initial_velocities,
+        )?;
+        motion.record(&times, &mut coordinates);
+        Ok((times, coordinates, velocities, accelerations))
+    }
+    fn integrate_parallel(
+        &self,
+        threads: usize,
+        integrator: &impl ExplicitDynamics<
+            NodalCoordinates<3>,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+        >,
+        time: &[Quantity<Time>],
+        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
+        masses: &impl MassMatrix<3>,
+        conditions: &impl ConstrainAt<Solid<3>>,
+    ) -> Result<Solution, IntegrationError>
+    where
+        Self: ParallelElasticElements<3>,
+    {
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (masses, initial_velocities, motion) = Motion::held(
+            masses,
+            conditions,
+            initial_time,
+            &mut initial_coordinates,
+            initial_velocities,
+            Stepping::Explicit,
+        )?;
+        let workers = Workers::new(threads).map_err(IntegrationError::Intermediate)?;
+        let mut scratch = self.scratch();
+        let (times, mut coordinates, velocities, accelerations) = integrator.integrate(
+            |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
+                let mut coordinates = coordinates.clone();
+                motion.apply(time, &mut coordinates);
+                let mut unbalanced_forces = NodalForcesSolid::zero(coordinates.len());
+                self.nodal_forces_parallel_into(
+                    &mut scratch,
+                    &workers,
+                    &coordinates,
+                    &mut unbalanced_forces,
+                )
+                .map_err(|error| error.to_string())?;
+                applied_loads
+                    .subtract_at(time, &coordinates, &mut unbalanced_forces)
+                    .map_err(|error| ElementModelError::upstream(error, "the applied loads"))
+                    .map_err(|error| error.to_string())?;
+                Ok(masses.nodal_accelerations(&unbalanced_forces))
             },
             time,
             initial_coordinates,
