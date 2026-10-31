@@ -27,10 +27,10 @@ pub trait ElasticItems<const D: usize>
 where
     Self: Elements,
 {
-    /// The forces of an item, one for each of its nodes.
-    type Forces: IntoIterator<Item = NodalForce<D>> + Index<usize, Output = NodalForce<D>>;
-    /// The stiffnesses of an item, a row of them for each of its nodes.
-    type Stiffnesses: IntoIterator<Item: IntoIterator<Item = NodalStiffness<D>>>;
+    /// The forces of an item, indexed by the position of a node among the nodes of the item.
+    type Forces: Index<usize, Output = NodalForce<D>>;
+    /// The stiffnesses of an item, indexed by the positions of two of its nodes.
+    type Stiffnesses: Index<usize, Output: Index<usize, Output = NodalStiffness<D>>>;
     /// The number of items.
     fn number_of_items(&self) -> usize;
     /// The nodes of an item.
@@ -59,10 +59,11 @@ where
         nodal_forces: &mut NodalForcesSolid<D>,
     ) -> Result<(), ElementModelError> {
         (0..self.number_of_items()).try_for_each(|item| {
-            self.forces_of(item, nodal_coordinates)?
-                .into_iter()
-                .zip(self.nodes_of(item))
-                .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
+            let forces = self.forces_of(item, nodal_coordinates)?;
+            self.nodes_of(item)
+                .iter()
+                .enumerate()
+                .for_each(|(local, &node)| nodal_forces[node] += &forces[local]);
             Ok(())
         })
     }
@@ -73,17 +74,12 @@ where
     ) -> Result<(), ElementModelError> {
         (0..self.number_of_items()).try_for_each(|item| {
             let nodes = self.nodes_of(item);
-            self.stiffnesses_of(item, nodal_coordinates)?
-                .into_iter()
-                .zip(nodes)
-                .for_each(|(object, &node_a)| {
-                    object
-                        .into_iter()
-                        .zip(nodes)
-                        .for_each(|(nodal_stiffness, &node_b)| {
-                            nodal_stiffnesses[node_a][node_b] += nodal_stiffness
-                        })
-                });
+            let stiffnesses = self.stiffnesses_of(item, nodal_coordinates)?;
+            nodes.iter().enumerate().for_each(|(local_a, &node_a)| {
+                nodes.iter().enumerate().for_each(|(local_b, &node_b)| {
+                    nodal_stiffnesses[node_a][node_b] += &stiffnesses[local_a][local_b]
+                })
+            });
             Ok(())
         })
     }
