@@ -1,8 +1,7 @@
 use super::{NodalTemperatureRatesHistory, NodalTemperaturesHistory, Solution, motion::Motion};
 use crate::{
     domain::{
-        ElementModel, Model, Stepping,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        Model, Stepping,
         boundary::{ConstrainAt, Field, LoadAt, LoadStiffnessAt},
         diffusion::DiffusionElements,
         thermal::{
@@ -12,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        Quantity, Tensor,
+        Quantity,
         integrate::{ImplicitRates, IntegrationError},
         optimize::RootFinding,
     },
@@ -82,11 +81,7 @@ where
             "implicit thermal transient",
             Stepping::Implicit,
         )?;
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse =
-            solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 1, true);
+        let sparse = self.sparse_solver(&motion.constraint_at(initial_time), 1, true);
         integrator.integrate(
             |time, temperatures: &NodalTemperatures| {
                 let mut unbalanced_heating = self

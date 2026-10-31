@@ -205,5 +205,3 @@ where
             .into()
     }
 }
-
-pub(crate) use crate::domain::block::{finalize_node_neighbors, solver_from_neighbors};

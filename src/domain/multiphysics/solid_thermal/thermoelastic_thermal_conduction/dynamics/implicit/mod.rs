@@ -1,9 +1,8 @@
 use super::{Solution, ThermoelasticThermalConductionDynamics, held};
 use crate::{
     domain::{
-        ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
+        Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         boundary::{ConstrainAt, LoadAt, LoadStiffnessAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
@@ -117,11 +116,7 @@ where
             "implicit thermoelastic-thermal dynamics",
             Stepping::Implicit,
         )?;
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse =
-            solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 4, false);
+        let sparse = self.sparse_solver(&motion.constraint_at(initial_time), 4, false);
         integrator.integrate_coupled(
             |time,
              coordinates: &NodalCoordinates<3>,

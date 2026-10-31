@@ -4,9 +4,8 @@ use super::{
 };
 use crate::{
     domain::{
-        ElementModel, Model, NodalCoordinates, NodalCoordinatesHistory, NodalVelocities,
-        NodalVelocitiesHistory, Stepping,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        Model, NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        Stepping,
         boundary::{ConstrainAt, LoadAt, LoadStiffnessAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalRatesSolidThermal, NodalRatesSolidThermalHistory,
@@ -119,11 +118,7 @@ where
         let inverse = capacities
             .inverse(&motion.held_temperatures())
             .map_err(|error| IntegrationError::Intermediate(error.to_string()))?;
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse =
-            solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 4, false);
+        let sparse = self.sparse_solver(&motion.constraint_at(initial_time), 4, false);
         let (times, states, rates) = integrator.integrate(
             |time, states: &NodalStatesSolidThermal| {
                 let (coordinates, temperatures) = split_states(states);

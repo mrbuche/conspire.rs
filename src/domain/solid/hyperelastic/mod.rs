@@ -2,7 +2,6 @@ use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, Minimize, Model, NodalCoordinates, NodalState,
         ProvidesTangent, SolverFor,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         boundary::{Conservative, Constrain, Load},
         solid::{NodalForcesSolid, NodalStiffnessesSolidSymmetric, elastic::ElasticElements},
     },
@@ -122,12 +121,7 @@ where
         Self: ProvidesTangent<NodalCoordinates<D>, S::Tangent>,
     {
         let equality_constraint = boundary_conditions.constraint();
-        let sparse = S::SPARSE.then(|| {
-            let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-            self.node_neighbors(&mut neighbors);
-            finalize_node_neighbors(&mut neighbors);
-            solver_from_neighbors(&neighbors, &equality_constraint, D, true)
-        });
+        let sparse = S::SPARSE.then(|| self.sparse_solver(&equality_constraint, D, true));
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?

@@ -1,7 +1,6 @@
 use crate::{
     fem::{
-        ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
-        block::{finalize_node_neighbors, solver_from_neighbors},
+        ElementModel, ElementModelError, Model, NodalCoordinates,
         boundary::{Constrain, NodalState},
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
@@ -94,15 +93,12 @@ where
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         let equality_constraint = conditions.constraint();
         let initial = self.internal_variables_initial();
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
         //
         // Condensation preserves symmetry: the local block and the couplings
         // are those of one energy Hessian, so the Schur complement is symmetric
         // wherever the unreduced tangent was.
         //
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
+        let sparse = self.sparse_solver(&equality_constraint, D, true);
         match strategy {
             //
             // The internal variables are solved before they are used, so the

@@ -1,10 +1,7 @@
 use crate::{
     fem::{
         ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
-        block::{
-            element::solid::elastic::internal_variables::InternalVariables,
-            finalize_node_neighbors, solver_from_neighbors,
-        },
+        block::element::solid::elastic::internal_variables::InternalVariables,
         boundary::{Constrain, NodalState},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
@@ -318,16 +315,13 @@ where
         strategy: SolveStrategy<impl ResidualMerit>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         let equality_constraint = conditions.constraint();
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
         //
         // Either way the solver only ever sees the nodal coordinates, so the
         // sparsity is that of an ordinary mesh. The internal variables are
         // element-local, so what they contribute to the tangent lands where the
         // nodes of their own element already meet.
         //
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, false);
+        let sparse = self.sparse_solver(&equality_constraint, D, false);
         let initial = self.internal_variables_initial();
         match strategy {
             //

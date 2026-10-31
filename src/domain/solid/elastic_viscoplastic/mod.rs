@@ -2,7 +2,7 @@ use crate::{
     domain::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Model,
         NodalCoordinates, NodalCoordinatesHistory, NodalState,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        block::element::Elements,
         boundary::{ConstrainAt, LoadAt, LoadStiffnessAt},
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
@@ -365,14 +365,11 @@ where
          ),
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
         let reference: NodalCoordinates<3> = self.coordinates().clone().into();
         let at = |t: Quantity<Time>| {
             EqualityConstraint::from_reference(bcs.constraint_at(t), &reference)
         };
-        let sparse = solver_from_neighbors(&neighbors, &at(time[0]), 3, false);
+        let sparse = self.sparse_solver(&at(time[0]), 3, false);
         let function = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
@@ -463,14 +460,11 @@ where
         rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
         let reference: NodalCoordinates<3> = self.coordinates().clone().into();
         let at = |t: Quantity<Time>| {
             EqualityConstraint::from_reference(bcs.constraint_at(t), &reference)
         };
-        let sparse = solver_from_neighbors(&neighbors, &at(time[0]), 3, false);
+        let sparse = self.sparse_solver(&at(time[0]), 3, false);
         let function = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|

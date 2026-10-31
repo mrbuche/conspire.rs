@@ -1,9 +1,8 @@
 use super::{Solution, motion::Motion};
 use crate::{
     domain::{
-        ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
+        Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         boundary::{ConstrainAt, LoadAt, LoadStiffnessAt, Solid},
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
@@ -12,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        Quantity, Tensor,
+        Quantity,
         integrate::{ImplicitDynamics, IntegrationError},
         optimize::RootFinding,
     },
@@ -84,11 +83,7 @@ where
             initial_velocities,
             Stepping::Implicit,
         )?;
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse =
-            solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 3, false);
+        let sparse = self.sparse_solver(&motion.constraint_at(initial_time), 3, false);
         integrator.integrate(
             |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
                 let mut unbalanced_forces = self
