@@ -217,6 +217,7 @@ mod time_scale {
 
 mod integrate {
     use super::*;
+    use crate::cbm::{Checked, Lumped};
     fn step(model: &Model<B, 3>) -> f64 {
         0.4 * model
             .fastest_diffusive_time_scale(model.coordinates(), &temperatures([300.0; NODES]))
@@ -237,10 +238,13 @@ mod integrate {
         };
         let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
         let (_, history, _) = model
-            .integrate_bounded(
+            .integrate(
+                Checked {
+                    safety: 0.5,
+                    interval: 1,
+                },
+                Lumped,
                 &Euler::default(),
-                0.5,
-                1,
                 &times(dt, 4000),
                 initial.clone(),
                 &(),
@@ -258,10 +262,13 @@ mod integrate {
         let model = model();
         let dt = step(&model);
         let (_, history, rates) = model
-            .integrate_bounded(
+            .integrate(
+                Checked {
+                    safety: 0.5,
+                    interval: 1,
+                },
+                Lumped,
                 &Euler::default(),
-                0.5,
-                1,
                 &times(dt, 4000),
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
                 &(),

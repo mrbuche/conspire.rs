@@ -29,6 +29,7 @@ pub(crate) mod lumping;
 pub(crate) mod multiphysics;
 pub(crate) mod parallel;
 pub(crate) mod solid;
+pub(crate) mod stability;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod thermal;
 pub(crate) mod time_scale;

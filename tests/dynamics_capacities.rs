@@ -15,7 +15,9 @@ use conspire::{
         solid::{Consistent, Lumped},
         thermal::{
             capacity::CapacityChoice,
-            transient::{ThermalConductionImplicitTransient, ThermalConductionTransient},
+            transient::{
+                ThermalConductionImplicitTransient, ThermalConductionTransient, Unchecked,
+            },
         },
     },
     math::{
@@ -127,6 +129,7 @@ fn relaxed_explicitly(capacity: impl CapacityChoice<Model<Body, 3>>) -> Vec<f64>
     let model = model();
     let (_, temperatures, _) = ThermalConductionTransient::integrate(
         &model,
+        Unchecked,
         capacity,
         &Euler::default(),
         &times(1e-3, 4000),

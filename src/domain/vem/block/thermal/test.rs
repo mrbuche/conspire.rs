@@ -3,7 +3,7 @@ use crate::{
     math::{Quantity, Scalar},
     units::{PowerPerLengthTemperature, Temperature},
     vem::{
-        Lumped, NodalReferenceCoordinates,
+        Checked, Lumped, NodalReferenceCoordinates, Unchecked,
         block::{
             Block,
             element::{DEFAULT_STABILIZATION, Element},
@@ -213,6 +213,7 @@ mod heat {
         let boundary: Vec<usize> = (0..NODES).filter(|&node| node != INTERIOR).collect();
         let (_, history, rates) = model
             .integrate(
+                Unchecked,
                 Lumped,
                 &Euler::default(),
                 &times,
@@ -275,10 +276,13 @@ mod heat {
                     .sum()
             };
             let (_, history, _) = model
-                .integrate_bounded(
+                .integrate(
+                    Checked {
+                        safety: SAFETY,
+                        interval: 1,
+                    },
+                    Lumped,
                     &Euler::default(),
-                    SAFETY,
-                    1,
                     &times(dt, 20000),
                     initial.clone(),
                     &(),
@@ -306,10 +310,13 @@ mod heat {
             let dt = step(&model, &initial);
             let boundary: Vec<usize> = (0..NODES).filter(|&node| node != INTERIOR).collect();
             let (_, history, rates) = model
-                .integrate_bounded(
+                .integrate(
+                    Checked {
+                        safety: SAFETY,
+                        interval: 1,
+                    },
+                    Lumped,
                     &Euler::default(),
-                    SAFETY,
-                    1,
                     &times(dt, 20000),
                     initial,
                     &(),
@@ -342,10 +349,13 @@ mod heat {
             perturbed[INTERIOR] += 50.0;
             let perturbed = temperatures(&perturbed);
             let error = model
-                .integrate_bounded(
+                .integrate(
+                    Checked {
+                        safety: 1.0,
+                        interval: 1,
+                    },
+                    Lumped,
                     &Euler::default(),
-                    1.0,
-                    1,
                     &times(dt, 40),
                     perturbed.clone(),
                     &(),
@@ -355,6 +365,7 @@ mod heat {
             assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
             let (_, history, _) = model
                 .integrate(
+                    Unchecked,
                     Lumped,
                     &Euler::default(),
                     &times(20.0 * dt, 40),
@@ -377,10 +388,13 @@ mod heat {
             let model = model();
             let initial = temperatures(&linear([0.3, -0.7, 1.1]));
             let error = model
-                .integrate_bounded(
+                .integrate(
+                    Checked {
+                        safety: SAFETY,
+                        interval: 0,
+                    },
+                    Lumped,
                     &Euler::default(),
-                    SAFETY,
-                    0,
                     &times(1.0, 2),
                     initial,
                     &(),

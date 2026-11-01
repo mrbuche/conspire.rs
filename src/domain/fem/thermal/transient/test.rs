@@ -14,7 +14,7 @@ use crate::{
             element::linear::Tetrahedron,
             thermal::{NodalTemperatures, conduction::NodalForcesThermal},
         },
-        solid::{Consistent, Lumped},
+        solid::{Checked, Consistent, Lumped, Unchecked},
         thermal::{
             capacity::HeatCapacityMatrix, time_scale::ThermalTimeScaleElements,
             transient::ThermalConductionTransient,
@@ -135,10 +135,13 @@ mod integrate_temperatures {
         let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
         let (.., history, _) = {
             let (times, history, rates) = model
-                .integrate_bounded(
+                .integrate(
+                    Checked {
+                        safety: SAFETY,
+                        interval: 1,
+                    },
+                    Lumped,
                     &Euler::default(),
-                    SAFETY,
-                    1,
                     &times(dt, 4000),
                     initial.clone(),
                     &(),
@@ -159,10 +162,13 @@ mod integrate_temperatures {
         let model = model();
         let dt = step(&model);
         let (_, history, rates) = model
-            .integrate_bounded(
+            .integrate(
+                Checked {
+                    safety: SAFETY,
+                    interval: 1,
+                },
+                Lumped,
                 &Euler::default(),
-                SAFETY,
-                1,
                 &times(dt, 4000),
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
                 &(),
@@ -193,10 +199,13 @@ mod integrate_temperatures {
             |time| Temperature::kelvin(300.0 + rate * time.value()),
         );
         let (times, history, _) = model
-            .integrate_bounded(
+            .integrate(
+                Checked {
+                    safety: SAFETY,
+                    interval: 1,
+                },
+                Lumped,
                 &Euler::default(),
-                SAFETY,
-                1,
                 &times(dt, 100),
                 temperatures([300.0; NODES]),
                 &source(heating.clone()),
@@ -220,6 +229,7 @@ mod integrate_temperatures {
         let initial = || temperatures([300.0; NODES]);
         let (_, lumped, _) = model
             .integrate(
+                Unchecked,
                 Lumped,
                 &Euler::default(),
                 &times(dt, 20000),
@@ -230,6 +240,7 @@ mod integrate_temperatures {
             .unwrap();
         let (_, consistent, _) = model
             .integrate(
+                Unchecked,
                 Consistent,
                 &Euler::default(),
                 &times(dt, 20000),
@@ -267,10 +278,13 @@ mod integrate_temperatures {
                 .value();
         let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
         let error = model
-            .integrate_bounded(
+            .integrate(
+                Checked {
+                    safety: 1.0,
+                    interval: 1,
+                },
+                Lumped,
                 &Euler::default(),
-                1.0,
-                1,
                 &times(dt, 40),
                 initial.clone(),
                 &(),
@@ -280,6 +294,7 @@ mod integrate_temperatures {
         assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
         let (_, history, _) = model
             .integrate(
+                Unchecked,
                 Lumped,
                 &Euler::default(),
                 &times(20.0 * dt, 40),
@@ -423,6 +438,7 @@ mod integrate_implicit {
         );
         let result = ThermalConductionTransient::integrate(
             &model,
+            Unchecked,
             Lumped,
             &Euler::default(),
             &times(1e-6, 2),
@@ -558,6 +574,7 @@ mod integrate_implicit {
         let heating = NodalForcesThermal::zero(NODES);
         let (_, explicit, _) = ThermalConductionTransient::integrate(
             &model,
+            Unchecked,
             Lumped,
             &Euler::default(),
             &times(dt, 200),

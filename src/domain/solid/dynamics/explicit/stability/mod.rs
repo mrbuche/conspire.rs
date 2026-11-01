@@ -4,6 +4,9 @@
 mod test;
 
 use super::{Lumped, MassChoice};
+
+pub use crate::domain::stability::{Checked, Unchecked};
+
 use crate::{
     domain::{
         Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
@@ -45,10 +48,6 @@ where
     ) -> Result<Solution, IntegrationError>;
 }
 
-/// Takes the steps that are given, however large they are.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Unchecked;
-
 impl<M, C> Stability<M, C> for Unchecked
 where
     C: MassChoice<M>,
@@ -74,18 +73,6 @@ where
         let (initial_coordinates, initial_velocities) = initial_state;
         integrator.integrate(function, time, initial_coordinates, initial_velocities)
     }
-}
-
-/// Checks each step against the fastest time scale of the elements, and a step above the
-/// fraction `safety` of the stability limit is an error.
-///
-/// The estimate assembles the element stiffnesses, and is refreshed every `interval`
-/// evaluations of the bound, which for the integrators here is every step. It is that of the
-/// lumped masses, which a consistent mass exceeds, so only [`Lumped`] is supported.
-#[derive(Clone, Copy, Debug)]
-pub struct Checked {
-    pub safety: Scalar,
-    pub interval: usize,
 }
 
 impl<B> Stability<Model<B, 3>, Lumped> for Checked
