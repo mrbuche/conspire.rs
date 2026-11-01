@@ -18,11 +18,10 @@ use crate::{
 };
 
 mod execution;
-mod mass;
 mod stability;
 
+pub use crate::domain::solid::mass::{Consistent, Lumped, MassChoice};
 pub use execution::Execution;
-pub use mass::{Consistent, Lumped, MassChoice};
 pub use stability::{Checked, Stability, Unchecked};
 
 /// The motion of an elastic model with explicit time integration.

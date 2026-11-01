@@ -1,13 +1,16 @@
 use crate::{
     domain::{
-        ElementModel, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates,
+        ElementModel, Model, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates,
         NodalVelocities,
         boundary::{
             Conservative, ConservativeAt, Layout, Load, LoadAt, LoadStiffness, LoadStiffnessAt,
             Loads, PowerAt, Solid, SolidThermal,
         },
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
-        solid::{NodalForcesSolid, mass::InertialMass},
+        solid::{
+            NodalForcesSolid,
+            mass::{InertialMass, MassChoice},
+        },
         volume::{NodalVolumeElements, NodalVolumes},
     },
     math::{Current, Quantity, Tensor, TensorRank1},
@@ -59,18 +62,28 @@ where
 {
     /// Adds the weight of a body, which is the force of an acceleration on the masses of its nodes.
     ///
-    /// The masses may be lumped or consistent, and the acceleration is the same at every node.
-    pub fn body_acceleration(
+    /// The masses are those of `mass` ([`Lumped`](crate::domain::solid::mass::Lumped) or
+    /// [`Consistent`](crate::domain::solid::mass::Consistent)) that the blocks of the model
+    /// make, as they are for a run of dynamics that is given the same choice, and the
+    /// acceleration is the same at every node.
+    pub fn body_acceleration<B, C>(
         self,
-        coordinates: &NodalReferenceCoordinates<3>,
-        masses: &impl InertialMass<3>,
+        model: &Model<B, 3>,
+        mass: C,
         acceleration: &TensorRank1<3, Current, Acceleration>,
-    ) -> Result<Loads<L, (T, DeadLoad)>, String> {
-        let accelerations = coordinates
+    ) -> Result<Loads<L, (T, DeadLoad)>, String>
+    where
+        C: MassChoice<Model<B, 3>>,
+    {
+        let accelerations = model
+            .coordinates
             .iter()
             .map(|_| acceleration.clone())
             .collect::<NodalAccelerations<3>>();
-        self.nodal_forces(coordinates, masses.inertial_forces(&accelerations))
+        self.nodal_forces(
+            &model.coordinates,
+            mass.masses(model).inertial_forces(&accelerations),
+        )
     }
     /// Adds a force on each node, such as the weight of a body.
     pub fn nodal_forces(

@@ -8,10 +8,10 @@ use conspire::{
     fem::{
         Model, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{Block, element::linear::Tetrahedron},
-        boundary::{BoundaryConditions, Solid},
+        boundary::{BoundaryConditions, LoadAt, Loads, Solid},
         solid::{
-            Checked, Consistent, ElasticExplicitDynamics, Execution, Lumped, Unchecked,
-            time_scale::TimeScaleElements,
+            Checked, Consistent, ElasticExplicitDynamics, Execution, Lumped, NodalForcesSolid,
+            Unchecked, time_scale::TimeScaleElements,
         },
     },
     math::{
@@ -71,13 +71,9 @@ fn at_rest() -> (NodalCoordinates<3>, NodalVelocities<3>) {
 
 /// The weight of the body, made from the masses of the choice, and its fall.
 macro_rules! fall {
-    ($model:expr, $execution:expr, $mass:expr, $masses:expr) => {{
+    ($model:expr, $execution:expr, $mass:expr) => {{
         let weights = conspire::fem::boundary::Loads::<Solid<3>>::new()
-            .body_acceleration(
-                &NodalReferenceCoordinates::from(coordinates()),
-                &$masses,
-                &gravity()[0],
-            )
+            .body_acceleration(&$model, $mass, &gravity()[0])
             .unwrap();
         $model
             .integrate(
@@ -126,32 +122,22 @@ fn assert_falls_with_gravity(
 #[test]
 fn a_body_with_lumped_masses_falls_with_gravity() {
     let model = model();
-    let solution = fall!(
-        model,
-        Execution::Serial,
-        Lumped,
-        model.nodal_lumped_masses()
-    );
+    let solution = fall!(model, Execution::Serial, Lumped);
     assert_falls_with_gravity(&solution);
 }
 
 #[test]
 fn a_body_with_consistent_masses_falls_with_gravity() {
     let model = model();
-    let solution = fall!(model, Execution::Serial, Consistent, model.nodal_masses());
+    let solution = fall!(model, Execution::Serial, Consistent);
     assert_falls_with_gravity(&solution);
 }
 
 #[test]
 fn lumped_and_consistent_masses_give_the_same_fall() {
     let model = model();
-    let lumped = fall!(
-        model,
-        Execution::Serial,
-        Lumped,
-        model.nodal_lumped_masses()
-    );
-    let consistent = fall!(model, Execution::Serial, Consistent, model.nodal_masses());
+    let lumped = fall!(model, Execution::Serial, Lumped);
+    let consistent = fall!(model, Execution::Serial, Consistent);
     let last = lumped.0.len() - 1;
     (0..coordinates().len()).for_each(|node| {
         (0..3).for_each(|component| {
@@ -165,13 +151,8 @@ fn lumped_and_consistent_masses_give_the_same_fall() {
 #[test]
 fn consistent_masses_give_the_same_on_threads() {
     let model = model();
-    let serial = fall!(model, Execution::Serial, Consistent, model.nodal_masses());
-    let threads = fall!(
-        model,
-        Execution::Threads(2),
-        Consistent,
-        model.nodal_masses()
-    );
+    let serial = fall!(model, Execution::Serial, Consistent);
+    let threads = fall!(model, Execution::Threads(2), Consistent);
     let last = serial.0.len() - 1;
     assert!(serial.1[last] == threads.1[last]);
     assert!(serial.3[last] == threads.3[last]);
@@ -215,4 +196,44 @@ fn a_checked_run_of_a_body_refuses_a_step_above_the_limit() {
         rest(&model, checked, 4.0 * limit),
         Err(IntegrationError::UnstableTimeStep(..))
     ));
+}
+
+#[test]
+fn the_weight_of_a_body_is_the_inertial_force_of_the_masses_of_the_choice() {
+    let model = model();
+    let coordinates = NodalCoordinates::from(coordinates());
+    let accelerations = gravity();
+    let lumped = Loads::<Solid<3>>::new()
+        .body_acceleration(&model, Lumped, &accelerations[0])
+        .unwrap();
+    let consistent = Loads::<Solid<3>>::new()
+        .body_acceleration(&model, Consistent, &accelerations[0])
+        .unwrap();
+    [
+        (
+            lumped,
+            model.nodal_lumped_masses().inertial_forces(&accelerations),
+        ),
+        (
+            consistent,
+            model.nodal_masses().inertial_forces(&accelerations),
+        ),
+    ]
+    .iter()
+    .for_each(|(weights, inertial)| {
+        let mut forces = NodalForcesSolid::<3>::zero(coordinates.len());
+        weights
+            .subtract_at(Time::seconds(0.0), &coordinates, &mut forces)
+            .unwrap();
+        (0..coordinates.len()).for_each(|node| {
+            (0..3).for_each(|component| {
+                let found = -forces[node][component].value();
+                let expected = inertial[node][component].value();
+                assert!(
+                    (found - expected).abs() <= 1e-12 * expected.abs() + 1e-12,
+                    "node {node}, component {component}: {found} against {expected}"
+                );
+            })
+        });
+    });
 }

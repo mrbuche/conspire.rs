@@ -2,7 +2,7 @@ use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     domain::{
         boundary::{Loads, Solid},
-        solid::{dynamics::test::fixed_dofs, loads::DeadLoad, mass::InertialMass},
+        solid::{dynamics::test::fixed_dofs, loads::DeadLoad},
     },
     fem::{
         Model, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
@@ -10,8 +10,8 @@ use crate::{
         block::element::linear::Tetrahedron,
         boundary::{Enforcement, Rows},
         solid::{
-            ElasticExplicitDynamics, Execution, Lumped, NodalForcesSolid, Unchecked,
-            elastic::ElasticElements,
+            Consistent, ElasticExplicitDynamics, Execution, Lumped, MassChoice, NodalForcesSolid,
+            Unchecked, elastic::ElasticElements,
         },
     },
     math::{
@@ -55,13 +55,12 @@ fn uniform_velocities(velocity: [f64; 3]) -> NodalVelocities<3> {
     COORDINATES.map(|_| velocity).into()
 }
 
-fn weights(masses: &impl InertialMass<3>) -> Loads<Solid<3>, ((), DeadLoad)> {
+fn weights<T, C>(model: &Model<T, 3>, mass: C) -> Loads<Solid<3>, ((), DeadLoad)>
+where
+    C: MassChoice<Model<T, 3>>,
+{
     Loads::<Solid<3>>::new()
-        .body_acceleration(
-            &NodalReferenceCoordinates::from(COORDINATES),
-            masses,
-            &gravity()[0],
-        )
+        .body_acceleration(model, mass, &gravity()[0])
         .unwrap()
 }
 
@@ -123,7 +122,7 @@ mod accelerations {
     fn a_body_in_its_reference_configuration_falls_with_gravity() -> Result<(), AssertionError> {
         let model = model();
         let masses = model.nodal_lumped_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Lumped);
         let accelerations = model
             .nodal_accelerations(
                 &NodalCoordinates::from(COORDINATES),
@@ -179,7 +178,7 @@ mod consistent_accelerations {
     fn a_body_in_its_reference_configuration_falls_with_gravity() -> Result<(), AssertionError> {
         let model = model();
         let masses = model.nodal_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Consistent);
         let accelerations = model
             .nodal_accelerations(
                 &NodalCoordinates::from(COORDINATES),
@@ -270,8 +269,7 @@ mod integrate {
     #[test]
     fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-4);
-        let masses = model.nodal_lumped_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Lumped);
         let (times, coordinates, velocities, accelerations) = model.integrate(
             Execution::Serial,
             Unchecked,
@@ -306,8 +304,7 @@ mod integrate {
     #[test]
     fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-4);
-        let masses = model.nodal_lumped_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Lumped);
         let (_, coordinates, velocities, accelerations) = model.integrate(
             Execution::Serial,
             Unchecked,
@@ -485,7 +482,7 @@ mod integrate_implicit {
     fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Lumped);
         let (times, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),
@@ -520,7 +517,7 @@ mod integrate_implicit {
     fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Lumped);
         let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),
@@ -624,7 +621,7 @@ mod integrate_implicit {
     fn consistent_masses_let_a_free_body_fall_with_gravity() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Consistent);
         let (times, coordinates, _, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),
@@ -654,7 +651,7 @@ mod integrate_implicit {
     fn consistent_masses_hold_fixed_degrees_of_freedom() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Consistent);
         let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),
@@ -704,7 +701,7 @@ mod integrate_implicit {
             &model,
             Execution::Serial,
             Unchecked,
-            Lumped,
+            Consistent,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),
@@ -841,12 +838,11 @@ mod consistent_masses {
     #[test]
     fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
         let model = model();
-        let masses = model.nodal_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Consistent);
         let (times, coordinates, ..) = model.integrate(
             Execution::Serial,
             Unchecked,
-            Lumped,
+            Consistent,
             &integrator(),
             &[Time::seconds(0.0), Time::seconds(0.01)],
             (
@@ -868,12 +864,11 @@ mod consistent_masses {
     #[test]
     fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
         let model = model();
-        let masses = model.nodal_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Consistent);
         let (_, coordinates, velocities, accelerations) = model.integrate(
             Execution::Serial,
             Unchecked,
-            Lumped,
+            Consistent,
             &integrator(),
             &[Time::seconds(0.0), Time::seconds(0.01)],
             (
