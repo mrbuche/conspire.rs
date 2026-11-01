@@ -10,12 +10,14 @@
 use conspire::{
     constitutive::solid::hyperelastic::{NeoHookean, SaintVenantKirchhoff},
     fem::{
-        Blocks, Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        Blocks, Model, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates,
+        NodalVelocities,
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
             ElasticExplicitDynamics, Execution, NodalForcesSolid,
             elastic::{ElasticElements, ParallelElasticElements, Workers},
+            mass::InverseMass,
         },
     },
     math::{Quantity, Tensor, integrate::VelocityVerlet},
@@ -330,4 +332,185 @@ fn heterogeneous_blocks() {
         &deformed(&coordinates),
         300,
     );
+}
+
+/// The cost of each operation of a step that is not the nodal forces, on the nodes of the grid.
+#[test]
+#[ignore]
+fn step_breakdown() {
+    let cells = 46;
+    let (model, coordinates) = grid_model(cells);
+    let nodes = coordinates.len();
+    let x = deformed(&coordinates);
+    let v = NodalVelocities::from(vec![[1.0; 3]; nodes]);
+    let a = NodalAccelerations::from(vec![[2.0; 3]; nodes]);
+    let masses = model.nodal_lumped_masses();
+    let forces = NodalForcesSolid::<3>::from(vec![[3.0; 3]; nodes]);
+    let dt = Time::seconds(1e-8);
+    let half = Time::seconds(0.5e-8);
+    let v_half = &a * half + &v;
+    println!(
+        "\n{nodes} nodes ({:.1} MB per vector)",
+        (3 * 8 * nodes) as f64 / 1e6
+    );
+    let rows = [
+        (
+            "v_half = a dt/2 + v",
+            time_of(100, || {
+                black_box(black_box(&a) * half + &v);
+            }),
+        ),
+        (
+            "x_next = v_half dt + x",
+            time_of(100, || {
+                black_box(black_box(&v_half) * dt + &x);
+            }),
+        ),
+        (
+            "v = a dt/2 + v_half",
+            time_of(100, || {
+                black_box(black_box(&a) * half + &v_half);
+            }),
+        ),
+        (
+            "clone (one history push)",
+            time_of(100, || {
+                black_box(black_box(&x).clone());
+            }),
+        ),
+        (
+            "zero forces",
+            time_of(100, || {
+                black_box(NodalForcesSolid::<3>::zero(black_box(nodes)));
+            }),
+        ),
+        (
+            "accelerations from forces",
+            time_of(100, || {
+                black_box(InverseMass::<3>::nodal_accelerations(
+                    black_box(&masses),
+                    &forces,
+                ));
+            }),
+        ),
+    ];
+    rows.iter()
+        .for_each(|(label, time)| println!("{label:>28}: {time:>7.3} ms"));
+    let total =
+        rows[0].1 + rows[1].1 + rows[2].1 + 3.0 * rows[3].1 + rows[3].1 + rows[4].1 + rows[5].1;
+    println!(
+        "{:>28}: {total:>7.3} ms  (3 updates + 3 history clones + closure clone + zero + accelerations)",
+        "sum"
+    );
+}
+
+/// The cost of a step apart from the one-time cost of a run, from runs of different lengths.
+#[test]
+#[ignore]
+fn step_marginal() {
+    println!("\nthreads: {}", threads());
+    for cells in [22, 46] {
+        let (model, coordinates) = grid_model(cells);
+        let current = deformed(&coordinates);
+        let masses = model.nodal_lumped_masses();
+        let dt = 1e-8;
+        let conditions = BoundaryConditions::<Solid<3>>::new();
+        let integrator = VelocityVerlet::new(Time::seconds(dt));
+        let run = |execution: Execution, steps: usize| {
+            let time = [Time::seconds(0.0), Time::seconds(steps as f64 * dt)];
+            time_of(5, || {
+                black_box(
+                    model
+                        .integrate(
+                            execution,
+                            &integrator,
+                            &time,
+                            (
+                                current.clone(),
+                                NodalVelocities::from(vec![[0.0; 3]; coordinates.len()]),
+                            ),
+                            &(),
+                            &masses,
+                            &conditions,
+                        )
+                        .unwrap(),
+                );
+            })
+        };
+        let forces = {
+            let workers = Workers::new(threads()).unwrap();
+            let mut scratch = model.scratch();
+            time_of(30, || {
+                let mut forces = NodalForcesSolid::<3>::zero(current.len());
+                model
+                    .nodal_forces_parallel_into(&mut scratch, &workers, &current, &mut forces)
+                    .unwrap();
+                black_box(forces);
+            })
+        };
+        for (label, execution) in [
+            ("serial", Execution::Serial),
+            ("threads", Execution::Threads(threads())),
+        ] {
+            let (short, long) = (run(execution, 20), run(execution, 120));
+            let marginal = (long - short) / 100.0;
+            let setup = short - 20.0 * marginal;
+            println!(
+                "{:>7} elements, {label:>7}: {marginal:>8.3} ms per step, one-time {setup:>8.3} ms{}",
+                cells.pow(3),
+                if matches!(execution, Execution::Serial) {
+                    String::new()
+                } else {
+                    format!("   (forces alone {forces:.3} ms)")
+                }
+            );
+        }
+    }
+}
+
+/// The cost per step of the integrator alone, with a constant acceleration, from runs of
+/// different lengths. The function costs one clone of the acceleration.
+#[test]
+#[ignore]
+fn integrator_marginal() {
+    use conspire::{
+        fem::{NodalAccelerationsHistory, NodalCoordinatesHistory, NodalVelocitiesHistory},
+        math::integrate::ExplicitDynamics,
+    };
+    for cells in [22, 46] {
+        let (_, coordinates) = grid_model(cells);
+        let nodes = coordinates.len();
+        let x = deformed(&coordinates);
+        let v = NodalVelocities::from(vec![[0.0; 3]; nodes]);
+        let a = NodalAccelerations::from(vec![[1.0; 3]; nodes]);
+        let dt = 1e-8;
+        let integrator = VelocityVerlet::new(Time::seconds(dt));
+        let run = |steps: usize| {
+            let time = [Time::seconds(0.0), Time::seconds(steps as f64 * dt)];
+            time_of(5, || {
+                let result: Result<
+                    (
+                        _,
+                        NodalCoordinatesHistory<3>,
+                        NodalVelocitiesHistory<3>,
+                        NodalAccelerationsHistory<3>,
+                    ),
+                    _,
+                > = ExplicitDynamics::integrate(
+                    &integrator,
+                    |_, _: &NodalCoordinates<3>, _: &NodalVelocities<3>| Ok(a.clone()),
+                    &time,
+                    x.clone(),
+                    v.clone(),
+                );
+                black_box(result.unwrap());
+            })
+        };
+        let (short, long) = (run(20), run(120));
+        println!(
+            "{:>7} nodes: integrator alone {:>7.3} ms per step (including one clone of the acceleration)",
+            nodes,
+            (long - short) / 100.0
+        );
+    }
 }
