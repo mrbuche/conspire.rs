@@ -11,7 +11,10 @@ use crate::{
                 ThermoelasticThermalConductionRateElements, add_capacities, add_heatings,
             },
         },
-        solid::{NodalStiffnessesSolid, mass::InertialMass},
+        solid::{
+            NodalStiffnessesSolid,
+            mass::{InertialMass, MassChoice},
+        },
         thermal::{
             NodalTemperatures,
             capacity::{InertialHeatCapacity, NodalTemperatureRates},
@@ -28,16 +31,22 @@ use crate::{
 
 /// The motion and temperatures of a thermoelastic model that conducts heat, with implicit time
 /// integration.
-pub trait ThermoelasticThermalConductionImplicitDynamics {
+pub trait ThermoelasticThermalConductionImplicitDynamics
+where
+    Self: Sized,
+{
     /// Integrates the motion and temperatures of the model with an implicit coupled integrator.
     ///
-    /// The masses and heat capacities may be lumped or consistent, and are added to the sparse
+    /// The masses are those of `mass` ([`Lumped`](crate::domain::solid::mass::Lumped) or
+    /// [`Consistent`](crate::domain::solid::mass::Consistent)) that the blocks of the model make.
+    /// The masses and heat capacities, which may be lumped or consistent, are added to the sparse
     /// tangent, which is the exact derivative of the residual. Fixed degrees of freedom, whose
     /// indices are `4 * node + component` with the temperature as the last component, are held at
     /// their initial values, and linear constraints are not supported.
     #[expect(clippy::too_many_arguments)]
-    fn integrate(
+    fn integrate<C>(
         &self,
+        mass: C,
         integrator: &impl ImplicitDynamicsCoupled<
             NodalCoordinates<3>,
             NodalTemperatures,
@@ -62,18 +71,20 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
              impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
              + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
          ),
-        masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
-    ) -> Result<Solution, IntegrationError>;
+    ) -> Result<Solution, IntegrationError>
+    where
+        C: MassChoice<Self>;
 }
 
 impl<B> ThermoelasticThermalConductionImplicitDynamics for Model<B, 3>
 where
     B: ThermoelasticThermalConductionRateElements,
 {
-    fn integrate(
+    fn integrate<C>(
         &self,
+        mass: C,
         integrator: &impl ImplicitDynamicsCoupled<
             NodalCoordinates<3>,
             NodalTemperatures,
@@ -98,15 +109,18 @@ where
              impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
              + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
          ),
-        masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
-    ) -> Result<Solution, IntegrationError> {
+    ) -> Result<Solution, IntegrationError>
+    where
+        C: MassChoice<Self>,
+    {
         let initial_time = *time
             .first()
             .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let masses = mass.masses(self);
         let (inverse_masses, inverse_capacities, initial_velocities, motion) = held(
-            masses,
+            &masses,
             capacities,
             conditions,
             initial_time,
@@ -147,7 +161,7 @@ where
                     &join_states(coordinates, temperatures),
                     &mut internal,
                 )?;
-                let inertial_forces = InertialMass::inertial_forces(masses, accelerations);
+                let inertial_forces = InertialMass::inertial_forces(&masses, accelerations);
                 let capacitive_heating = capacities.capacitive_heating(rates);
                 Ok(internal
                     .into_iter()

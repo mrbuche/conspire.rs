@@ -1,7 +1,7 @@
 #![cfg(feature = "fem")]
 
-//! The masses and the stability checks of explicit dynamics, on two tetrahedra, the elements
-//! that have consistent masses.
+//! The masses of dynamics, and the stability checks of explicit dynamics, on two tetrahedra, the
+//! elements that have consistent masses.
 
 use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
@@ -10,15 +10,16 @@ use conspire::{
         block::{Block, element::linear::Tetrahedron},
         boundary::{BoundaryConditions, LoadAt, Loads, Solid},
         solid::{
-            Checked, Consistent, ElasticExplicitDynamics, Execution, Lumped, NodalForcesSolid,
-            Unchecked, time_scale::TimeScaleElements,
+            Checked, Consistent, ElasticExplicitDynamics, Execution, Lumped, MassChoice,
+            NodalForcesSolid, Unchecked, time_scale::TimeScaleElements,
         },
     },
     math::{
         Quantity, Tensor,
-        integrate::{IntegrationError, VelocityVerlet},
+        integrate::{IntegrationError, Newmark, VelocityVerlet},
+        optimize::{NewtonRaphson, Tolerances},
     },
-    units::{Density, Stress, Time},
+    units::{Density, Dimensionless, Stress, Time},
 };
 
 type Tetrahedra = Block<NeoHookean, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
@@ -236,4 +237,88 @@ fn the_weight_of_a_body_is_the_inertial_force_of_the_masses_of_the_choice() {
             })
         });
     });
+}
+
+mod implicit {
+    use super::*;
+    use conspire::fem::solid::ElasticImplicitDynamics;
+    const STEPS: usize = 10;
+    const STEP: f64 = 1e-3;
+
+    fn solver() -> NewtonRaphson {
+        NewtonRaphson {
+            abs_tol: Tolerances {
+                constraint: 1e-12,
+                residual: 1.0,
+            },
+            rel_tol: Some(Dimensionless::of(1e-6)),
+            ..Default::default()
+        }
+    }
+
+    /// The fall of the body, from rest, under its weight, with the masses of a choice.
+    fn fall(mass: impl MassChoice<Model<Tetrahedra, 3>> + Copy) -> (f64, NodalCoordinates<3>) {
+        let model = model();
+        let weights = Loads::<Solid<3>>::new()
+            .body_acceleration(&model, mass, &gravity()[0])
+            .unwrap();
+        let (times, coordinates, ..) = ElasticImplicitDynamics::integrate(
+            &model,
+            mass,
+            &Newmark::new(Time::seconds(STEP)),
+            solver(),
+            &[Time::seconds(0.0), Time::seconds(STEPS as f64 * STEP)],
+            at_rest(),
+            &weights,
+            &BoundaryConditions::<Solid<3>>::new(),
+        )
+        .unwrap();
+        (times[STEPS].value(), coordinates[STEPS].clone())
+    }
+
+    fn assert_falls_with_gravity((elapsed, coordinates): (f64, NodalCoordinates<3>)) {
+        coordinates_of_body()
+            .iter()
+            .enumerate()
+            .for_each(|(node, reference)| {
+                let fallen = reference[2] - 0.5 * GRAVITY * elapsed.powi(2);
+                let z = coordinates[node][2].value();
+                assert!(
+                    (z - fallen).abs() < 1e-6,
+                    "node {node}: {z} against {fallen}"
+                );
+                (0..2).for_each(|component| {
+                    let held = coordinates[node][component].value();
+                    assert!((held - reference[component]).abs() < 1e-6, "node {node}");
+                });
+            });
+    }
+
+    fn coordinates_of_body() -> Vec<[f64; 3]> {
+        coordinates()
+    }
+
+    #[test]
+    fn a_body_with_lumped_masses_falls_with_gravity() {
+        assert_falls_with_gravity(fall(Lumped));
+    }
+
+    #[test]
+    fn a_body_with_consistent_masses_falls_with_gravity() {
+        assert_falls_with_gravity(fall(Consistent));
+    }
+
+    #[test]
+    fn lumped_and_consistent_masses_give_the_same_fall() {
+        let ((_, lumped), (_, consistent)) = (fall(Lumped), fall(Consistent));
+        (0..coordinates().len()).for_each(|node| {
+            (0..3).for_each(|component| {
+                let (a, b) = (
+                    lumped[node][component].value(),
+                    consistent[node][component].value(),
+                );
+                assert!((a - b).abs() < 1e-6, "node {node}, component {component}");
+            })
+        });
+    }
 }

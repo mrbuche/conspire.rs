@@ -877,7 +877,10 @@ mod dynamics {
     mod implicit {
         use super::*;
         use crate::{
-            fem::multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::implicit::ThermoelasticThermalConductionImplicitDynamics,
+            fem::{
+                multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::implicit::ThermoelasticThermalConductionImplicitDynamics,
+                solid::Lumped,
+            },
             math::{
                 integrate::Newmark,
                 optimize::{NewtonRaphson, Tolerances},
@@ -902,13 +905,13 @@ mod dynamics {
             let (_, coordinates, _, _, temperatures, _) =
                 ThermoelasticThermalConductionImplicitDynamics::integrate(
                     &model,
+                    Lumped,
                     &Newmark::default(),
                     solver(),
                     time,
                     (NodalCoordinates::from(COORDINATES), velocities),
                     uniform_temperatures(),
                     &(),
-                    &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
                     &conditions(equality_constraint),
                 )?;
@@ -937,13 +940,13 @@ mod dynamics {
             let (_, coordinates, _, _, temperatures, _) =
                 ThermoelasticThermalConductionImplicitDynamics::integrate(
                     &model,
+                    Lumped,
                     &Newmark::default(),
                     solver(),
                     &time(),
                     (NodalCoordinates::from(COORDINATES), translating()),
                     uniform_temperatures(),
                     &(),
-                    &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
                     &conditions,
                 )
@@ -992,13 +995,13 @@ mod dynamics {
             let (_, coordinates, _, _, temperatures, _) =
                 ThermoelasticThermalConductionImplicitDynamics::integrate(
                     &model,
+                    Lumped,
                     &Newmark::default(),
                     solver(),
                     &time(),
                     (NodalCoordinates::from(COORDINATES), translating()),
                     uniform_temperatures(),
                     &(),
-                    &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
                     &conditions,
                 )

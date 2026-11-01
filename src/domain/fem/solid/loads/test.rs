@@ -815,7 +815,10 @@ mod follower {
     mod dynamics {
         use super::*;
         use crate::{
-            fem::{NodalReferenceCoordinates, NodalVelocities, solid::ElasticImplicitDynamics},
+            fem::{
+                NodalReferenceCoordinates, NodalVelocities,
+                solid::{ElasticImplicitDynamics, Lumped},
+            },
             math::{integrate::Newmark, optimize::Tolerances},
             units::{Density, Time},
         };
@@ -855,6 +858,7 @@ mod follower {
                 .unwrap();
             let (times, coordinates, ..) = ElasticImplicitDynamics::integrate(
                 &model,
+                Lumped,
                 &Newmark::new(Time::seconds(0.05)),
                 NewtonRaphson {
                     abs_tol: Tolerances {
@@ -871,7 +875,6 @@ mod follower {
                     NodalVelocities::from(vec![[0.0; 3]; 8]),
                 ),
                 &loads,
-                &model.nodal_lumped_masses(),
                 &conditions(&sets),
             )
             .unwrap();
