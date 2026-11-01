@@ -10,8 +10,9 @@ use crate::{
     },
     units::{Density, Energy, STANDARD_GRAVITY, Stress, Time},
     vem::{
-        ElasticExplicitDynamics, ElasticImplicitDynamics, Execution, Model, NodalAccelerations,
-        NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        ElasticExplicitDynamics, ElasticImplicitDynamics, Execution, Lumped, Model,
+        NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        Unchecked,
         block::{
             Block,
             element::{DEFAULT_STABILIZATION, Element},
@@ -124,6 +125,8 @@ mod explicit {
         let (times, coordinates, velocities, accelerations) = ElasticExplicitDynamics::integrate(
             &model,
             Execution::Serial,
+            Unchecked,
+            Lumped,
             &VelocityVerlet::new(Time::seconds(dt)),
             &time(dt, 100),
             (
@@ -131,7 +134,6 @@ mod explicit {
                 uniform_velocities([0.0; 3]),
             ),
             &weights,
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let (elapsed, g) = (
@@ -258,11 +260,12 @@ mod implicit {
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
             Execution::Serial,
+            Unchecked,
+            Lumped,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let moved = (implicit[100][4][2] - implicit[0][4][2]).norm().value();

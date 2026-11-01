@@ -5,7 +5,10 @@ mod explicit;
 mod implicit;
 mod motion;
 
-pub use explicit::{ElasticExplicitDynamics, Execution};
+pub use explicit::{
+    Checked, Consistent, ElasticExplicitDynamics, Execution, Lumped, MassChoice, Stability,
+    Unchecked,
+};
 pub use implicit::ElasticImplicitDynamics;
 
 use crate::{

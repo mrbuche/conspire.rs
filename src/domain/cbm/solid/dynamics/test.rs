@@ -1,8 +1,8 @@
 use crate::{
     cbm::{
-        ElasticElements, ElasticExplicitDynamics, Execution, HyperelasticElements, Model,
+        ElasticElements, ElasticExplicitDynamics, Execution, HyperelasticElements, Lumped, Model,
         NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
-        block::Block,
+        Unchecked, block::Block,
     },
     constitutive::solid::hyperelastic::NeoHookean,
     domain::{
@@ -119,9 +119,10 @@ fn internal_forces_decelerate_what_they_resist() -> Result<(), AssertionError> {
 #[test]
 fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionError> {
     let (model, dt) = (model(), 1e-4);
-    let masses = model.nodal_lumped_masses();
     let (times, coordinates, ..) = model.integrate(
         Execution::Serial,
+        Unchecked,
+        Lumped,
         &integrator(dt),
         &time(dt),
         (
@@ -129,7 +130,6 @@ fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionE
             uniform_velocities([3.0, -1.0, 2.0]),
         ),
         &(),
-        &masses,
         &fixed_dofs(&[]),
     )?;
     let elapsed = times[times.len() - 1].in_seconds();
@@ -148,6 +148,8 @@ fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
     let weights = weights(&masses);
     let (times, coordinates, velocities, accelerations) = model.integrate(
         Execution::Serial,
+        Unchecked,
+        Lumped,
         &integrator(dt),
         &time(dt),
         (
@@ -155,7 +157,6 @@ fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
             uniform_velocities([0.0; 3]),
         ),
         &weights,
-        &masses,
         &fixed_dofs(&[]),
     )?;
     let (elapsed, g) = (
@@ -182,6 +183,8 @@ fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
     let weights = weights(&masses);
     let (_, coordinates, velocities, accelerations) = model.integrate(
         Execution::Serial,
+        Unchecked,
+        Lumped,
         &integrator(dt),
         &time(dt),
         (
@@ -189,7 +192,6 @@ fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
             uniform_velocities([3.0, 0.0, 4.0]),
         ),
         &weights,
-        &masses,
         &fixed_dofs(&[0, 1, 2, 5]),
     )?;
     let last = &coordinates[STEPS];
@@ -209,6 +211,8 @@ fn the_total_energy_of_a_released_stretch_is_conserved() -> Result<(), Assertion
     stretched[4][0] += 0.01;
     let (_, coordinates, velocities, _) = model.integrate(
         Execution::Serial,
+        Unchecked,
+        Lumped,
         &integrator(dt),
         &[Time::seconds(0.0), Time::seconds(2000.0 * dt)],
         (
@@ -216,7 +220,6 @@ fn the_total_energy_of_a_released_stretch_is_conserved() -> Result<(), Assertion
             uniform_velocities([0.0; 3]),
         ),
         &(),
-        &masses,
         &fixed_dofs(&[]),
     )?;
     let energy = |step: usize| -> Quantity<Energy> {
@@ -373,11 +376,12 @@ mod implicit {
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
             Execution::Serial,
+            Unchecked,
+            Lumped,
             &super::integrator(dt),
             &interval,
             state(),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let moved = (implicit[100][4][0] - implicit[0][4][0]).norm().value();

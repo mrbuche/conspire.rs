@@ -15,7 +15,7 @@ use conspire::{
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
-            ElasticExplicitDynamics, Execution, NodalForcesSolid,
+            ElasticExplicitDynamics, Execution, Lumped, NodalForcesSolid, Unchecked,
             elastic::{ElasticElements, ParallelElasticElements, Workers},
             mass::InverseMass,
         },
@@ -207,7 +207,6 @@ fn single_block_steps() {
     for cells in [10, 22, 46] {
         let (model, coordinates) = grid_model(cells);
         let current = deformed(&coordinates);
-        let masses = model.nodal_lumped_masses();
         let dt = 1e-8;
         let time = [Time::seconds(0.0), Time::seconds(STEPS as f64 * dt)];
         let velocities = || NodalVelocities::from(vec![[0.0; 3]; coordinates.len()]);
@@ -217,11 +216,12 @@ fn single_block_steps() {
         let serial = model
             .integrate(
                 Execution::Serial,
+                Unchecked,
+                Lumped,
                 &integrator,
                 &time,
                 (current.clone(), velocities()),
                 &(),
-                &masses,
                 &conditions,
             )
             .unwrap();
@@ -230,11 +230,12 @@ fn single_block_steps() {
         let parallel = model
             .integrate(
                 Execution::Threads(threads()),
+                Unchecked,
+                Lumped,
                 &integrator,
                 &time,
                 (current.clone(), velocities()),
                 &(),
-                &masses,
                 &conditions,
             )
             .unwrap();
@@ -412,7 +413,6 @@ fn step_marginal() {
     for cells in [22, 46] {
         let (model, coordinates) = grid_model(cells);
         let current = deformed(&coordinates);
-        let masses = model.nodal_lumped_masses();
         let dt = 1e-8;
         let conditions = BoundaryConditions::<Solid<3>>::new();
         let integrator = VelocityVerlet::new(Time::seconds(dt));
@@ -423,6 +423,8 @@ fn step_marginal() {
                     model
                         .integrate(
                             execution,
+                            Unchecked,
+                            Lumped,
                             &integrator,
                             &time,
                             (
@@ -430,7 +432,6 @@ fn step_marginal() {
                                 NodalVelocities::from(vec![[0.0; 3]; coordinates.len()]),
                             ),
                             &(),
-                            &masses,
                             &conditions,
                         )
                         .unwrap(),
