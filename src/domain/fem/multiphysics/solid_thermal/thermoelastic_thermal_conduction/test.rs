@@ -331,7 +331,7 @@ mod dynamics {
                 ThermoelasticThermalConductionDynamics,
                 time_scale::ThermoelasticThermalConductionTimeScaleElements,
             },
-            solid::Lumped,
+            solid::{Checked, Lumped, Unchecked},
         },
         math::{
             Quantity, Tensor,
@@ -419,6 +419,7 @@ mod dynamics {
     ) -> (NodalCoordinates<3>, NodalTemperatures) {
         let (_, coordinates, _, _, temperatures, _) = model()
             .integrate(
+                Unchecked,
                 Lumped,
                 Lumped,
                 &DormandPrinceFixedStep::default(),
@@ -499,6 +500,7 @@ mod dynamics {
             });
         let (_, coordinates, _, _, temperatures, _) = model()
             .integrate(
+                Unchecked,
                 Lumped,
                 Lumped,
                 &DormandPrinceFixedStep::default(),
@@ -530,6 +532,7 @@ mod dynamics {
     #[test]
     fn constraints_held_by_multipliers_are_not_supported_by_the_explicit_integration() {
         let result = model().integrate(
+            Unchecked,
             Lumped,
             Lumped,
             &DormandPrinceFixedStep::default(),
@@ -569,6 +572,7 @@ mod dynamics {
     fn linear_constraints_are_rejected() {
         use crate::math::{Matrix, Vector};
         let result = model().integrate(
+            Unchecked,
             Lumped,
             Lumped,
             &DormandPrinceFixedStep::default(),
@@ -588,10 +592,11 @@ mod dynamics {
         safety: f64,
         interval: usize,
     ) -> Result<(NodalCoordinates<3>, NodalTemperatures), IntegrationError> {
-        let (_, coordinates, _, _, temperatures, _) = model().integrate_bounded(
+        let (_, coordinates, _, _, temperatures, _) = model().integrate(
+            Checked { safety, interval },
+            Lumped,
+            Lumped,
             &DormandPrinceFixedStep::default(),
-            safety,
-            interval,
             time,
             (NodalCoordinates::from(COORDINATES), stretching()),
             uniform_temperatures(),
@@ -738,10 +743,14 @@ mod dynamics {
             .map(|step| Time::seconds(0.05 * step as f64))
             .collect::<Vec<_>>();
         let (times, _, velocities, ..) = model
-            .integrate_bounded(
+            .integrate(
+                Checked {
+                    safety: 0.5,
+                    interval: 1,
+                },
+                Lumped,
+                Lumped,
                 &DormandPrinceFixedStep::default(),
-                0.5,
-                1,
                 &time,
                 (NodalCoordinates::from(bar_coordinates()), bar_velocities()),
                 (0..nodes).map(|_| REFERENCE_TEMPERATURE).collect(),
