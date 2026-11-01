@@ -5,6 +5,8 @@ use super::{
 };
 use crate::domain::Model;
 
+pub use crate::domain::lumping::{Consistent, Lumped};
+
 /// Which masses are used, taken from the blocks of the model.
 ///
 /// The model makes the masses from the same densities that the estimate of the stability limit
@@ -15,14 +17,6 @@ pub trait MassChoice<M> {
     /// The masses of the model.
     fn masses(self, model: &M) -> Self::Mass;
 }
-
-/// The lumped masses of the model, which need a division to give the accelerations.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Lumped;
-
-/// The consistent masses of the model, which need a solve to give the accelerations.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Consistent;
 
 impl<B> MassChoice<Model<B, 3>> for Lumped
 where

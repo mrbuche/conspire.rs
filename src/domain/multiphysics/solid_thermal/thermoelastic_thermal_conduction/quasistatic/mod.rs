@@ -14,7 +14,9 @@ use crate::{
         },
         thermal::{
             NodalTemperatures,
-            capacity::{InertialHeatCapacity, InverseHeatCapacity},
+            capacity::{
+                CapacityChoice, HeatCapacityMatrix, InertialHeatCapacity, InverseHeatCapacity,
+            },
             transient::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
     },
@@ -36,7 +38,10 @@ type Solution = (
 
 /// The coordinates and temperatures of a thermoelastic model that conducts heat, without
 /// inertia, with implicit time integration.
-pub trait ThermoelasticThermalConductionQuasistatic {
+pub trait ThermoelasticThermalConductionQuasistatic
+where
+    Self: Sized,
+{
     /// Integrates the coordinates and temperatures of the model with an implicit integrator of
     /// first-order systems.
     ///
@@ -44,13 +49,16 @@ pub trait ThermoelasticThermalConductionQuasistatic {
     /// are the rates of the integrator, such as the backward difference of a backward Euler
     /// step, and the thermoelastic heating follows from them. The initial coordinates must be in
     /// equilibrium with the initial temperatures and external forces, and the velocities at the
-    /// initial time are taken to be zero. The heat capacities may be lumped or consistent, and
+    /// initial time are taken to be zero. The heat capacities are those of `capacity`
+    /// ([`Lumped`](crate::domain::lumping::Lumped) or
+    /// [`Consistent`](crate::domain::lumping::Consistent)) that the blocks of the model make, and
     /// are added to the sparse tangent. Fixed degrees of freedom, whose indices are `4 * node +
     /// component` with the temperature as the last component, are held at their initial values,
     /// and linear constraints are not supported.
     #[expect(clippy::too_many_arguments)]
-    fn integrate(
+    fn integrate<K>(
         &self,
+        capacity: K,
         integrator: &impl ImplicitRates<
             NodalStatesSolidThermal,
             NodalForcesSolidThermal,
@@ -69,17 +77,19 @@ pub trait ThermoelasticThermalConductionQuasistatic {
              impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
              + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
          ),
-        capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
-    ) -> Result<Solution, IntegrationError>;
+    ) -> Result<Solution, IntegrationError>
+    where
+        K: CapacityChoice<Self>;
 }
 
 impl<B> ThermoelasticThermalConductionQuasistatic for Model<B, 3>
 where
     B: ThermoelasticThermalConductionRateElements,
 {
-    fn integrate(
+    fn integrate<K>(
         &self,
+        capacity: K,
         integrator: &impl ImplicitRates<
             NodalStatesSolidThermal,
             NodalForcesSolidThermal,
@@ -101,12 +111,15 @@ where
              impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
              + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
          ),
-        capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
-    ) -> Result<Solution, IntegrationError> {
+    ) -> Result<Solution, IntegrationError>
+    where
+        K: CapacityChoice<Self>,
+    {
         let initial_time = *time
             .first()
             .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let capacities = capacity.capacities(self);
         let motion = Motion::new(
             conditions,
             initial_time,
@@ -159,7 +172,7 @@ where
                     &heatings,
                     Quantity::<Rate>::new(1.0 / dt.value()),
                 );
-                add_capacities(&mut tangent, capacities, 1.0 / dt.value());
+                add_capacities(&mut tangent, &capacities, 1.0 / dt.value());
                 applied_loads.add_stiffness_at(time, states, &mut tangent)?;
                 Ok(tangent)
             },

@@ -6,7 +6,9 @@ use crate::{
         diffusion::DiffusionElements,
         thermal::{
             NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
-            capacity::{InertialHeatCapacity, InverseHeatCapacity, NodalTemperatureRates},
+            capacity::{
+                CapacityChoice, InertialHeatCapacity, InverseHeatCapacity, NodalTemperatureRates,
+            },
             conduction::ThermalConductionElements,
         },
     },
@@ -19,15 +21,21 @@ use crate::{
 };
 
 /// The temperatures of a model that conducts heat with implicit time integration.
-pub trait ThermalConductionImplicitTransient {
+pub trait ThermalConductionImplicitTransient
+where
+    Self: Sized,
+{
     /// Integrates the temperatures of the model with an implicit integrator.
     ///
-    /// The heat capacities may be lumped or consistent, and are added to the sparse tangent.
+    /// The heat capacities are those of `capacity` ([`Lumped`](crate::domain::lumping::Lumped) or
+    /// [`Consistent`](crate::domain::lumping::Consistent)) that the blocks of the model make.
+    /// They are added to the sparse tangent.
     /// Fixed temperatures, whose indices are those of their nodes, are held at their initial
     /// values, and linear constraints are not supported.
     #[expect(clippy::too_many_arguments)]
-    fn integrate(
+    fn integrate<C>(
         &self,
+        capacity: C,
         integrator: &impl ImplicitRates<
             NodalTemperatures,
             NodalForcesThermal,
@@ -42,17 +50,19 @@ pub trait ThermalConductionImplicitTransient {
              impl LoadAt<NodalTemperatures, NodalForcesThermal>
              + LoadStiffnessAt<NodalTemperatures, NodalStiffnessesThermal>
          ),
-        capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<Field<Temperature>>,
-    ) -> Result<Solution, IntegrationError>;
+    ) -> Result<Solution, IntegrationError>
+    where
+        C: CapacityChoice<Self>;
 }
 
 impl<B> ThermalConductionImplicitTransient for Model<B, 3>
 where
     B: ThermalConductionElements,
 {
-    fn integrate(
+    fn integrate<C>(
         &self,
+        capacity: C,
         integrator: &impl ImplicitRates<
             NodalTemperatures,
             NodalForcesThermal,
@@ -67,14 +77,17 @@ where
              impl LoadAt<NodalTemperatures, NodalForcesThermal>
              + LoadStiffnessAt<NodalTemperatures, NodalStiffnessesThermal>
          ),
-        capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<Field<Temperature>>,
-    ) -> Result<Solution, IntegrationError> {
+    ) -> Result<Solution, IntegrationError>
+    where
+        C: CapacityChoice<Self>,
+    {
         let initial_time = *time
             .first()
             .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let capacities = capacity.capacities(self);
         let (inverse, motion) = Motion::held(
-            capacities,
+            &capacities,
             conditions,
             initial_time,
             &mut initial_temperatures,

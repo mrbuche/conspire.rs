@@ -11,12 +11,10 @@ use crate::{
         ElementModelError, Model, Stepping,
         boundary::{ConstrainAt, Field, LoadAt},
         diffusion::DiffusionElements,
+        lumping::Lumped,
         thermal::{
             NodalForcesThermal, NodalTemperatures,
-            capacity::{
-                HeatCapacityMatrix, InverseHeatCapacity, NodalLumpedHeatCapacities,
-                NodalTemperatureRates,
-            },
+            capacity::{CapacityChoice, InverseHeatCapacity, NodalTemperatureRates},
             conduction::ThermalConductionElements,
             time_scale::ThermalTimeScaleElements,
         },
@@ -39,7 +37,10 @@ type Solution = (
 );
 
 /// The temperatures of a model that conducts heat.
-pub trait ThermalConductionTransient {
+pub trait ThermalConductionTransient
+where
+    Self: Sized,
+{
     fn nodal_temperature_rates(
         &self,
         nodal_temperatures: &NodalTemperatures,
@@ -49,11 +50,14 @@ pub trait ThermalConductionTransient {
     ) -> Result<NodalTemperatureRates, ElementModelError>;
     /// Integrates the temperatures of the model with an explicit integrator.
     ///
-    /// The heat capacities may be lumped or consistent. Fixed temperatures, whose indices are
-    /// those of their nodes, are held by giving them no rate of change, so that their initial
-    /// values are the ones prescribed. Linear constraints are not supported.
-    fn integrate(
+    /// The heat capacities are those of `capacity` ([`Lumped`](crate::domain::lumping::Lumped) or
+    /// [`Consistent`](crate::domain::lumping::Consistent)) that the blocks of the model make.
+    /// Fixed temperatures, whose indices are those of their nodes, are held by giving them no
+    /// rate of change, so that their initial values are the ones prescribed. Linear constraints
+    /// are not supported.
+    fn integrate<C>(
         &self,
+        capacity: C,
         integrator: &impl Explicit<
             NodalTemperatures,
             NodalTemperaturesHistory,
@@ -62,14 +66,15 @@ pub trait ThermalConductionTransient {
         time: &[Quantity<Time>],
         initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
-        capacities: &impl HeatCapacityMatrix,
         conditions: &impl ConstrainAt<Field<Temperature>>,
-    ) -> Result<Solution, IntegrationError>;
+    ) -> Result<Solution, IntegrationError>
+    where
+        C: CapacityChoice<Self>;
     /// Integrates the temperatures of the model like [`integrate`](Self::integrate), with a
     /// time step limited by the fastest time scale of the elements.
     ///
-    /// Only lumped heat capacities are accepted, since the estimate of the largest eigenvalue
-    /// is that of the lumped heat capacities, which a consistent one exceeds. The estimate
+    /// The heat capacities are the lumped ones of the model, since the estimate of the largest
+    /// eigenvalue is that of the lumped heat capacities, which a consistent one exceeds. The estimate
     /// assembles the element conduction tangents, and is refreshed every `interval`
     /// evaluations of the bound, which for the integrators here is every step. The time step
     /// may use at most the fraction `safety` of the stability limit, and a step above it is an
@@ -87,11 +92,11 @@ pub trait ThermalConductionTransient {
         time: &[Quantity<Time>],
         initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
-        capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>
     where
-        Self: ThermalTimeScaleElements<3>;
+        Self: ThermalTimeScaleElements<3>,
+        Lumped: CapacityChoice<Self>;
 }
 
 impl<B> ThermalConductionTransient for Model<B, 3>
@@ -111,8 +116,9 @@ where
             .map_err(|error| ElementModelError::upstream(error, "the applied loads"))?;
         Ok(capacities.nodal_temperature_rates(&unbalanced_heating))
     }
-    fn integrate(
+    fn integrate<C>(
         &self,
+        capacity: C,
         integrator: &impl Explicit<
             NodalTemperatures,
             NodalTemperaturesHistory,
@@ -121,14 +127,17 @@ where
         time: &[Quantity<Time>],
         mut initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
-        capacities: &impl HeatCapacityMatrix,
         conditions: &impl ConstrainAt<Field<Temperature>>,
-    ) -> Result<Solution, IntegrationError> {
+    ) -> Result<Solution, IntegrationError>
+    where
+        C: CapacityChoice<Self>,
+    {
         let initial_time = *time
             .first()
             .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let capacities = capacity.capacities(self);
         let (capacities, motion) = Motion::held(
-            capacities,
+            &capacities,
             conditions,
             initial_time,
             &mut initial_temperatures,
@@ -160,11 +169,11 @@ where
         time: &[Quantity<Time>],
         mut initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
-        capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermalTimeScaleElements<3>,
+        Lumped: CapacityChoice<Self>,
     {
         if interval == 0 {
             return Err(IntegrationError::Intermediate(
@@ -175,8 +184,9 @@ where
         let initial_time = *time
             .first()
             .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let capacities = Lumped.capacities(self);
         let (capacities, motion) = Motion::held(
-            capacities,
+            &capacities,
             conditions,
             initial_time,
             &mut initial_temperatures,

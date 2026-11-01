@@ -244,7 +244,6 @@ mod integrate {
                 &times(dt, 4000),
                 initial.clone(),
                 &(),
-                &capacities,
                 &fixed_temperatures(&[]),
             )
             .unwrap();
@@ -266,7 +265,6 @@ mod integrate {
                 &times(dt, 4000),
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
                 &(),
-                &model.nodal_lumped_heat_capacities(),
                 &fixed_temperatures(&[0]),
             )
             .unwrap();
@@ -284,7 +282,7 @@ mod integrate {
 mod integrate_implicit {
     use super::*;
     use crate::{
-        cbm::thermal::transient::ThermalConductionImplicitTransient,
+        cbm::{Lumped, thermal::transient::ThermalConductionImplicitTransient},
         math::{
             integrate::BackwardEuler,
             optimize::{NewtonRaphson, Tolerances},
@@ -318,12 +316,12 @@ mod integrate_implicit {
     ) {
         let (_, history, rates) = ThermalConductionImplicitTransient::integrate(
             model,
+            Lumped,
             &BackwardEuler { dt },
             solver(),
             &times(dt, steps),
             initial,
             &(),
-            &model.nodal_lumped_heat_capacities(),
             conditions,
         )
         .unwrap();

@@ -9,6 +9,10 @@ use crate::{
     units::{HeatCapacity, PowerPerTemperature, TemperatureRate},
 };
 
+mod choice;
+
+pub use choice::CapacityChoice;
+
 pub type NodalHeatCapacities = QuantitySparseVec2D<HeatCapacity>;
 pub type NodalLumpedHeatCapacities = QuantityVector<HeatCapacity>;
 

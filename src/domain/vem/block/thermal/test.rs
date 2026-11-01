@@ -3,7 +3,7 @@ use crate::{
     math::{Quantity, Scalar},
     units::{PowerPerLengthTemperature, Temperature},
     vem::{
-        NodalReferenceCoordinates,
+        Lumped, NodalReferenceCoordinates,
         block::{
             Block,
             element::{DEFAULT_STABILIZATION, Element},
@@ -213,11 +213,11 @@ mod heat {
         let boundary: Vec<usize> = (0..NODES).filter(|&node| node != INTERIOR).collect();
         let (_, history, rates) = model
             .integrate(
+                Lumped,
                 &Euler::default(),
                 &times,
                 initial,
                 &(),
-                &capacities,
                 &fixed_temperatures(&boundary),
             )
             .unwrap();
@@ -282,7 +282,6 @@ mod heat {
                     &times(dt, 20000),
                     initial.clone(),
                     &(),
-                    &capacities,
                     &fixed_temperatures(&[]),
                 )
                 .unwrap();
@@ -314,7 +313,6 @@ mod heat {
                     &times(dt, 20000),
                     initial,
                     &(),
-                    &model.nodal_lumped_heat_capacities(),
                     &fixed_temperatures(&boundary),
                 )
                 .unwrap();
@@ -343,7 +341,6 @@ mod heat {
             let mut perturbed = linear([0.3, -0.7, 1.1]);
             perturbed[INTERIOR] += 50.0;
             let perturbed = temperatures(&perturbed);
-            let capacities = model.nodal_lumped_heat_capacities();
             let error = model
                 .integrate_bounded(
                     &Euler::default(),
@@ -352,18 +349,17 @@ mod heat {
                     &times(dt, 40),
                     perturbed.clone(),
                     &(),
-                    &capacities,
                     &fixed_temperatures(&[]),
                 )
                 .unwrap_err();
             assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
             let (_, history, _) = model
                 .integrate(
+                    Lumped,
                     &Euler::default(),
                     &times(20.0 * dt, 40),
                     perturbed,
                     &(),
-                    &capacities,
                     &fixed_temperatures(&[]),
                 )
                 .unwrap();
@@ -388,7 +384,6 @@ mod heat {
                     &times(1.0, 2),
                     initial,
                     &(),
-                    &model.nodal_lumped_heat_capacities(),
                     &fixed_temperatures(&[]),
                 )
                 .unwrap_err();
@@ -426,6 +421,7 @@ mod heat {
         ) {
             let (_, history, rates) = ThermalConductionImplicitTransient::integrate(
                 model,
+                Lumped,
                 &BackwardEuler { dt },
                 solver(),
                 &(0..=steps)
@@ -433,7 +429,6 @@ mod heat {
                     .collect::<Vec<_>>(),
                 initial,
                 &(),
-                &model.nodal_lumped_heat_capacities(),
                 conditions,
             )
             .unwrap();
