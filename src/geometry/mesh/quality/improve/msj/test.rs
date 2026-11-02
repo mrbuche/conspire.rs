@@ -945,6 +945,6 @@ fn improves_a_wobbly_tetrahedral_grid_without_leaving_the_cube() {
     let after = worst(&mesh);
     assert!(after > before + 0.05, "{before} -> {after}");
     mesh.coordinates().iter().for_each(|node| {
-        assert!((0..3).all(|i| node[i].value() > -1.0e-2 && node[i].value() < 1.0 + 1.0e-2))
+        assert!((0..3).all(|i| node[i].value() > -1.0e-3 && node[i].value() < 1.0 + 1.0e-3))
     });
 }
