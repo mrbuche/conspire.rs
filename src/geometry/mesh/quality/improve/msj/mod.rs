@@ -6,7 +6,7 @@ use crate::{
         Coordinate, CoordinateList, Coordinates, CoordinatesRef, Direction, DirectionList,
         DirectionsRef,
         bbox::BoundingBox,
-        mesh::{Connectivity, Mesh, MeshError, Tessellation},
+        mesh::{Connectivity, Mesh, MeshError, Tessellation, quality::metrics::tetrahedron},
     },
     math::{
         CrossProduct, Quantity, QuantityVector, Reference, Scalar, Tensor, TensorList,
@@ -18,6 +18,7 @@ use crate::{
 use std::{
     array::from_fn,
     cell::RefCell,
+    f64::consts::SQRT_2,
     mem::swap,
     sync::{LazyLock, Mutex},
     thread::{available_parallelism, scope},
@@ -107,6 +108,63 @@ static POINTS: LazyLock<[Point; 9]> = LazyLock::new(|| {
     })
 });
 
+const EDGES: [[usize; 2]; 12] = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
+];
+
+static TETRAHEDRON_POINTS: LazyLock<[Point; 4]> = LazyLock::new(|| {
+    from_fn(|point| {
+        let (corner, adjacent) = tetrahedron::CORNERS[point];
+        let mut weights = [[0.0; 8]; 3];
+        weights.iter_mut().zip(adjacent).for_each(|(row, node)| {
+            row[node] += 1.0;
+            row[corner] -= 1.0;
+        });
+        let sparse = from_fn(|i| {
+            (0..8)
+                .filter(|&node| weights[i][node] != 0.0)
+                .map(|node| (node, weights[i][node]))
+                .collect()
+        });
+        Point { sparse, weights }
+    })
+});
+
+struct Kind {
+    edges: &'static [[usize; 2]],
+    normalization: Scalar,
+    points: &'static [Point],
+}
+
+const HEXAHEDRON: u8 = 0;
+const TETRAHEDRON: u8 = 1;
+
+static KINDS: LazyLock<[Kind; 2]> = LazyLock::new(|| {
+    [
+        Kind {
+            edges: &EDGES,
+            normalization: 1.0,
+            points: &*POINTS,
+        },
+        Kind {
+            edges: &[[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]],
+            normalization: SQRT_2,
+            points: &*TETRAHEDRON_POINTS,
+        },
+    ]
+});
+
 struct Frame {
     edges: CoordinateList<3, 3>,
     jacobian: Quantity<Volume>,
@@ -173,6 +231,7 @@ impl Reach<'_> {
 struct Energy<'a> {
     boundary: &'a [usize],
     hexes: &'a [[usize; 8]],
+    kinds: &'a [u8],
     lambda: TensorListVec<Quantity<Length>, CAP>,
     planes: Vec<Plane>,
     rho: Quantity,
@@ -189,9 +248,21 @@ impl Mesh<3> {
         sweeps: usize,
     ) -> Result<(), MeshError> {
         let mut hexes = Vec::new();
+        let mut kinds = Vec::new();
         for block in self.iter() {
             match block {
-                Connectivity::Hexahedral(elements) => hexes.extend(elements.iter().copied()),
+                Connectivity::Hexahedral(elements) => {
+                    hexes.extend(elements.iter().copied());
+                    kinds.resize(hexes.len(), HEXAHEDRON)
+                }
+                Connectivity::Tetrahedral(elements) => {
+                    hexes.extend(
+                        elements
+                            .iter()
+                            .map(|&[a, b, c, d]| [a, b, c, d, a, a, a, a]),
+                    );
+                    kinds.resize(hexes.len(), TETRAHEDRON)
+                }
                 _ => return Err(MeshError::HexahedraRequired),
             }
         }
@@ -203,6 +274,7 @@ impl Mesh<3> {
         let mut energy = Energy {
             boundary: &boundary,
             hexes: &hexes,
+            kinds: &kinds,
             lambda: (0..boundary.len())
                 .map(|_| [Quantity::default(); CAP].into())
                 .collect(),
@@ -341,7 +413,15 @@ impl Mesh<3> {
 }
 
 impl Frame {
-    fn new(point: &Point, nodes: &CoordinateList<3, 8>) -> Self {
+    fn vacant() -> Self {
+        Self {
+            edges: CoordinateList::default(),
+            jacobian: Quantity::new(Scalar::INFINITY),
+            lengths: from_fn(|_| Quantity::new(Scalar::INFINITY)).into(),
+            scaled: Quantity::new(Scalar::INFINITY),
+        }
+    }
+    fn new(point: &Point, nodes: &CoordinateList<3, 8>, normalization: Scalar) -> Self {
         let edges: CoordinateList<3, 3> = point
             .sparse
             .iter()
@@ -358,7 +438,7 @@ impl Frame {
             edges.iter().map(|edge| edge.norm()).collect();
         let product = lengths[0] * lengths[1] * lengths[2];
         let scaled = if lengths.iter().all(|&length| length > Quantity::default()) {
-            jacobian / product
+            jacobian / product * normalization
         } else {
             Quantity::default()
         };
@@ -476,7 +556,7 @@ impl<'a> Surface<'a> {
 
 impl Energy<'_> {
     fn refresh(&mut self, surface: &Surface, coordinates: &Coordinates<3>) {
-        self.scales = scales(self.hexes, coordinates);
+        self.scales = scales(self.hexes, self.kinds, coordinates);
         let sizes = node_scales(self.boundary, self.hexes, &self.scales, coordinates.len());
         self.planes = surface.planes(self.boundary, &sizes, coordinates);
     }
@@ -491,16 +571,21 @@ impl Energy<'_> {
         scope(|scope| {
             self.hexes
                 .chunks(chunk)
-                .map(|hexes| {
+                .zip(self.kinds.chunks(chunk))
+                .map(|(hexes, kinds)| {
                     scope.spawn(move || {
                         hexes
                             .iter()
-                            .map(|hex| {
+                            .zip(kinds)
+                            .map(|(hex, &kind)| {
                                 let nodes =
                                     hex.iter().map(|&node| coordinates[node].clone()).collect();
-                                POINTS
+                                let kind = &KINDS[kind as usize];
+                                kind.points
                                     .iter()
-                                    .map(|weights| Frame::new(weights, &nodes).scaled)
+                                    .map(|point| {
+                                        Frame::new(point, &nodes, kind.normalization).scaled
+                                    })
                                     .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
                             })
                             .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
@@ -563,10 +648,11 @@ impl Energy<'_> {
         }
         let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
         let scale = self.scales[at];
+        let kind = &KINDS[self.kinds[at] as usize];
         if derivative {
-            bounded(self.theta, scale, &nodes, true)
+            bounded(kind, self.theta, scale, &nodes, true)
         } else {
-            let (value, slopes) = terms(self.theta, scale, &nodes, false);
+            let (value, slopes, _) = bounded(kind, self.theta, scale, &nodes, false);
             (value, slopes, Default::default())
         }
     }
@@ -746,23 +832,29 @@ fn chunk_size(items: usize) -> usize {
     }
 }
 
+#[cfg(test)]
 fn terms(
     theta: Quantity,
     scale: Quantity<Length>,
     nodes: &CoordinateList<3, 8>,
     derivative: bool,
 ) -> (Quantity<Area>, CoordinateList<3, 8>) {
-    let (value, slopes, _) = bounded(theta, scale, nodes, derivative);
+    let (value, slopes, _) = bounded(&KINDS[HEXAHEDRON as usize], theta, scale, nodes, derivative);
     (value, slopes)
 }
 
 fn bounded(
+    kind: &Kind,
     theta: Quantity,
     scale: Quantity<Length>,
     nodes: &CoordinateList<3, 8>,
     derivative: bool,
 ) -> Part {
-    let frames: [Frame; 9] = from_fn(|point| Frame::new(&POINTS[point], nodes));
+    let frames: [Frame; 9] = from_fn(|point| {
+        kind.points.get(point).map_or_else(Frame::vacant, |point| {
+            Frame::new(point, nodes, kind.normalization)
+        })
+    });
     let (j, lowest_j) = frames
         .iter()
         .enumerate()
@@ -780,15 +872,15 @@ fn bounded(
         if derivative {
             let e = &frames[j].edges;
             let g = [
-                (e[1].cross(&e[2]) / scale).with_unit(),
-                (e[2].cross(&e[0]) / scale).with_unit(),
-                (e[0].cross(&e[1]) / scale).with_unit(),
+                (e[1].cross(&e[2]) * kind.normalization / scale).with_unit(),
+                (e[2].cross(&e[0]) * kind.normalization / scale).with_unit(),
+                (e[0].cross(&e[1]) * kind.normalization / scale).with_unit(),
             ]
             .into();
-            scatter(&POINTS[j].weights, &g, &mut slopes)
+            scatter(&kind.points[j].weights, &g, &mut slopes)
         }
         (
-            lowest_j / scale - theta * scale * scale,
+            lowest_j * kind.normalization / scale - theta * scale * scale,
             slopes,
             Default::default(),
         )
@@ -807,10 +899,10 @@ fn bounded(
                     let along = &c * &u[i];
                     let slope: TensorRank1<3, Reference, ReciprocalLength> =
                         ((c - &u[i] * along) / frame.lengths[i]).with_unit();
-                    (slope * area).with_unit()
+                    (slope * area * kind.normalization).with_unit()
                 })
                 .collect();
-            scatter(&POINTS[s].weights, &g, &mut slopes)
+            scatter(&kind.points[s].weights, &g, &mut slopes)
         }
         ((lowest_sj - theta) * area, slopes, Default::default())
     } else {
@@ -837,35 +929,28 @@ fn scatter(weights: &Weights, g: &CoordinateList<3, 3>, slopes: &mut CoordinateL
     })
 }
 
-fn scales(hexes: &[[usize; 8]], coordinates: &Coordinates<3>) -> QuantityVector<Length> {
-    const EDGES: [[usize; 2]; 12] = [
-        [0, 1],
-        [1, 2],
-        [2, 3],
-        [3, 0],
-        [4, 5],
-        [5, 6],
-        [6, 7],
-        [7, 4],
-        [0, 4],
-        [1, 5],
-        [2, 6],
-        [3, 7],
-    ];
+fn scales(
+    hexes: &[[usize; 8]],
+    kinds: &[u8],
+    coordinates: &Coordinates<3>,
+) -> QuantityVector<Length> {
     let chunk = chunk_size(hexes.len());
     scope(|scope| {
         hexes
             .chunks(chunk)
-            .map(|hexes| {
+            .zip(kinds.chunks(chunk))
+            .map(|(hexes, kinds)| {
                 scope.spawn(move || {
                     hexes
                         .iter()
-                        .map(|hex| {
-                            EDGES
+                        .zip(kinds)
+                        .map(|(hex, &kind)| {
+                            let edges = KINDS[kind as usize].edges;
+                            edges
                                 .iter()
                                 .map(|&[a, b]| (&coordinates[hex[a]] - &coordinates[hex[b]]).norm())
                                 .sum::<Quantity<Length>>()
-                                / 12.0
+                                / edges.len() as Scalar
                         })
                         .collect::<Vec<_>>()
                 })

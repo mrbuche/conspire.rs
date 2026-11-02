@@ -1,6 +1,6 @@
 use super::{
-    Energy, Frame, Gradient, POINTS, Reach, SERIAL, Surface, bounded, displacements, node_scales,
-    scales, terms,
+    Energy, Frame, Gradient, KINDS, POINTS, Reach, SERIAL, Surface, bounded, displacements,
+    node_scales, scales, terms,
 };
 use crate::{
     geometry::{
@@ -14,7 +14,13 @@ use crate::{
     },
     units::{Area, Dimensionless, Length},
 };
-use std::{collections::BTreeSet, f64::consts::TAU, sync::Mutex, time::Instant};
+use std::{
+    array::from_fn,
+    collections::BTreeSet,
+    f64::consts::{SQRT_2, TAU},
+    sync::Mutex,
+    time::Instant,
+};
 
 const SWEEPS: usize = 20;
 const UNREACHABLE: Quantity = Dimensionless::of(1.0);
@@ -105,7 +111,7 @@ fn gradient_matches_finite_difference_on_the_jacobian_branch() {
     assert!(
         POINTS
             .iter()
-            .any(|weights| Frame::new(weights, &coordinates).scaled < Quantity::default())
+            .any(|weights| Frame::new(weights, &coordinates, 1.0).scaled < Quantity::default())
     );
     check(0.5, nodes)
 }
@@ -396,7 +402,8 @@ fn parallel_evaluation_matches_the_serial_sum_exactly() {
         .collect();
     assert!(hexes.len() > 2 * SERIAL);
     let coordinates = mesh.coordinates().clone();
-    let scales = scales(&hexes, &coordinates);
+    let kinds = vec![0u8; hexes.len()];
+    let scales = scales(&hexes, &kinds, &coordinates);
     let theta = Quantity::new(0.3);
     let mut total = Quantity::<Area>::default();
     let mut gradient = Gradient::zero(coordinates.len());
@@ -411,6 +418,7 @@ fn parallel_evaluation_matches_the_serial_sum_exactly() {
     let energy = Energy {
         boundary: &[],
         hexes: &hexes,
+        kinds: &kinds,
         lambda: TensorListVec::default(),
         planes: Vec::new(),
         rho: Quantity::new(1.0),
@@ -444,10 +452,12 @@ fn evaluation_keeps_nothing_from_the_previous_call() {
     let coordinates = mesh.coordinates().clone();
     let mut stretched = coordinates.clone();
     stretched.iter_mut().for_each(|node| node[0] *= 1.1);
-    let scales = scales(&hexes, &coordinates);
+    let kinds = vec![0u8; hexes.len()];
+    let scales = scales(&hexes, &kinds, &coordinates);
     let energy = || Energy {
         boundary: &[],
         hexes: &hexes,
+        kinds: &kinds,
         lambda: TensorListVec::default(),
         planes: Vec::new(),
         rho: Quantity::new(1.0),
@@ -493,10 +503,12 @@ fn skipping_hexes_that_cannot_reach_the_threshold_changes_nothing() {
         })
         .collect();
     let coordinates = mesh.coordinates().clone();
-    let scales = scales(&hexes, &coordinates);
+    let kinds = vec![0u8; hexes.len()];
+    let scales = scales(&hexes, &kinds, &coordinates);
     let energy = || Energy {
         boundary: &[],
         hexes: &hexes,
+        kinds: &kinds,
         lambda: TensorListVec::default(),
         planes: Vec::new(),
         rho: Quantity::new(1.0),
@@ -535,10 +547,12 @@ fn skipping_hexes_in_the_gradient_changes_nothing_over_many_moves() {
         })
         .collect();
     let mut coordinates = mesh.coordinates().clone();
-    let scales = scales(&hexes, &coordinates);
+    let kinds = vec![0u8; hexes.len()];
+    let scales = scales(&hexes, &kinds, &coordinates);
     let energy = || Energy {
         boundary: &[],
         hexes: &hexes,
+        kinds: &kinds,
         lambda: TensorListVec::default(),
         planes: Vec::new(),
         rho: Quantity::new(1.0),
@@ -588,13 +602,18 @@ fn skipping_hexes_in_the_gradient_changes_nothing_over_many_moves() {
 fn the_decayed_bound_never_exceeds_what_the_moved_hexahedron_still_has() {
     let nodes = distorted(0.15, 2.0);
     let (sj, _, _) = {
-        let (_, _, (margin, shortest)) =
-            bounded(Quantity::new(0.0), Quantity::new(1.0), &typed(&nodes), true);
+        let (_, _, (margin, shortest)) = bounded(
+            &KINDS[0],
+            Quantity::new(0.0),
+            Quantity::new(1.0),
+            &typed(&nodes),
+            true,
+        );
         (margin.value(), shortest.value(), ())
     };
     assert!(sj > 0.3);
     let theta = Quantity::new(sj - 0.2);
-    let (_, _, bound) = bounded(theta, Quantity::new(1.0), &typed(&nodes), true);
+    let (_, _, bound) = bounded(&KINDS[0], theta, Quantity::new(1.0), &typed(&nodes), true);
     let base: Coordinates<3> = nodes.to_vec().into();
     let bounds = [bound];
     let hex = [0, 1, 2, 3, 4, 5, 6, 7];
@@ -625,7 +644,8 @@ fn the_decayed_bound_never_exceeds_what_the_moved_hexahedron_still_has() {
         };
         skipped += 1;
         let (lower, shorter) = reach.decayed(0, distance);
-        let (_, _, (margin, shortest)) = bounded(theta, Quantity::new(1.0), &typed(&moved), true);
+        let (_, _, (margin, shortest)) =
+            bounded(&KINDS[0], theta, Quantity::new(1.0), &typed(&moved), true);
         assert!(margin >= lower && shortest >= shorter, "seed {seed}");
     }
     assert_eq!(skipped, 200);
@@ -649,7 +669,7 @@ fn planes_do_not_depend_on_how_the_nodes_are_shared_among_threads() -> Result<()
     let sizes = node_scales(
         &boundary,
         &hexes,
-        &scales(&hexes, &coordinates),
+        &scales(&hexes, &vec![0u8; hexes.len()], &coordinates),
         coordinates.len(),
     );
     let target = cube();
@@ -691,5 +711,197 @@ fn a_node_beside_an_edge_keeps_the_planes_of_both_faces() -> Result<(), Assertio
     };
     assert!(has([1.0, 0.0, 0.0], 1.0));
     assert!(has([0.0, -1.0, 0.0], 0.0));
+    Ok(())
+}
+
+type Shape = fn(Scalar) -> [[Scalar; 3]; 4];
+
+fn tetrahedron(nodes: [[Scalar; 3]; 4]) -> CoordinateList<3, 8> {
+    typed(&from_fn(|i| nodes[if i < 4 { i } else { 0 }]))
+}
+
+fn tetrahedron_value(theta: Scalar, scale: Scalar, nodes: [[Scalar; 3]; 4]) -> Scalar {
+    bounded(
+        &KINDS[1],
+        Quantity::new(theta),
+        Quantity::new(scale),
+        &tetrahedron(nodes),
+        false,
+    )
+    .0
+    .value()
+}
+
+fn distorted_tetrahedron(scale: Scalar, seed: Scalar) -> [[Scalar; 3]; 4] {
+    let mut nodes = [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+    ];
+    nodes
+        .iter_mut()
+        .enumerate()
+        .for_each(|(n, node)| (0..3).for_each(|i| node[i] += scale * offset(3 * n + i, seed)));
+    nodes
+}
+
+fn mean_edge(nodes: &[[Scalar; 3]; 4]) -> Scalar {
+    let distance = |a: usize, b: usize| {
+        (0..3)
+            .map(|i| (nodes[a][i] - nodes[b][i]).powi(2))
+            .sum::<Scalar>()
+            .sqrt()
+    };
+    [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
+        .into_iter()
+        .map(|(a, b)| distance(a, b))
+        .sum::<Scalar>()
+        / 6.0
+}
+
+fn tetrahedron_check(theta: Scalar, nodes: [[Scalar; 3]; 4]) {
+    let (_, analytic, _) = bounded(
+        &KINDS[1],
+        Quantity::new(theta),
+        Quantity::new(1.3),
+        &tetrahedron(nodes),
+        true,
+    );
+    let step = 1.0e-6;
+    (0..8).for_each(|n| {
+        (0..3).for_each(|i| {
+            let numerical = if n < 4 {
+                let (mut above, mut below) = (nodes, nodes);
+                above[n][i] += step;
+                below[n][i] -= step;
+                (tetrahedron_value(theta, 1.3, above) - tetrahedron_value(theta, 1.3, below))
+                    / (2.0 * step)
+            } else {
+                0.0
+            };
+            let exact = analytic[n][i].value();
+            assert!(
+                (exact - numerical).abs() < 1.0e-6,
+                "node {n} axis {i}: {exact} vs {numerical}"
+            );
+        })
+    })
+}
+
+#[test]
+fn tetrahedron_gradient_matches_finite_difference_on_the_scaled_branch() {
+    tetrahedron_check(2.0, distorted_tetrahedron(0.2, 1.0))
+}
+
+#[test]
+fn tetrahedron_gradient_matches_finite_difference_on_the_jacobian_branch() {
+    let mut nodes = distorted_tetrahedron(0.1, 3.0);
+    nodes[3][2] = -0.4;
+    let frames = KINDS[1]
+        .points
+        .iter()
+        .map(|point| Frame::new(point, &tetrahedron(nodes), KINDS[1].normalization).scaled)
+        .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
+    assert!(frames < Quantity::default());
+    tetrahedron_check(0.5, nodes)
+}
+
+#[test]
+fn a_tetrahedron_scores_the_scaled_jacobian_of_the_metric() -> Result<(), AssertionError> {
+    use crate::geometry::mesh::quality::metrics::tetrahedron::CORNERS;
+    let determinant = |e: &[[Scalar; 3]; 3]| {
+        e[0][0] * (e[1][1] * e[2][2] - e[1][2] * e[2][1])
+            - e[0][1] * (e[1][0] * e[2][2] - e[1][2] * e[2][0])
+            + e[0][2] * (e[1][0] * e[2][1] - e[1][1] * e[2][0])
+    };
+    let norm = |v: &[Scalar; 3]| v.iter().map(|x| x * x).sum::<Scalar>().sqrt();
+    for seed in 0..12 {
+        let nodes = distorted_tetrahedron(0.2, seed as Scalar);
+        let reference = CORNERS
+            .iter()
+            .map(|(corner, adjacent)| {
+                let e: [[Scalar; 3]; 3] =
+                    from_fn(|k| from_fn(|i| nodes[adjacent[k]][i] - nodes[*corner][i]));
+                SQRT_2 * determinant(&e) / (norm(&e[0]) * norm(&e[1]) * norm(&e[2]))
+            })
+            .fold(Scalar::INFINITY, Scalar::min);
+        assert!(reference > 0.0);
+        let scale = mean_edge(&nodes);
+        let theta = 2.0;
+        let value = tetrahedron_value(theta, scale, nodes);
+        Assert::default().eq_within_tols(value / (scale * scale) + theta, reference)?
+    }
+    Ok(())
+}
+
+#[test]
+fn a_regular_tetrahedron_scores_one() -> Result<(), AssertionError> {
+    let nodes = [
+        [1.0, 1.0, 1.0],
+        [-1.0, 1.0, -1.0],
+        [1.0, -1.0, -1.0],
+        [-1.0, -1.0, 1.0],
+    ];
+    let scale = mean_edge(&nodes);
+    Assert::default().eq_within_tols(
+        tetrahedron_value(2.0, scale, nodes) / (scale * scale) + 2.0,
+        1.0,
+    )
+}
+
+#[test]
+fn tetrahedron_energy_is_continuous_through_a_flat_tetrahedron() -> Result<(), AssertionError> {
+    let theta = 0.3;
+    let shapes: [Shape; 2] = [
+        |h| {
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.5, 0.75_f64.sqrt(), 0.0],
+                [0.5, 0.75_f64.sqrt() / 3.0, h],
+            ]
+        },
+        |h| {
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, h],
+            ]
+        },
+    ];
+    let delta = 1.0e-7;
+    for shape in &shapes {
+        let energy = |h: Scalar| {
+            let nodes = shape(h);
+            tetrahedron_value(theta, mean_edge(&nodes), nodes)
+        };
+        let right = (energy(2.0 * delta) - energy(delta)) / delta;
+        let left = (energy(-delta) - energy(-2.0 * delta)) / delta;
+        let flat = shape(0.0);
+        let distance = |a: usize, b: usize| {
+            (0..3)
+                .map(|i| (flat[a][i] - flat[b][i]).powi(2))
+                .sum::<Scalar>()
+                .sqrt()
+        };
+        let product = crate::geometry::mesh::quality::metrics::tetrahedron::CORNERS
+            .iter()
+            .map(|(corner, adjacent)| adjacent.iter().map(|&n| distance(*corner, n)).product())
+            .fold(0.0, Scalar::max);
+        let tols = Assert {
+            abs_tol: 1.0e-3,
+            rel_tol: 1.0e-3,
+            ..Default::default()
+        };
+        Assert {
+            abs_tol: 1.0e-5,
+            rel_tol: 1.0e-5,
+            ..Default::default()
+        }
+        .eq_within_tols(energy(delta), energy(-delta))?;
+        tols.eq_within_tols(right / left, mean_edge(&flat).powi(3) / product)?
+    }
     Ok(())
 }
