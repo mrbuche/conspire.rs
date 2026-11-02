@@ -1,30 +1,29 @@
 //! What parallel assembly shares between the frameworks.
 
+mod pool;
 #[cfg(test)]
 mod test;
 
 use crate::domain::block::element::Items;
-use std::{convert::Infallible, sync::Mutex, thread::scope};
+use pool::Pool;
+use std::{convert::Infallible, sync::Mutex};
 
 const GATHER_CHUNK: usize = 512;
 
 /// The threads that the passes of a run of explicit dynamics are computed on.
 ///
-/// A pass starts its threads as scoped threads and ends them, and the threads take the chunks of
+/// The threads are started once and wait between the passes. In a pass they take the chunks of
 /// the items from one queue, so that a pass over items of unequal cost still balances. The
-/// calling thread takes chunks too. This is the only type that names the threads.
+/// calling thread takes chunks too. This is the only type that names the threads, and they end
+/// when it is dropped.
 pub struct Workers {
-    threads: usize,
+    pool: Pool,
 }
 
 impl Workers {
     /// The workers of the given number of threads, at least one.
     pub fn new(threads: usize) -> Result<Self, String> {
-        if threads == 0 {
-            Err("There must be at least one thread.".to_string())
-        } else {
-            Ok(Self { threads })
-        }
+        Pool::new(threads).map(|pool| Self { pool })
     }
     /// Calls `operation` with the position of the first item and the items of each chunk of
     /// `items`, which has at most `chunk` items.
@@ -69,12 +68,11 @@ impl Workers {
                 }
             }
         };
-        scope(|scope| {
-            (1..self.threads.min(chunks)).for_each(|_| {
-                scope.spawn(work);
-            });
+        if chunks > 1 {
+            self.pool.run(&work)
+        } else {
             work()
-        });
+        }
         match failure.into_inner().expect("the failure") {
             Some((_, error)) => Err(error),
             None => Ok(()),
