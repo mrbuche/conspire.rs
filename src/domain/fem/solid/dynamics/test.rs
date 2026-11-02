@@ -642,6 +642,29 @@ mod integrate_implicit {
         noise_tolerant().eq_within_tols(&accelerations[STEPS], &gravity())
     }
     #[test]
+    fn lumped_and_consistent_masses_give_the_same_fall() -> Result<(), AssertionError> {
+        let (model, dt) = (model(), 1e-3);
+        macro_rules! fall {
+            ($masses:expr) => {{
+                let (_, coordinates, ..) = ElasticImplicitDynamics::integrate(
+                    &model,
+                    $masses,
+                    &integrator(dt),
+                    solver(),
+                    &time(dt),
+                    (
+                        NodalCoordinates::from(COORDINATES),
+                        uniform_velocities([0.0; 3]),
+                    ),
+                    &weights(&model, $masses),
+                    &fixed_dofs(&[]),
+                )?;
+                coordinates[STEPS].clone()
+            }};
+        }
+        noise_tolerant().eq_within_tols(&fall!(Lumped), &fall!(Consistent))
+    }
+    #[test]
     fn consistent_masses_hold_fixed_degrees_of_freedom() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let weights = weights(&model, Consistent);
@@ -881,6 +904,29 @@ mod consistent_masses {
         });
         assert_ne!(last[3], initial[3]);
         Ok(())
+    }
+    #[test]
+    fn lumped_and_consistent_masses_give_the_same_fall() -> Result<(), AssertionError> {
+        let model = model();
+        macro_rules! fall {
+            ($masses:expr) => {{
+                let (_, coordinates, ..) = model.integrate(
+                    Execution::Serial,
+                    Unchecked,
+                    $masses,
+                    &integrator(),
+                    &[Time::seconds(0.0), Time::seconds(0.01)],
+                    (
+                        NodalCoordinates::from(COORDINATES),
+                        uniform_velocities([0.0; 3]),
+                    ),
+                    &weights(&model, $masses),
+                    &fixed_dofs(&[]),
+                )?;
+                coordinates[coordinates.len() - 1].clone()
+            }};
+        }
+        noise_tolerant().eq_within_tols(&fall!(Lumped), &fall!(Consistent))
     }
 }
 

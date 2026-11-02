@@ -1,5 +1,8 @@
 //! Where the nodal forces of a run of explicit dynamics are computed.
 
+#[cfg(all(test, feature = "cbm"))]
+mod test;
+
 use super::ElasticExplicitDynamics;
 use crate::{
     domain::{

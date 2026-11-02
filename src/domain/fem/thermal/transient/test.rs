@@ -158,6 +158,53 @@ mod integrate_temperatures {
             .for_each(|&temperature| near(temperature, mean, 1e-6));
     }
     #[test]
+    fn an_insulated_body_conserves_its_heat_with_either_capacities_and_they_differ_before_relaxing()
+    {
+        let model = model();
+        let dt = step(&model) / 4.0;
+        let capacities = model.nodal_lumped_heat_capacities();
+        let heat = |temperatures: &NodalTemperatures| -> f64 {
+            capacities
+                .iter()
+                .zip(temperatures.iter())
+                .map(|(capacity, temperature)| capacity.value() * temperature.value())
+                .sum()
+        };
+        let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
+        macro_rules! run {
+            ($capacity:expr) => {{
+                let (_, history, _) = model
+                    .integrate(
+                        Unchecked,
+                        $capacity,
+                        &Euler::default(),
+                        &times(dt, 20),
+                        initial.clone(),
+                        &(),
+                        &fixed_temperatures(&[]),
+                    )
+                    .unwrap();
+                history
+            }};
+        }
+        let (lumped, consistent) = (run!(Lumped), run!(Consistent));
+        [&lumped, &consistent].iter().for_each(|history| {
+            history
+                .iter()
+                .for_each(|temperatures| near(heat(temperatures), heat(&initial), 1e-9))
+        });
+        let (lumped, consistent) = (
+            values(lumped.iter().last().unwrap()),
+            values(consistent.iter().last().unwrap()),
+        );
+        let difference = lumped
+            .iter()
+            .zip(&consistent)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0, f64::max);
+        assert!(difference > 1e-3, "the largest difference is {difference}");
+    }
+    #[test]
     fn a_fixed_temperature_is_held_and_the_rest_relax_to_it() {
         let model = model();
         let dt = step(&model);
@@ -476,6 +523,39 @@ mod integrate_implicit {
         values(history.iter().last().unwrap())
             .iter()
             .for_each(|&temperature| near(temperature, mean, 1e-6));
+    }
+    #[test]
+    fn consistent_capacities_relax_an_insulated_body_to_the_mean_and_differ_before_relaxing() {
+        let model = model();
+        let capacities = model.nodal_lumped_heat_capacities();
+        let initial = [300.0, 500.0, 350.0, 420.0, 280.0];
+        let mean = initial
+            .iter()
+            .zip(capacities.iter())
+            .map(|(kelvin, capacity)| kelvin * capacity.value())
+            .sum::<f64>()
+            / capacities.iter().map(|c| c.value()).sum::<f64>();
+        let after = |capacity: bool, dt: f64, steps: usize| {
+            let (times, initial) = (times(dt, steps), temperatures(initial));
+            let heating = NodalForcesThermal::zero(NODES);
+            let conditions = fixed_temperatures(&[]);
+            let (_, history, _) = if capacity {
+                run(&model, Consistent, &times, initial, &heating, &conditions)
+            } else {
+                run(&model, Lumped, &times, initial, &heating, &conditions)
+            };
+            values(history.iter().last().unwrap())
+        };
+        after(true, 5.0e3, 400)
+            .iter()
+            .for_each(|&temperature| near(temperature, mean, 1e-6));
+        let (consistent, lumped) = (after(true, 1.0e3, 3), after(false, 1.0e3, 3));
+        let difference = lumped
+            .iter()
+            .zip(&consistent)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0, f64::max);
+        assert!(difference > 1e-3, "the largest difference is {difference}");
     }
     #[test]
     fn a_fixed_temperature_is_held_and_the_rest_relax_to_it() {
