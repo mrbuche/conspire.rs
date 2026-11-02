@@ -18,7 +18,6 @@ use crate::{
 use std::{
     array::from_fn,
     cell::RefCell,
-    iter::once,
     mem::swap,
     sync::{LazyLock, Mutex},
     thread::{available_parallelism, scope},
@@ -39,6 +38,7 @@ const SAFETY: Scalar = 1.0e-6;
 const RHO: Quantity = Dimensionless::of(1.0e2);
 const STALL: Quantity = Dimensionless::of(1.0e-6);
 const STEP: Quantity = Dimensionless::of(0.01);
+const TIE: Scalar = 1.0e-6;
 const TOLERANCE: Quantity = Dimensionless::of(1.0e-3);
 
 fn solver(typical: Quantity<Length>) -> LimitedMemoryBFGS<Armijo, Length> {
@@ -413,11 +413,13 @@ impl<'a> Surface<'a> {
                         nodes.iter().enumerate().for_each(|(offset, &node)| {
                             let index = block * chunk + offset;
                             let position = &coordinates[node];
-                            let Some((point, first)) =
-                                bvh.closest_point(position, surface, elements)
-                            else {
+                            let ties =
+                                bvh.closest_points(position, surface, elements, sizes[node] * TIE);
+                            let Some((point, _)) = ties.first().cloned() else {
                                 return;
                             };
+                            let tied: Vec<usize> =
+                                ties.iter().map(|&(_, triangle)| triangle).collect();
                             let reach = sizes[node] * RADIUS;
                             let (low, high) = (
                                 from_fn(|i| point[i] - reach).into(),
@@ -428,12 +430,13 @@ impl<'a> Surface<'a> {
                                 .collect::<CoordinatesRef<'_, 3>>()
                                 .into();
                             let mut kept = Vec::<Direction<3>>::new();
-                            for triangle in once(first).chain(bvh.overlapping(&query)) {
+                            for triangle in tied.iter().copied().chain(bvh.overlapping(&query)) {
                                 if kept.len() == CAP {
                                     break;
                                 }
                                 let nodes = elements[triangle];
-                                if triangle != first
+                                let tie = tied.contains(&triangle);
+                                if !tie
                                     && !query.overlaps_triangle(
                                         &surface[nodes[0]],
                                         &surface[nodes[1]],
@@ -452,8 +455,7 @@ impl<'a> Surface<'a> {
                                     normal,
                                     slot: kept.len(),
                                 };
-                                if triangle != first
-                                    && plane.residual(position).abs() > sizes[node] * TOLERANCE
+                                if !tie && plane.residual(position).abs() > sizes[node] * TOLERANCE
                                 {
                                     continue;
                                 }

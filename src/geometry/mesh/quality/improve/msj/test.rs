@@ -9,10 +9,10 @@ use crate::{
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
     math::{
-        Quantity, Scalar, Tensor, TensorListVec,
+        Quantity, QuantityVector, Scalar, Tensor, TensorListVec,
         assert::{Assert, AssertionError},
     },
-    units::{Area, Dimensionless},
+    units::{Area, Dimensionless, Length},
 };
 use std::{collections::BTreeSet, f64::consts::TAU, sync::Mutex, time::Instant};
 
@@ -672,5 +672,24 @@ fn planes_do_not_depend_on_how_the_nodes_are_shared_among_threads() -> Result<()
         Assert::eq(plane.offset.value(), expected.offset.value())?;
         Assert::eq(&plane.normal, &expected.normal)?
     }
+    Ok(())
+}
+
+#[test]
+fn a_node_beside_an_edge_keeps_the_planes_of_both_faces() -> Result<(), AssertionError> {
+    let target = cube();
+    let surface = Surface::new(&target);
+    let coordinates = Coordinates::from(vec![[1.005, -2.0e-5, 0.5]]);
+    let sizes: QuantityVector<Length> = [Quantity::new(0.33)].into_iter().collect();
+    let planes = surface.planes(&[0], &sizes, &coordinates);
+    assert_eq!(planes.len(), 2);
+    let has = |normal: [Scalar; 3], offset: Scalar| {
+        planes.iter().any(|plane| {
+            (0..3).all(|i| (plane.normal[i].value() - normal[i]).abs() < 1.0e-12)
+                && (plane.offset.value() - offset).abs() < 1.0e-12
+        })
+    };
+    assert!(has([1.0, 0.0, 0.0], 1.0));
+    assert!(has([0.0, -1.0, 0.0], 0.0));
     Ok(())
 }
