@@ -15,6 +15,8 @@ use crate::{
 };
 use std::ops::Index;
 
+const ITEMS_PER_CHUNK: usize = 64;
+
 type NodalForce<const D: usize> = TensorRank1<D, Current, Force>;
 type NodalStiffness<const D: usize> = TensorRank2<D, Current, Current, ForcePerLength>;
 
@@ -80,9 +82,6 @@ where
         })
     }
 }
-
-/// The items that a thread takes at a time from the pass that computes their forces.
-const ITEMS_PER_CHUNK: usize = 64;
 
 /// The storage that a run reuses for the forces of the items of one block.
 pub struct ItemScratch<F> {

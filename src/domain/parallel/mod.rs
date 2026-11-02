@@ -4,7 +4,7 @@
 mod test;
 
 use crate::domain::block::element::Items;
-use std::{sync::Mutex, thread};
+use std::{convert::Infallible, sync::Mutex, thread::scope};
 
 const GATHER_CHUNK: usize = 512;
 
@@ -38,7 +38,7 @@ impl Workers {
     {
         let _ = self.try_for_each_chunk(items, chunk, |first, items| {
             operation(first, items);
-            Ok::<(), std::convert::Infallible>(())
+            Ok::<(), Infallible>(())
         });
     }
     /// Calls `operation` like [`for_each_chunk`](Self::for_each_chunk), and returns the error
@@ -69,7 +69,7 @@ impl Workers {
                 }
             }
         };
-        thread::scope(|scope| {
+        scope(|scope| {
             (1..self.threads.min(chunks)).for_each(|_| {
                 scope.spawn(work);
             });
