@@ -32,11 +32,11 @@ const TRIANGLES: [[usize; 3]; 2] = [[0, 1, 2], [3, 4, 5]];
 
 const QUADRILATERALS: [[usize; 4]; 3] = [[0, 1, 4, 3], [1, 2, 5, 4], [2, 0, 3, 5]];
 
-pub(super) fn maximum_edge_ratio<const D: usize>(
+pub(super) fn edge_ratio<const D: usize>(
     element: &[usize],
     coordinates: &Coordinates<D>,
 ) -> Scalar {
-    super::maximum_edge_ratio(&EDGES, element, coordinates)
+    super::edge_ratio(&EDGES, element, coordinates)
 }
 
 pub(super) fn minimum_jacobian<const D: usize>(

@@ -21,7 +21,7 @@ use std::array::from_fn;
 const EQUIANGLE: Scalar = std::f64::consts::FRAC_PI_3;
 
 pub trait Verdict {
-    fn maximum_edge_ratios(&self) -> Vec<Vec<Scalar>>;
+    fn edge_ratios(&self) -> Vec<Vec<Scalar>>;
     fn maximum_skews(&self) -> Vec<Vec<Scalar>>;
     fn minimum_jacobians(&self) -> Vec<Vec<Scalar>>;
     fn minimum_scaled_jacobians(&self) -> Vec<Vec<Scalar>>;
@@ -29,33 +29,33 @@ pub trait Verdict {
 }
 
 impl<const D: usize> Verdict for Mesh<D> {
-    fn maximum_edge_ratios(&self) -> Vec<Vec<Scalar>> {
+    fn edge_ratios(&self) -> Vec<Vec<Scalar>> {
         let coordinates = self.coordinates();
         self.iter()
             .map(|block| match block {
                 Connectivity::Triangular(elements) => elements
                     .iter()
-                    .map(|element| triangle::maximum_edge_ratio(element, coordinates))
+                    .map(|element| triangle::edge_ratio(element, coordinates))
                     .collect(),
                 Connectivity::Quadrilateral(elements) => elements
                     .iter()
-                    .map(|element| quadrilateral::maximum_edge_ratio(element, coordinates))
+                    .map(|element| quadrilateral::edge_ratio(element, coordinates))
                     .collect(),
                 Connectivity::Tetrahedral(elements) => elements
                     .iter()
-                    .map(|element| tetrahedron::maximum_edge_ratio(element, coordinates))
+                    .map(|element| tetrahedron::edge_ratio(element, coordinates))
                     .collect(),
                 Connectivity::Hexahedral(elements) => elements
                     .iter()
-                    .map(|element| hexahedron::maximum_edge_ratio(element, coordinates))
+                    .map(|element| hexahedron::edge_ratio(element, coordinates))
                     .collect(),
                 Connectivity::Pyramidal(elements) => elements
                     .iter()
-                    .map(|element| pyramid::maximum_edge_ratio(element, coordinates))
+                    .map(|element| pyramid::edge_ratio(element, coordinates))
                     .collect(),
                 Connectivity::Wedge(elements) => elements
                     .iter()
-                    .map(|element| wedge::maximum_edge_ratio(element, coordinates))
+                    .map(|element| wedge::edge_ratio(element, coordinates))
                     .collect(),
                 Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => {
                     vec![Scalar::NAN; block.number_of_elements()]
@@ -271,7 +271,7 @@ fn triangle_skew<const D: usize>(
     (EQUIANGLE - minimum_angle) / EQUIANGLE
 }
 
-fn maximum_edge_ratio<const D: usize, const E: usize>(
+fn edge_ratio<const D: usize, const E: usize>(
     edges: &[[usize; 2]; E],
     element: &[usize],
     coordinates: &Coordinates<D>,

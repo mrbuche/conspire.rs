@@ -36,7 +36,7 @@ fn polyhedron() -> Mesh<3> {
 #[test]
 fn polyhedra_have_no_metrics_yet() {
     let mesh = polyhedron();
-    assert!(mesh.maximum_edge_ratios()[0][0].is_nan());
+    assert!(mesh.edge_ratios()[0][0].is_nan());
     assert!(mesh.maximum_skews()[0][0].is_nan());
     assert!(mesh.minimum_jacobians()[0][0].is_nan());
     assert!(mesh.minimum_scaled_jacobians()[0][0].is_nan());
