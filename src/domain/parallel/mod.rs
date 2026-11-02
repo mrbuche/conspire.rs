@@ -4,26 +4,81 @@
 mod test;
 
 use crate::domain::block::element::Items;
-use rayon::prelude::*;
+use std::{sync::Mutex, thread};
 
 const GATHER_CHUNK: usize = 512;
 
-/// TEMPORARY EXPERIMENT: the threads of one run of explicit dynamics.
+/// The threads that the passes of a run of explicit dynamics are computed on.
 ///
-/// This is the only type that names the thread pool, so replacing it replaces the backend.
-pub struct Workers(rayon::ThreadPool);
+/// A pass starts its threads as scoped threads and ends them, and the threads take the chunks of
+/// the items from one queue, so that a pass over items of unequal cost still balances. The
+/// calling thread takes chunks too. This is the only type that names the threads.
+pub struct Workers {
+    threads: usize,
+}
 
 impl Workers {
-    /// Starts the given number of threads, which stop when the workers are dropped.
+    /// The workers of the given number of threads, at least one.
     pub fn new(threads: usize) -> Result<Self, String> {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .map(Self)
-            .map_err(|error| error.to_string())
+        if threads == 0 {
+            Err("There must be at least one thread.".to_string())
+        } else {
+            Ok(Self { threads })
+        }
     }
-    pub(crate) fn install<R: Send>(&self, operation: impl FnOnce() -> R + Send) -> R {
-        self.0.install(operation)
+    /// Calls `operation` with the position of the first item and the items of each chunk of
+    /// `items`, which has at most `chunk` items.
+    pub(crate) fn for_each_chunk<T>(
+        &self,
+        items: &mut [T],
+        chunk: usize,
+        operation: impl Fn(usize, &mut [T]) + Sync,
+    ) where
+        T: Send,
+    {
+        let _ = self.try_for_each_chunk(items, chunk, |first, items| {
+            operation(first, items);
+            Ok::<(), std::convert::Infallible>(())
+        });
+    }
+    /// Calls `operation` like [`for_each_chunk`](Self::for_each_chunk), and returns the error
+    /// of the first chunk that has one, whichever thread gets to it first.
+    pub(crate) fn try_for_each_chunk<T, E>(
+        &self,
+        items: &mut [T],
+        chunk: usize,
+        operation: impl Fn(usize, &mut [T]) -> Result<(), E> + Sync,
+    ) -> Result<(), E>
+    where
+        T: Send,
+        E: Send,
+    {
+        assert!(chunk > 0, "A chunk must have items.");
+        let chunks = items.len().div_ceil(chunk);
+        let queue = Mutex::new(items.chunks_mut(chunk).enumerate());
+        let failure = Mutex::new(None::<(usize, E)>);
+        let work = || {
+            loop {
+                let next = queue.lock().expect("the chunks").next();
+                let Some((index, items)) = next else { break };
+                if let Err(error) = operation(index * chunk, items) {
+                    let mut failure = failure.lock().expect("the failure");
+                    if failure.as_ref().is_none_or(|(first, _)| index < *first) {
+                        *failure = Some((index, error));
+                    }
+                }
+            }
+        };
+        thread::scope(|scope| {
+            (1..self.threads.min(chunks)).for_each(|_| {
+                scope.spawn(work);
+            });
+            work()
+        });
+        match failure.into_inner().expect("the failure") {
+            Some((_, error)) => Err(error),
+            None => Ok(()),
+        }
     }
 }
 
@@ -87,17 +142,16 @@ impl ItemIndex {
     ) where
         T: Send,
     {
-        workers.install(|| {
-            targets[..self.number_of_nodes()]
-                .par_chunks_mut(GATHER_CHUNK)
-                .enumerate()
-                .for_each(|(chunk, targets)| {
-                    targets.iter_mut().enumerate().for_each(|(index, target)| {
-                        self.contributions(chunk * GATHER_CHUNK + index)
-                            .iter()
-                            .for_each(|&(item, local)| add(target, item, local))
-                    })
+        workers.for_each_chunk(
+            &mut targets[..self.number_of_nodes()],
+            GATHER_CHUNK,
+            |first, targets| {
+                targets.iter_mut().enumerate().for_each(|(index, target)| {
+                    self.contributions(first + index)
+                        .iter()
+                        .for_each(|&(item, local)| add(target, item, local))
                 })
-        })
+            },
+        )
     }
 }

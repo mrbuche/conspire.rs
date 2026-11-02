@@ -13,7 +13,6 @@ use crate::{
     },
     units::{Force, ForcePerLength},
 };
-use rayon::prelude::*;
 use std::ops::Index;
 
 type NodalForce<const D: usize> = TensorRank1<D, Current, Force>;
@@ -82,6 +81,9 @@ where
     }
 }
 
+/// The items that a thread takes at a time from the pass that computes their forces.
+const ITEMS_PER_CHUNK: usize = 64;
+
 /// The storage that a run reuses for the forces of the items of one block.
 pub struct ItemScratch<F> {
     forces: Vec<Option<F>>,
@@ -108,14 +110,11 @@ where
         nodal_forces: &mut NodalForcesSolid<D>,
     ) -> Result<(), ElementModelError> {
         let ItemScratch { forces, index } = scratch;
-        workers.install(|| {
-            forces
-                .par_iter_mut()
-                .enumerate()
-                .try_for_each(|(item, slot)| {
-                    *slot = Some(self.forces_of(item, nodal_coordinates)?);
-                    Ok::<(), ElementModelError>(())
-                })
+        workers.try_for_each_chunk(forces, ITEMS_PER_CHUNK, |first, slots| {
+            slots.iter_mut().enumerate().try_for_each(|(offset, slot)| {
+                *slot = Some(self.forces_of(first + offset, nodal_coordinates)?);
+                Ok::<(), ElementModelError>(())
+            })
         })?;
         let forces = &*forces;
         index.gather(

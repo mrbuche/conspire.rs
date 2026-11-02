@@ -40,6 +40,3 @@ strip = "symbols"
 inherits = "release"
 codegen-units = 32
 lto = false
-
-[dependencies]
-rayon = "1.10"

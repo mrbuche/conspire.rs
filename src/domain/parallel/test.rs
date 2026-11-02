@@ -77,3 +77,77 @@ mod gather {
         assert_eq!(targets, [1, 1, 0, 0, 0]);
     }
 }
+
+mod workers {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[test]
+    fn at_least_one_thread_is_needed() {
+        assert!(Workers::new(0).is_err());
+        assert!(Workers::new(1).is_ok());
+    }
+    #[test]
+    fn every_item_is_visited_once_with_the_position_of_its_chunk() {
+        [
+            (0, 5),
+            (1, 5),
+            (7, 5),
+            (100, 5),
+            (100, 1),
+            (100, 100),
+            (100, 1000),
+            (101, 10),
+        ]
+        .into_iter()
+        .for_each(|(length, chunk)| {
+            [1, 2, 4, 7].into_iter().for_each(|threads| {
+                let mut items = vec![usize::MAX; length];
+                Workers::new(threads)
+                    .unwrap()
+                    .for_each_chunk(&mut items, chunk, |first, items| {
+                        assert!(items.len() <= chunk);
+                        items.iter_mut().enumerate().for_each(|(offset, item)| {
+                            assert_eq!(*item, usize::MAX, "visited twice");
+                            *item = first + offset;
+                        })
+                    });
+                assert_eq!(items, (0..length).collect::<Vec<_>>(), "{length}, {chunk}");
+            })
+        });
+    }
+    #[test]
+    fn more_threads_than_chunks_all_the_same_visit_every_item() {
+        let visits = AtomicUsize::new(0);
+        let mut items = vec![0; 3];
+        Workers::new(16)
+            .unwrap()
+            .for_each_chunk(&mut items, 2, |_, items| {
+                visits.fetch_add(items.len(), Ordering::Relaxed);
+            });
+        assert_eq!(visits.into_inner(), 3);
+    }
+    #[test]
+    fn the_error_is_that_of_the_first_chunk_that_has_one() {
+        (0..20).for_each(|_| {
+            let mut items = vec![0; 100];
+            let result = Workers::new(4)
+                .unwrap()
+                .try_for_each_chunk(&mut items, 10, |first, _| match first {
+                    30 | 50 => Err(first),
+                    _ => Ok(()),
+                });
+            assert_eq!(result, Err(30));
+        })
+    }
+    #[test]
+    fn the_chunks_without_an_error_are_still_done() {
+        let mut items = vec![0; 100];
+        let _ = Workers::new(4)
+            .unwrap()
+            .try_for_each_chunk(&mut items, 10, |first, items| {
+                items.iter_mut().for_each(|item| *item = 1);
+                if first == 30 { Err(()) } else { Ok(()) }
+            });
+        assert_eq!(items.iter().sum::<i32>(), 100);
+    }
+}
