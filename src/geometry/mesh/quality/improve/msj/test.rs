@@ -905,3 +905,46 @@ fn tetrahedron_energy_is_continuous_through_a_flat_tetrahedron() -> Result<(), A
     }
     Ok(())
 }
+
+fn tetrahedra(mesh: &Mesh<3>) -> Mesh<3> {
+    let tets: Vec<[usize; 4]> = mesh
+        .iter()
+        .flat_map(|block| match block {
+            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
+            _ => unreachable!(),
+        })
+        .flat_map(|hex| {
+            [
+                [0, 1, 2, 6],
+                [0, 2, 3, 6],
+                [0, 3, 7, 6],
+                [0, 7, 4, 6],
+                [0, 4, 5, 6],
+                [0, 5, 1, 6],
+            ]
+            .map(|tet| tet.map(|node| hex[node]))
+        })
+        .collect();
+    (
+        vec![Connectivity::Tetrahedral(tets.into())],
+        mesh.coordinates().clone(),
+    )
+        .into()
+}
+
+#[test]
+fn improves_a_wobbly_tetrahedral_grid_without_leaving_the_cube() {
+    let mut mesh = tetrahedra(&grid(3, 0.9));
+    assert!(matches!(
+        mesh.connectivities(),
+        [Connectivity::Tetrahedral(_)]
+    ));
+    let before = worst(&mesh);
+    assert!(before > 0.0);
+    improve(&mut mesh, &cube(), 6);
+    let after = worst(&mesh);
+    assert!(after > before + 0.05, "{before} -> {after}");
+    mesh.coordinates().iter().for_each(|node| {
+        assert!((0..3).all(|i| node[i].value() > -1.0e-2 && node[i].value() < 1.0 + 1.0e-2))
+    });
+}
