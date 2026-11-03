@@ -296,6 +296,27 @@ where
     Ok(())
 }
 
+pub(crate) fn never_returns_a_wrong_mode_for_a_shift_on_a_frequency<B>(
+    model: &Model<B, 3>,
+    masses: &impl InertialMass<3>,
+) -> Result<(), AssertionError>
+where
+    B: ElasticElements<3>,
+{
+    let all = frequencies(model, &at_rest(), masses, lowest(), 12)?;
+    match frequencies(model, &at_rest(), masses, Quantity::new(all[4]), 3) {
+        Err(_) => Ok(()),
+        Ok(found) => found.iter().try_for_each(|&value| {
+            let nearest = all
+                .iter()
+                .copied()
+                .min_by(|a, b| (a - value).abs().total_cmp(&(b - value).abs()))
+                .unwrap_or(value);
+            relatively(1e-8).eq_within_tols(value, nearest)
+        }),
+    }
+}
+
 pub(crate) fn stretching_moves_the_frequencies<B>(
     model: &Model<B, 3>,
     masses: &impl InertialMass<3>,
@@ -346,6 +367,15 @@ macro_rules! lumped_bar_tests {
         -> Result<(), $crate::math::assert::AssertionError> {
             let model = $model();
             $crate::domain::solid::modal::test::finds_the_modes_nearest_a_frequency(
+                &model,
+                &model.nodal_lumped_masses(),
+            )
+        }
+        #[test]
+        fn a_shift_on_a_natural_frequency_never_gives_a_wrong_mode()
+        -> Result<(), $crate::math::assert::AssertionError> {
+            let model = $model();
+            $crate::domain::solid::modal::test::never_returns_a_wrong_mode_for_a_shift_on_a_frequency(
                 &model,
                 &model.nodal_lumped_masses(),
             )

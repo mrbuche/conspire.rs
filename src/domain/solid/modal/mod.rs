@@ -5,7 +5,7 @@ use crate::{
     domain::{
         Model, NodalAccelerations, NodalCoordinates,
         factor::FreeFactored,
-        solid::{elastic::ElasticElements, mass::InertialMass},
+        solid::{NodalStiffnessesSolid, elastic::ElasticElements, mass::InertialMass},
     },
     math::{
         Current, Quantity, Scalar, Style, StyledError, Tensor, TensorRank1Vec, Vector,
@@ -85,6 +85,23 @@ where
                 count,
             )
             .map_err(|error| ModalError::upstream(error, "the eigensolver"))?;
+        let norm = stiffness_norm(&tangent);
+        for (&value, reduced) in pairs.values.iter().zip(&pairs.vectors) {
+            let full = expand(reduced);
+            let kx = stiffness_times(&tangent, &full);
+            let mx: Vector = masses
+                .inertial_forces(&full.clone().into())
+                .into_erased()
+                .into();
+            let residual = free
+                .iter()
+                .map(|&index| (kx[index] - (value - shift) * mx[index]).abs())
+                .fold(0.0_f64, f64::max);
+            let size = full.as_slice().iter().fold(0.0_f64, |m, x| m.max(x.abs()));
+            if residual.is_nan() || residual > VERIFIED * norm * size {
+                return Err(ModalError::Unverified(residual / (norm * size)));
+            }
+        }
         let scale = pairs.values.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
         if let Some(&value) = pairs.values.iter().find(|&&v| v < -1e-8 * scale) {
             return Err(ModalError::Indefinite(value));
@@ -104,10 +121,36 @@ where
     }
 }
 
+const VERIFIED: Scalar = 1e-6;
+
+fn stiffness_times<const D: usize>(tangent: &NodalStiffnessesSolid<D>, x: &Vector) -> Vector {
+    let mut product = Vector::zero(x.len());
+    tangent.iter().enumerate().for_each(|(a, row)| {
+        row.entries().for_each(|(b, block)| {
+            (0..D).for_each(|i| {
+                (0..D).for_each(|j| product[D * a + i] += block[i][j].value() * x[D * b + j])
+            })
+        })
+    });
+    product
+}
+
+fn stiffness_norm<const D: usize>(tangent: &NodalStiffnessesSolid<D>) -> Scalar {
+    let mut sums = vec![0.0; D * tangent.len()];
+    tangent.iter().enumerate().for_each(|(a, row)| {
+        row.entries().for_each(|(_, block)| {
+            (0..D).for_each(|i| (0..D).for_each(|j| sums[D * a + i] += block[i][j].value().abs()))
+        })
+    });
+    sums.into_iter().fold(0.0, Scalar::max)
+}
+
 /// Possible errors encountered finding the modes of a solid.
 pub enum ModalError {
     /// The stiffness is not positive definite, so there is a mode of negative squared frequency.
     Indefinite(Scalar),
+    /// A mode did not satisfy the eigenproblem, as happens when the shift is on a natural frequency.
+    Unverified(Scalar),
     Upstream(String, String),
 }
 
@@ -124,6 +167,10 @@ impl StyledError for ModalError {
             Self::Indefinite(value) => format!(
                 "{h}The solid has a mode of negative squared frequency ({value:?}).{c}\n\
                 The stiffness is not positive definite about this state."
+            ),
+            Self::Unverified(residual) => format!(
+                "{h}A mode does not satisfy the eigenproblem (relative residual {residual:e}).{c}\n\
+                The frequency to search near may be a natural frequency of the solid."
             ),
             Self::Upstream(error, context) => format!("{error}{c}\nIn {context}."),
         }
