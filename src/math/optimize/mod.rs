@@ -17,7 +17,9 @@ pub use globalization::{
     Armijo, Error, Goldstein, LineSearchError, NoSearch, ObjectiveMerit, Residual, ResidualMerit,
     TrustRegion, Wolfe,
 };
-pub use linear::{Direct, Krylov, KrylovError, KrylovMethod, LinearSolver};
+pub use linear::{
+    Direct, Eigenpairs, Krylov, KrylovError, KrylovMethod, Lanczos, LanczosError, LinearSolver,
+};
 pub use nonlinear::{
     BarzilaiBorwein, BarzilaiBorweinStep, Conjugacy, ConjugateGradient, GradientDescent,
     NewtonRaphson, StepEstimator,
