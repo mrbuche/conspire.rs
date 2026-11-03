@@ -6,7 +6,10 @@ use crate::{
         Coordinate, CoordinateList, Coordinates, CoordinatesRef, Direction, DirectionList,
         DirectionsRef,
         bbox::BoundingBox,
-        mesh::{Connectivity, Mesh, MeshError, Tessellation, quality::metrics::tetrahedron},
+        mesh::{
+            Connectivity, Mesh, MeshError, Tessellation,
+            quality::metrics::{pyramid, tetrahedron, wedge},
+        },
     },
     math::{
         CrossProduct, Quantity, QuantityVector, Reference, Scalar, Tensor, TensorList,
@@ -123,9 +126,9 @@ const EDGES: [[usize; 2]; 12] = [
     [3, 7],
 ];
 
-static TETRAHEDRON_POINTS: LazyLock<[Point; 4]> = LazyLock::new(|| {
+fn corner_points<const N: usize>(table: &[(usize, [usize; 3])]) -> [Point; N] {
     from_fn(|point| {
-        let (corner, adjacent) = tetrahedron::CORNERS[point];
+        let (corner, adjacent) = table[point];
         let mut weights = [[0.0; 8]; 3];
         weights.iter_mut().zip(adjacent).for_each(|(row, node)| {
             row[node] += 1.0;
@@ -139,7 +142,14 @@ static TETRAHEDRON_POINTS: LazyLock<[Point; 4]> = LazyLock::new(|| {
         });
         Point { sparse, weights }
     })
-});
+}
+
+static TETRAHEDRON_POINTS: LazyLock<[Point; 4]> =
+    LazyLock::new(|| corner_points(&tetrahedron::CORNERS));
+
+static WEDGE_POINTS: LazyLock<[Point; 6]> = LazyLock::new(|| corner_points(&wedge::CORNERS));
+
+static PYRAMID_POINTS: LazyLock<[Point; 8]> = LazyLock::new(|| corner_points(&pyramid::CORNERS));
 
 struct Kind {
     edges: &'static [[usize; 2]],
@@ -149,8 +159,10 @@ struct Kind {
 
 const HEXAHEDRON: u8 = 0;
 const TETRAHEDRON: u8 = 1;
+const WEDGE: u8 = 2;
+const PYRAMID: u8 = 3;
 
-static KINDS: LazyLock<[Kind; 2]> = LazyLock::new(|| {
+static KINDS: LazyLock<[Kind; 4]> = LazyLock::new(|| {
     [
         Kind {
             edges: &EDGES,
@@ -161,6 +173,35 @@ static KINDS: LazyLock<[Kind; 2]> = LazyLock::new(|| {
             edges: &[[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]],
             normalization: SQRT_2,
             points: &*TETRAHEDRON_POINTS,
+        },
+        Kind {
+            edges: &[
+                [0, 1],
+                [1, 2],
+                [2, 0],
+                [3, 4],
+                [4, 5],
+                [5, 3],
+                [0, 3],
+                [1, 4],
+                [2, 5],
+            ],
+            normalization: 2.0 / 3.0_f64.sqrt(),
+            points: &*WEDGE_POINTS,
+        },
+        Kind {
+            edges: &[
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 0],
+                [0, 4],
+                [1, 4],
+                [2, 4],
+                [3, 4],
+            ],
+            normalization: SQRT_2,
+            points: &*PYRAMID_POINTS,
         },
     ]
 });
@@ -262,6 +303,22 @@ impl Mesh<3> {
                             .map(|&[a, b, c, d]| [a, b, c, d, a, a, a, a]),
                     );
                     kinds.resize(hexes.len(), TETRAHEDRON)
+                }
+                Connectivity::Wedge(elements) => {
+                    hexes.extend(
+                        elements
+                            .iter()
+                            .map(|&[a, b, c, d, e, f]| [a, b, c, d, e, f, a, a]),
+                    );
+                    kinds.resize(hexes.len(), WEDGE)
+                }
+                Connectivity::Pyramidal(elements) => {
+                    hexes.extend(
+                        elements
+                            .iter()
+                            .map(|&[a, b, c, d, e]| [a, b, c, d, e, a, a, a]),
+                    );
+                    kinds.resize(hexes.len(), PYRAMID)
                 }
                 _ => return Err(MeshError::HexahedraRequired),
             }
