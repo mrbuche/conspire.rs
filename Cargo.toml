@@ -9,7 +9,7 @@ homepage = "https://mrbuche.github.io/conspire"
 keywords = ["conspire", "mrbuche"]
 license = "GPL-3.0"
 name = "conspire"
-repository = "https://github.com/mrbuche/conspire.rs"
+repository = "https://github.com/mrbuche/conspire"
 version = "0.9.0"
 
 [features]
