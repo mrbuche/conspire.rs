@@ -120,6 +120,19 @@ impl ItemIndex {
             contributions,
         }
     }
+    /// The index as flat arrays of `u32`, for a device: the offsets of the contributions to each
+    /// node, and the contributions as `stride * item + position`, which is the position of the
+    /// contribution among the values of all the items when each has `stride` of them.
+    #[cfg(feature = "gpu")]
+    pub(crate) fn flattened(&self, stride: usize) -> (Vec<u32>, Vec<u32>) {
+        (
+            self.offsets.iter().map(|&offset| offset as u32).collect(),
+            self.contributions
+                .iter()
+                .map(|&(item, local)| (stride * item + local) as u32)
+                .collect(),
+        )
+    }
     /// The number of nodes up to the last node that an item has.
     pub fn number_of_nodes(&self) -> usize {
         self.offsets.len() - 1

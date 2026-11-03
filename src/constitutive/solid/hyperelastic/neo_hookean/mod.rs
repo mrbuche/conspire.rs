@@ -30,6 +30,13 @@ impl Solid for NeoHookean {
 }
 
 impl Elastic for NeoHookean {
+    #[cfg(feature = "gpu")]
+    fn gpu_model(&self) -> Option<crate::constitutive::solid::elastic::GpuModel> {
+        Some(crate::constitutive::solid::elastic::GpuModel::NeoHookean {
+            shear_modulus: self.shear_modulus.value(),
+            bulk_modulus: self.bulk_modulus.value(),
+        })
+    }
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,

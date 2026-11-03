@@ -45,11 +45,32 @@ pub enum AppliedLoad {
     BiaxialStress(Scalar, Scalar),
 }
 
+/// A constitutive model as the kernels of a device implement it.
+///
+/// It is plain data: the parameters of the model, in `f64`, which the device converts to its
+/// own precision.
+#[cfg(feature = "gpu")]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GpuModel {
+    /// The Neo-Hookean model.
+    NeoHookean {
+        /// The shear modulus.
+        shear_modulus: f64,
+        /// The bulk modulus.
+        bulk_modulus: f64,
+    },
+}
+
 /// Required methods for elastic solid constitutive models.
 pub trait Elastic
 where
     Self: Solid,
 {
+    /// The model as a device implements it, if a device does.
+    #[cfg(feature = "gpu")]
+    fn gpu_model(&self) -> Option<GpuModel> {
+        None
+    }
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math

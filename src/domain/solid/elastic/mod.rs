@@ -1,3 +1,5 @@
+#[cfg(feature = "gpu")]
+use crate::domain::gpu::{GpuError, GpuItems};
 use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalState,
@@ -45,6 +47,11 @@ where
         item: usize,
         nodal_coordinates: &NodalCoordinates<D>,
     ) -> Result<Self::Stiffnesses, ElementModelError>;
+    /// The block as a device takes it, if a device can compute its forces.
+    #[cfg(feature = "gpu")]
+    fn gpu_block(&self) -> Option<GpuItems> {
+        None
+    }
 }
 
 impl<T, const D: usize> ElasticElements<D> for T
@@ -124,6 +131,26 @@ where
             },
         );
         Ok(())
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_blocks(&self, blocks: &mut Vec<GpuItems>) -> Result<(), GpuError> {
+        blocks.push(self.gpu_block().ok_or_else(|| {
+            GpuError::Unsupported(format!("{} has no kernels", std::any::type_name::<Self>()))
+        })?);
+        Ok(())
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_block_count(&self) -> usize {
+        1
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_item_error(
+        &self,
+        _block: usize,
+        item: usize,
+        nodal_coordinates: &NodalCoordinates<D>,
+    ) -> Option<ElementModelError> {
+        self.forces_of(item, nodal_coordinates).err()
     }
 }
 
@@ -288,6 +315,21 @@ where
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_forces: &mut NodalForcesSolid<D>,
     ) -> Result<(), ElementModelError>;
+    /// Appends the blocks as a device takes them, or says that a device cannot compute them.
+    #[cfg(feature = "gpu")]
+    fn gpu_blocks(&self, blocks: &mut Vec<GpuItems>) -> Result<(), GpuError>;
+    /// The number of blocks that [`gpu_blocks`](Self::gpu_blocks) appends.
+    #[cfg(feature = "gpu")]
+    fn gpu_block_count(&self) -> usize;
+    /// The error of an element that a device found to have a Jacobian that is not positive,
+    /// with the message that computing its forces on the calling thread has.
+    #[cfg(feature = "gpu")]
+    fn gpu_item_error(
+        &self,
+        block: usize,
+        item: usize,
+        nodal_coordinates: &NodalCoordinates<D>,
+    ) -> Option<ElementModelError>;
 }
 
 impl<B, const D: usize> ParallelElasticElements<D> for Model<B, D>
@@ -307,6 +349,23 @@ where
     ) -> Result<(), ElementModelError> {
         self.blocks
             .nodal_forces_parallel_into(scratch, workers, nodal_coordinates, nodal_forces)
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_blocks(&self, blocks: &mut Vec<GpuItems>) -> Result<(), GpuError> {
+        self.blocks.gpu_blocks(blocks)
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_block_count(&self) -> usize {
+        self.blocks.gpu_block_count()
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_item_error(
+        &self,
+        block: usize,
+        item: usize,
+        nodal_coordinates: &NodalCoordinates<D>,
+    ) -> Option<ElementModelError> {
+        self.blocks.gpu_item_error(block, item, nodal_coordinates)
     }
 }
 
@@ -330,5 +389,29 @@ where
             .nodal_forces_parallel_into(first, workers, nodal_coordinates, nodal_forces)?;
         self.1
             .nodal_forces_parallel_into(second, workers, nodal_coordinates, nodal_forces)
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_blocks(&self, blocks: &mut Vec<GpuItems>) -> Result<(), GpuError> {
+        self.0.gpu_blocks(blocks)?;
+        self.1.gpu_blocks(blocks)
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_block_count(&self) -> usize {
+        self.0.gpu_block_count() + self.1.gpu_block_count()
+    }
+    #[cfg(feature = "gpu")]
+    fn gpu_item_error(
+        &self,
+        block: usize,
+        item: usize,
+        nodal_coordinates: &NodalCoordinates<D>,
+    ) -> Option<ElementModelError> {
+        let first = self.0.gpu_block_count();
+        if block < first {
+            self.0.gpu_item_error(block, item, nodal_coordinates)
+        } else {
+            self.1
+                .gpu_item_error(block - first, item, nodal_coordinates)
+        }
     }
 }

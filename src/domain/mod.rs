@@ -24,6 +24,8 @@ pub mod fem;
 #[path = "partition/feti/mod.rs"]
 pub mod feti;
 pub(crate) mod from;
+#[cfg(feature = "gpu")]
+pub(crate) mod gpu;
 pub(crate) mod lumping;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod multiphysics;

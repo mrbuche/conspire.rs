@@ -19,6 +19,12 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
 };
+#[cfg(feature = "gpu")]
+use crate::{
+    domain::{gpu::GpuItems, parallel::ItemIndex},
+    fem::block::element::ElementNodalCoordinates,
+    math::{Quantity, Tensor},
+};
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> ElasticItems<3>
     for Block<C, F, G, M, N, P, R, H>
@@ -57,6 +63,58 @@ where
                 ),
             )
             .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    /// The block as a device takes it, for the elements with three dimensions.
+    ///
+    /// The deformation gradient of such an element is the sum over its nodes of the outer
+    /// product of the coordinates and the gradient vector of the node, so the gradient vectors
+    /// are those of the deformation gradients when the coordinates are zero but for a unit
+    /// first component at one node.
+    #[cfg(feature = "gpu")]
+    fn gpu_block(&self) -> Option<GpuItems> {
+        if M != 3 {
+            return None;
+        }
+        let model = self.constitutive_model().gpu_model()?;
+        let mut reference = Vec::with_capacity(self.elements().len() * (G * N * 3 + G));
+        for element in self.elements() {
+            let mut gradients = vec![0.0; G * N * 3];
+            for node in 0..N {
+                let mut coordinates = ElementNodalCoordinates::<N>::default();
+                coordinates[node][0] = Quantity::new(1.0);
+                element
+                    .deformation_gradients(&coordinates)
+                    .iter()
+                    .enumerate()
+                    .for_each(|(point, deformation_gradient)| {
+                        (0..3).for_each(|component| {
+                            gradients[(point * N + node) * 3 + component] =
+                                deformation_gradient[0][component].value()
+                        })
+                    });
+            }
+            reference.extend(gradients);
+            reference.extend(
+                element
+                    .integration_weights()
+                    .iter()
+                    .map(|weight| weight.value()),
+            );
+        }
+        let (offsets, contributions) = ItemIndex::new(self).flattened(N);
+        Some(GpuItems {
+            model,
+            nodes_per_item: N,
+            points_per_item: G,
+            connectivity: self
+                .connectivity()
+                .iter()
+                .flat_map(|nodes| nodes.iter().map(|&node| node as u32))
+                .collect(),
+            reference,
+            offsets,
+            contributions,
+        })
     }
 }
 
