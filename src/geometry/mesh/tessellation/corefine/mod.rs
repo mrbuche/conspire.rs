@@ -2,9 +2,12 @@
 mod test;
 
 mod chain;
+mod clip;
+mod overlap;
 mod pierce;
 
 pub use chain::Polyline;
+pub use overlap::{Constraint, Side};
 
 use super::Tessellation;
 use crate::geometry::{Coordinate, CoordinatesRef};
@@ -43,6 +46,8 @@ struct Contacts {
     crossings: Vec<Crossing>,
     /// The pairs of triangles, as indices into each tessellation, that lie in one plane.
     coplanar: Vec<[usize; 2]>,
+    /// The segments that split triangles where the tessellations overlap in one plane.
+    constraints: Vec<Constraint>,
 }
 
 impl Tessellation {
@@ -65,6 +70,18 @@ impl Tessellation {
     pub fn coplanar_pairs(&self, other: &Tessellation) -> Result<Vec<[usize; 2]>, &'static str> {
         Ok(self.contacts(other)?.coplanar)
     }
+    /// The segments that split the triangles of this tessellation and the other where they overlap
+    /// in one plane, so that both are cut along each other's edges there.
+    ///
+    /// Each is a piece of an edge of one tessellation that crosses the inside of a coplanar
+    /// triangle of the other, with its ends named by the features they lie on, as for
+    /// [`Crossing`]. Pieces along an edge of the triangle they would split are not included.
+    pub fn coplanar_constraints(
+        &self,
+        other: &Tessellation,
+    ) -> Result<Vec<Constraint>, &'static str> {
+        Ok(self.contacts(other)?.constraints)
+    }
     fn contacts(&self, other: &Tessellation) -> Result<Contacts, &'static str> {
         let (coordinates, other_coordinates) =
             (self.mesh().coordinates(), other.mesh().coordinates());
@@ -74,6 +91,7 @@ impl Tessellation {
         let other_bvh = other.bvh();
         let mut crossings = Vec::new();
         let mut coplanar = Vec::new();
+        let mut constraints = Vec::new();
         for (first, nodes) in triangles.iter().enumerate() {
             let triangle = [
                 &coordinates[nodes[0]],
@@ -93,7 +111,21 @@ impl Tessellation {
                 ];
                 match crossing(triangle, other_triangle)? {
                     Meeting::Apart => (),
-                    Meeting::Coplanar => coplanar.push([first, second]),
+                    Meeting::Coplanar => {
+                        coplanar.push([first, second]);
+                        constraints.extend(overlap::constraints(
+                            &overlap::Part {
+                                triangle,
+                                nodes,
+                                index: first,
+                            },
+                            &overlap::Part {
+                                triangle: other_triangle,
+                                nodes: other_nodes,
+                                index: second,
+                            },
+                        ));
+                    }
                     Meeting::Segment(ends) => {
                         let keys = ends.each_ref().map(|end| Key {
                             first: feature(end.first, nodes, first),
@@ -112,6 +144,7 @@ impl Tessellation {
         Ok(Contacts {
             crossings,
             coplanar,
+            constraints: overlap::unique(constraints),
         })
     }
 }
