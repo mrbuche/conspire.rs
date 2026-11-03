@@ -11,6 +11,7 @@ pub struct FreeFactored<const D: usize> {
 }
 
 impl<const D: usize> FreeFactored<D> {
+    /// Factors a matrix with one value per pair of nodes, shared by their `D` components.
     pub(crate) fn factor<U>(
         matrix: &QuantitySparseVec2D<U>,
         fixed: &[usize],
