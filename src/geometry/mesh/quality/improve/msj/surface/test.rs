@@ -1,4 +1,8 @@
-use super::super::{SERIAL, node_scales, scales, test::cube, test::grid};
+use super::super::{
+    SERIAL,
+    energy::{node_scales, scales},
+    test::{cube, grid},
+};
 use super::Surface;
 use crate::{
     geometry::{Coordinates, mesh::Connectivity},
