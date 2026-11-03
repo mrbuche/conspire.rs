@@ -68,7 +68,7 @@ struct Point {
     weights: Weights,
 }
 
-static POINTS: LazyLock<[Point; 9]> = LazyLock::new(|| {
+static HEXAHEDRON_POINTS: LazyLock<[Point; 9]> = LazyLock::new(|| {
     let corners = [
         (0, [1, 3, 4]),
         (1, [2, 0, 5]),
@@ -167,7 +167,7 @@ static KINDS: LazyLock<[Kind; 4]> = LazyLock::new(|| {
         Kind {
             edges: &EDGES,
             normalization: 1.0,
-            points: &*POINTS,
+            points: &*HEXAHEDRON_POINTS,
         },
         Kind {
             edges: &[[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]],

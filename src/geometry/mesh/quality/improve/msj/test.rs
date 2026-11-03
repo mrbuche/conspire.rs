@@ -1,6 +1,6 @@
 use super::{
-    Energy, Frame, Gradient, KINDS, POINTS, Reach, SERIAL, Surface, bounded, displacements,
-    node_scales, scales, terms,
+    Energy, Frame, Gradient, HEXAHEDRON_POINTS, KINDS, Reach, SERIAL, Surface, bounded,
+    displacements, node_scales, scales, terms,
 };
 use crate::{
     geometry::{
@@ -109,7 +109,7 @@ fn gradient_matches_finite_difference_on_the_jacobian_branch() {
     nodes[2] = [0.1, 0.2, -0.3];
     let coordinates = typed(&nodes);
     assert!(
-        POINTS
+        HEXAHEDRON_POINTS
             .iter()
             .any(|weights| Frame::new(weights, &coordinates, 1.0).scaled < Quantity::default())
     );
