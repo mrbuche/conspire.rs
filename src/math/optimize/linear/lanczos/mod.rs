@@ -2,8 +2,8 @@
 mod test;
 
 use crate::math::{
-    Scalar, Style, StyledError, Vector, assert::AssertionError, optimize::OptimizationError,
-    styled_error,
+    Scalar, Style, StyledError, Tensor, Vector, assert::AssertionError,
+    optimize::OptimizationError, styled_error,
 };
 
 const CHECK: usize = 4;
@@ -66,26 +66,26 @@ impl Lanczos {
             })
             .collect();
         let mut mass_start = mass(&start);
-        let norm = dot(&start, &mass_start).sqrt();
+        let norm = (&start * &mass_start).sqrt();
         if norm.is_nan() || norm <= 0.0 {
             return Err(LanczosError::ZeroStart);
         }
-        scale(&mut start, 1.0 / norm);
-        scale(&mut mass_start, 1.0 / norm);
+        start /= norm;
+        mass_start /= norm;
         basis.push(start);
         mass_basis.push(mass_start);
         loop {
             let j = basis.len();
             let mut w = shift_invert(&mass_basis[j - 1]);
-            alphas.push(dot(&w, &mass_basis[j - 1]));
+            alphas.push(&w * &mass_basis[j - 1]);
             for _ in 0..2 {
                 for (q, mq) in basis.iter().zip(&mass_basis) {
-                    let c = dot(&w, mq);
-                    axpy(&mut w, -c, q);
+                    let c = &w * mq;
+                    w.axmy(c, q);
                 }
             }
             let mut mass_w = mass(&w);
-            let beta = dot(&w, &mass_w).max(0.0).sqrt();
+            let beta = (&w * &mass_w).max(0.0).sqrt();
             let size_t = alphas.iter().fold(0.0_f64, |m, a| m.max(a.abs())).max(TINY);
             let exhausted = beta <= TINY * size_t || j == size;
             if j >= count && (exhausted || j.is_multiple_of(CHECK) || j == limit) {
@@ -103,7 +103,7 @@ impl Lanczos {
                         .map(|&i| {
                             let mut x = Vector::zero(size);
                             for (k, q) in basis.iter().enumerate() {
-                                axpy(&mut x, vectors[k][i], q);
+                                x.axpy(vectors[k][i], q);
                             }
                             (shift + 1.0 / values[i], x)
                         })
@@ -117,31 +117,12 @@ impl Lanczos {
                 return Err(LanczosError::MaximumStepsReached(limit));
             }
             betas.push(beta);
-            scale(&mut w, 1.0 / beta);
-            scale(&mut mass_w, 1.0 / beta);
+            w /= beta;
+            mass_w /= beta;
             basis.push(w);
             mass_basis.push(mass_w);
         }
     }
-}
-
-fn dot(a: &Vector, b: &Vector) -> Scalar {
-    a.as_slice()
-        .iter()
-        .zip(b.as_slice())
-        .map(|(x, y)| x * y)
-        .sum()
-}
-
-fn scale(a: &mut Vector, factor: Scalar) {
-    a.as_mut_slice().iter_mut().for_each(|x| *x *= factor);
-}
-
-fn axpy(y: &mut Vector, factor: Scalar, x: &Vector) {
-    y.as_mut_slice()
-        .iter_mut()
-        .zip(x.as_slice())
-        .for_each(|(y, x)| *y += factor * x);
 }
 
 /// Eigen-decomposition of a symmetric tridiagonal matrix by implicit QL:
