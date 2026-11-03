@@ -1,6 +1,7 @@
+use super::kind::HEXAHEDRON_POINTS;
 use super::{
-    Energy, Frame, Gradient, HEXAHEDRON_POINTS, KINDS, Reach, SERIAL, Surface, bounded,
-    displacements, node_scales, scales, terms,
+    Energy, Frame, Gradient, KINDS, Reach, SERIAL, Surface, bounded, displacements, node_scales,
+    scales, terms,
 };
 use crate::{
     geometry::{
