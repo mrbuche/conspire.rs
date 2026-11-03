@@ -1,6 +1,17 @@
 use super::{Lanczos, LanczosError};
-use crate::math::{Scalar, SquareMatrix, Vector};
+use crate::math::{
+    Scalar, SquareMatrix, Vector,
+    assert::{Assert, AssertionError},
+};
 use std::f64::consts::PI;
+
+fn within(abs_tol: Scalar) -> Assert {
+    Assert {
+        abs_tol,
+        rel_tol: 0.0,
+        ..Assert::default()
+    }
+}
 
 fn stiffness(n: usize) -> SquareMatrix {
     let mut k = SquareMatrix::zero(n);
@@ -58,73 +69,57 @@ fn mass_dot(m: &[Scalar], a: &Vector, b: &Vector) -> Scalar {
 }
 
 #[test]
-fn lowest_modes_of_a_fixed_free_chain() {
+fn lowest_modes_of_a_fixed_free_chain() -> Result<(), AssertionError> {
     let n = 40;
     let k = stiffness(n);
     let m = vec![1.0; n];
     let a = shifted(&k, &m, -0.1);
-    let pairs = Lanczos::default()
-        .solve(inverse(&a), diagonal(&m), -0.1, n, 4)
-        .unwrap();
-    analytic(n)
-        .iter()
-        .zip(&pairs.values)
-        .for_each(|(expected, value)| assert!((expected - value).abs() < 1e-10));
+    let pairs = Lanczos::default().solve(inverse(&a), diagonal(&m), -0.1, n, 4)?;
     assert_eq!(pairs.values.len(), 4);
+    within(1e-10).eq_within_tols(Vector::from(pairs.values), Vector::from(&analytic(n)[..4]))
 }
 
 #[test]
-fn nonuniform_mass_residuals_and_orthonormality() {
+fn nonuniform_mass_residuals_and_orthonormality() -> Result<(), AssertionError> {
     let n = 30;
     let k = stiffness(n);
     let m = masses(n);
     let a = shifted(&k, &m, -0.05);
-    let pairs = Lanczos::default()
-        .solve(inverse(&a), diagonal(&m), -0.05, n, 5)
-        .unwrap();
+    let pairs = Lanczos::default().solve(inverse(&a), diagonal(&m), -0.05, n, 5)?;
     for (i, (value, x)) in pairs.values.iter().zip(&pairs.vectors).enumerate() {
-        assert!(residual(&k, &m, *value, x) < 1e-8);
+        within(1e-8).zero_within_tols(&residual(&k, &m, *value, x))?;
         for (j, y) in pairs.vectors.iter().enumerate() {
             let expected = if i == j { 1.0 } else { 0.0 };
-            assert!((mass_dot(&m, x, y) - expected).abs() < 1e-9);
+            within(1e-9).eq_within_tols(mass_dot(&m, x, y), expected)?;
         }
     }
     assert!(pairs.values.windows(2).all(|w| w[0] < w[1]));
+    Ok(())
 }
 
 #[test]
-fn modes_nearest_an_interior_shift() {
+fn modes_nearest_an_interior_shift() -> Result<(), AssertionError> {
     let n = 40;
     let k = stiffness(n);
     let m = vec![1.0; n];
     let shift = 2.0;
     let a = shifted(&k, &m, shift);
-    let pairs = Lanczos::default()
-        .solve(inverse(&a), diagonal(&m), shift, n, 3)
-        .unwrap();
+    let pairs = Lanczos::default().solve(inverse(&a), diagonal(&m), shift, n, 3)?;
     let mut expected = analytic(n);
     expected.sort_by(|a, b| (a - shift).abs().total_cmp(&(b - shift).abs()));
     let mut expected = expected[..3].to_vec();
     expected.sort_by(Scalar::total_cmp);
-    expected
-        .iter()
-        .zip(&pairs.values)
-        .for_each(|(expected, value)| assert!((expected - value).abs() < 1e-9));
+    within(1e-9).eq_within_tols(Vector::from(pairs.values), Vector::from(expected))
 }
 
 #[test]
-fn the_whole_spectrum_is_recovered_exactly() {
+fn the_whole_spectrum_is_recovered_exactly() -> Result<(), AssertionError> {
     let n = 12;
     let k = stiffness(n);
     let m = vec![1.0; n];
     let a = shifted(&k, &m, -0.1);
-    let pairs = Lanczos::default()
-        .solve(inverse(&a), diagonal(&m), -0.1, n, n)
-        .unwrap();
-    analytic(n)
-        .iter()
-        .zip(&pairs.values)
-        .for_each(|(expected, value)| assert!((expected - value).abs() < 1e-10));
+    let pairs = Lanczos::default().solve(inverse(&a), diagonal(&m), -0.1, n, n)?;
+    within(1e-10).eq_within_tols(Vector::from(pairs.values), Vector::from(analytic(n)))
 }
 
 #[test]

@@ -10,7 +10,10 @@ use crate::{
         },
         solid::elastic::ElasticElements,
     },
-    math::{Current, Quantity, Tensor, TensorRank1Vec, Vector},
+    math::{
+        Current, Quantity, Tensor, TensorRank1Vec, Vector,
+        assert::{Assert, AssertionError},
+    },
     units::{Density, Rate, Stress},
 };
 use std::{array::from_fn, f64::consts::PI};
@@ -152,8 +155,20 @@ where
         .collect()
 }
 
-fn relative(value: f64, expected: f64) -> f64 {
-    (value - expected).abs() / expected
+fn relatively(rel_tol: f64) -> Assert {
+    Assert {
+        abs_tol: 0.0,
+        rel_tol,
+        ..Assert::default()
+    }
+}
+
+fn absolutely(abs_tol: f64) -> Assert {
+    Assert {
+        abs_tol,
+        rel_tol: 0.0,
+        ..Assert::default()
+    }
 }
 
 fn flat(shape: &TensorRank1Vec<3, Current>) -> Vec<f64> {
@@ -191,32 +206,32 @@ fn check_shapes<B>(
     model: &Model<B, 3>,
     coordinates: &NodalCoordinates<3>,
     masses: impl InertialMass<3>,
-) where
+) -> Result<(), AssertionError>
+where
     B: ElasticElements<3>,
 {
-    let modes = model
-        .modes(coordinates, &masses, &fixed(), lowest(), 3)
-        .unwrap();
+    let modes = model.modes(coordinates, &masses, &fixed(), lowest(), 3)?;
     let shapes: Vec<Vec<f64>> = modes.shapes.iter().map(flat).collect();
+    let held = fixed();
     for (k, shape) in shapes.iter().enumerate() {
-        fixed()
-            .iter()
-            .for_each(|&index| assert_eq!(shape[index], 0.0));
+        held.iter()
+            .try_for_each(|&index| Assert::zero(&shape[index]))?;
         let lambda = modes.frequencies[k].value().powi(2);
         let (kx, mx) = (
             stiffness_times(model, coordinates, shape),
             mass_times(&masses, shape),
         );
         let scale = kx.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
-        let held = fixed();
-        let residual = kx
-            .iter()
-            .zip(&mx)
-            .enumerate()
-            .filter(|(index, _)| !held.contains(index))
-            .map(|(_, (kx, mx))| (kx - lambda * mx).abs())
-            .fold(0.0_f64, f64::max);
-        assert!(residual < 1e-8 * scale, "{residual} {scale}");
+        let free = |values: Vec<f64>| -> Vector {
+            values
+                .into_iter()
+                .enumerate()
+                .filter(|(index, _)| !held.contains(index))
+                .map(|(_, value)| value)
+                .collect()
+        };
+        absolutely(1e-8 * scale)
+            .eq_within_tols(free(kx), free(mx.iter().map(|mx| lambda * mx).collect()))?;
         for (l, other) in shapes.iter().enumerate() {
             let norm: f64 = mass_times(&masses, other)
                 .iter()
@@ -224,20 +239,21 @@ fn check_shapes<B>(
                 .map(|(m, s)| m * s)
                 .sum();
             let expected = if k == l { 1.0 } else { 0.0 };
-            assert!((norm - expected).abs() < 1e-8, "{norm}");
+            absolutely(1e-8).eq_within_tols(norm, expected)?;
         }
     }
+    Ok(())
 }
 
 mod hexahedra {
     use super::*;
 
     #[test]
-    fn the_lumped_mass_follows_the_discrete_chain() {
+    fn the_lumped_mass_follows_the_discrete_chain() -> Result<(), AssertionError> {
         let model = hexes();
         let theta = |n: usize| (2 * n - 1) as f64 * PI / (2.0 * ELEMENTS as f64);
         let h = LENGTH / ELEMENTS as f64;
-        (1..=4).for_each(|n| {
+        (1..=4).try_for_each(|n| {
             let chain = 2.0 * wave_speed() / h * (theta(n) / 2.0).sin();
             let found = frequencies(
                 &model,
@@ -245,8 +261,8 @@ mod hexahedra {
                 Quantity::new(1.001 * chain),
                 1,
             );
-            assert!(relative(found[0], chain) < 1e-8, "{} {chain}", found[0]);
-        });
+            relatively(1e-8).eq_within_tols(found[0], chain)
+        })
     }
 
     #[test]
@@ -264,7 +280,7 @@ mod hexahedra {
     }
 
     #[test]
-    fn modes_nearest_a_frequency_are_found_around_it() {
+    fn modes_nearest_a_frequency_are_found_around_it() -> Result<(), AssertionError> {
         let model = hexes();
         let masses = model.nodal_lumped_masses();
         let all = frequencies(&model, &masses, lowest(), 12);
@@ -274,10 +290,7 @@ mod hexahedra {
         let mut expected = expected[..3].to_vec();
         expected.sort_by(f64::total_cmp);
         let near = frequencies(&model, &masses, Quantity::new(target), 3);
-        expected
-            .iter()
-            .zip(&near)
-            .for_each(|(expected, value)| assert!(relative(*value, *expected) < 1e-8));
+        relatively(1e-8).eq_within_tols(Vector::from(near), Vector::from(expected))
     }
 
     #[test]
@@ -288,7 +301,7 @@ mod hexahedra {
     }
 
     #[test]
-    fn shapes_solve_the_eigenproblem_and_are_mass_orthonormal() {
+    fn shapes_solve_the_eigenproblem_and_are_mass_orthonormal() -> Result<(), AssertionError> {
         let model = hexes();
         check_shapes(&model, &at_rest(), model.nodal_lumped_masses())
     }
@@ -298,12 +311,12 @@ mod tetrahedra {
     use super::*;
 
     #[test]
-    fn the_consistent_mass_is_close_to_the_continuous_bar() {
+    fn the_consistent_mass_is_close_to_the_continuous_bar() -> Result<(), AssertionError> {
         let model = tets();
-        (1..=4).for_each(|n| {
+        (1..=4).try_for_each(|n| {
             let found = frequencies(&model, &model.nodal_masses(), Quantity::new(exact(n)), 1);
-            assert!(relative(found[0], exact(n)) < 3e-3);
-        });
+            relatively(3e-3).eq_within_tols(found[0], exact(n))
+        })
     }
 
     #[test]
@@ -319,7 +332,7 @@ mod tetrahedra {
     }
 
     #[test]
-    fn shapes_solve_the_eigenproblem_and_are_mass_orthonormal() {
+    fn shapes_solve_the_eigenproblem_and_are_mass_orthonormal() -> Result<(), AssertionError> {
         let model = tets();
         check_shapes(&model, &at_rest(), model.nodal_masses())
     }
@@ -356,35 +369,39 @@ mod prestressed {
     }
     #[test]
     fn stretching_changes_the_tangent_modulus_enough_to_see() {
-        [0.98, 1.02]
-            .iter()
-            .for_each(|&stretch| assert!(relative(chain(stretch, 1), chain(1.0, 1)) > 5e-3));
-    }
-    #[test]
-    fn a_stretched_bar_follows_the_chain_of_its_tangent_modulus() {
-        [0.98, 1.02, 1.05].iter().for_each(|&stretch| {
-            (1..=3).for_each(|n| {
-                let (value, expected) = (found(stretch, n), chain(stretch, n));
-                assert!(
-                    relative(value, expected) < 1e-8,
-                    "{stretch} {n} {value} {expected}"
-                );
-            })
+        [0.98, 1.02].iter().for_each(|&stretch| {
+            assert!(
+                relatively(5e-3)
+                    .eq_within_tols(chain(stretch, 1), chain(1.0, 1))
+                    .is_err()
+            )
         });
     }
     #[test]
-    fn a_stretched_bar_is_not_at_its_unstressed_frequencies() {
+    fn a_stretched_bar_follows_the_chain_of_its_tangent_modulus() -> Result<(), AssertionError> {
+        [0.98, 1.02, 1.05].iter().try_for_each(|&stretch| {
+            (1..=3).try_for_each(|n| {
+                relatively(1e-8).eq_within_tols(found(stretch, n), chain(stretch, n))
+            })
+        })
+    }
+    #[test]
+    fn a_stretched_bar_is_not_at_its_unstressed_frequencies() -> Result<(), AssertionError> {
         let model = hexes();
         let masses = model.nodal_lumped_masses();
         let rest = model
-            .modes(&at_rest(), &masses, &fixed(), lowest(), 1)
-            .unwrap()
+            .modes(&at_rest(), &masses, &fixed(), lowest(), 1)?
             .frequencies[0]
             .value();
-        assert!(relative(found(1.02, 1), rest) > 5e-3);
+        assert!(
+            relatively(5e-3)
+                .eq_within_tols(found(1.02, 1), rest)
+                .is_err()
+        );
+        Ok(())
     }
     #[test]
-    fn shapes_solve_the_eigenproblem_about_the_stretched_state() {
+    fn shapes_solve_the_eigenproblem_about_the_stretched_state() -> Result<(), AssertionError> {
         let model = hexes();
         check_shapes(&model, &stretched(1.02), model.nodal_lumped_masses())
     }
