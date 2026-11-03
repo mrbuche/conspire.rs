@@ -1,56 +1,38 @@
 use super::super::{Block, point::solid::elastic::ElasticElement};
 use crate::{
-    constitutive::{ConstitutiveError, solid::elastic::Elastic},
-    domain::{
-        ElementModelError, NodalCoordinates,
-        solid::{NodalForcesSolid, NodalStiffnessesSolid},
-    },
+    constitutive::solid::elastic::Elastic,
+    domain::{ElementModelError, NodalCoordinates, solid::elastic::ElasticItems},
+    math::{Current, TensorRank1, TensorRank2},
+    units::{Force, ForcePerLength},
 };
 
 pub use crate::domain::solid::elastic::ElasticElements;
 
-impl<C, R> ElasticElements<3> for Block<C, R>
+type NodalForce = TensorRank1<3, Current, Force>;
+type NodalStiffness = TensorRank2<3, Current, Current, ForcePerLength>;
+
+impl<C, R> ElasticItems<3> for Block<C, R>
 where
     C: Elastic,
 {
-    fn nodal_forces_into(
+    type Forces = Vec<NodalForce>;
+    type Stiffnesses = Vec<Vec<NodalStiffness>>;
+    fn forces_of(
         &self,
+        item: usize,
         nodal_coordinates: &NodalCoordinates<3>,
-        nodal_forces: &mut NodalForcesSolid<3>,
-    ) -> Result<(), ElementModelError> {
-        self.points
-            .iter()
-            .try_for_each(|point| {
-                point
-                    .nodal_forces(&self.constitutive_model, nodal_coordinates)?
-                    .into_iter()
-                    .zip(point.neighbors())
-                    .for_each(|(force, &neighbor)| nodal_forces[neighbor] += force);
-                Ok::<(), ConstitutiveError>(())
-            })
+    ) -> Result<Vec<NodalForce>, ElementModelError> {
+        self.points[item]
+            .nodal_forces(&self.constitutive_model, nodal_coordinates)
             .map_err(|error| ElementModelError::upstream(error, self))
     }
-    fn nodal_stiffnesses_into(
+    fn stiffnesses_of(
         &self,
+        item: usize,
         nodal_coordinates: &NodalCoordinates<3>,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
-    ) -> Result<(), ElementModelError> {
-        self.points
-            .iter()
-            .try_for_each(|point| {
-                point
-                    .nodal_stiffnesses(&self.constitutive_model, nodal_coordinates)?
-                    .into_iter()
-                    .zip(point.neighbors())
-                    .for_each(|(row, &neighbor_a)| {
-                        row.into_iter()
-                            .zip(point.neighbors())
-                            .for_each(|(block, &neighbor_b)| {
-                                nodal_stiffnesses[neighbor_a][neighbor_b] += block
-                            })
-                    });
-                Ok::<(), ConstitutiveError>(())
-            })
+    ) -> Result<Vec<Vec<NodalStiffness>>, ElementModelError> {
+        self.points[item]
+            .nodal_stiffnesses(&self.constitutive_model, nodal_coordinates)
             .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

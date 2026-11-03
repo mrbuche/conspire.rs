@@ -24,7 +24,10 @@ pub use crate::domain::{
     block::element::Elements,
     solid::{
         NodalForcesSolid, NodalStiffnessesSolid, SolidElements,
-        dynamics::{ElasticExplicitDynamics, ElasticImplicitDynamics},
+        dynamics::{
+            Checked, Consistent, ElasticExplicitDynamics, ElasticImplicitDynamics, Execution,
+            Lumped, MassChoice, Stability, Unchecked,
+        },
         elastic::ElasticElements,
     },
 };

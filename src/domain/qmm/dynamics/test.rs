@@ -5,7 +5,10 @@ use crate::{
         qmm::{Discretization, Support, block::Block},
         solid::{
             NodalForcesSolid,
-            dynamics::{ElasticExplicitDynamics, test::fixed_dofs},
+            dynamics::{
+                Checked, Consistent, ElasticExplicitDynamics, Execution, Lumped, Unchecked,
+                test::fixed_dofs,
+            },
             mass::{InverseMass, MassMatrix},
         },
     },
@@ -95,13 +98,15 @@ fn noise_tolerant() -> Assert {
 #[test]
 fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionError> {
     let model = model();
-    let masses = model.nodal_lumped_masses();
-    let (times, coordinates, ..) = model.integrate(
+    let (times, coordinates, ..) = ElasticExplicitDynamics::integrate(
+        &model,
+        Execution::Serial,
+        Unchecked,
+        Lumped,
         &integrator(),
         &time(),
         (reference().into(), uniform_velocities([3.0, -1.0, 2.0])),
         &(),
-        &masses,
         &fixed_dofs(&[]),
     )?;
     let elapsed = times[times.len() - 1].in_seconds();
@@ -119,16 +124,18 @@ fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionE
 fn lumped_momentum_is_conserved_by_a_released_stretch() {
     let model = model();
     let masses = model.nodal_lumped_masses();
-    let (_, _, velocities, _) = model
-        .integrate(
-            &integrator(),
-            &time(),
-            (stretched(), uniform_velocities([0.0; 3])),
-            &(),
-            &masses,
-            &fixed_dofs(&[]),
-        )
-        .unwrap();
+    let (_, _, velocities, _) = ElasticExplicitDynamics::integrate(
+        &model,
+        Execution::Serial,
+        Unchecked,
+        Lumped,
+        &integrator(),
+        &time(),
+        (stretched(), uniform_velocities([0.0; 3])),
+        &(),
+        &fixed_dofs(&[]),
+    )
+    .unwrap();
     let last = &velocities[STEPS];
     let speed = last.iter().map(|v| v.norm().value()).fold(0.0, f64::max);
     assert!(speed > 0.0, "the stretch did not move the body");
@@ -148,18 +155,19 @@ fn lumped_momentum_is_conserved_by_a_released_stretch() {
 #[test]
 fn fixed_degrees_of_freedom_do_not_move() {
     let model = model();
-    let masses = model.nodal_lumped_masses();
     let fixed = vec![0, 1, 2, 5];
-    let (_, coordinates, velocities, accelerations) = model
-        .integrate(
-            &integrator(),
-            &time(),
-            (stretched(), uniform_velocities([3.0, 0.0, 4.0])),
-            &(),
-            &masses,
-            &fixed_dofs(&fixed),
-        )
-        .unwrap();
+    let (_, coordinates, velocities, accelerations) = ElasticExplicitDynamics::integrate(
+        &model,
+        Execution::Serial,
+        Unchecked,
+        Lumped,
+        &integrator(),
+        &time(),
+        (stretched(), uniform_velocities([3.0, 0.0, 4.0])),
+        &(),
+        &fixed_dofs(&fixed),
+    )
+    .unwrap();
     fixed.iter().for_each(|&dof| {
         let (node, c) = (dof / 3, dof % 3);
         assert_eq!(coordinates[STEPS][node][c], stretched()[node][c]);
@@ -173,16 +181,18 @@ fn fixed_degrees_of_freedom_do_not_move() {
 fn consistent_masses_conserve_momentum_and_agree_on_a_uniform_acceleration() {
     let model = model();
     let masses = model.nodal_masses();
-    let (_, _, velocities, _) = model
-        .integrate(
-            &integrator(),
-            &time(),
-            (stretched(), uniform_velocities([0.0; 3])),
-            &(),
-            &masses,
-            &fixed_dofs(&[]),
-        )
-        .unwrap();
+    let (_, _, velocities, _) = ElasticExplicitDynamics::integrate(
+        &model,
+        Execution::Serial,
+        Unchecked,
+        Consistent,
+        &integrator(),
+        &time(),
+        (stretched(), uniform_velocities([0.0; 3])),
+        &(),
+        &fixed_dofs(&[]),
+    )
+    .unwrap();
     let last = &velocities[STEPS];
     let speed = last.iter().map(|v| v.norm().value()).fold(0.0, f64::max);
     assert!(speed > 0.0);
@@ -299,7 +309,6 @@ mod time_scale {
     #[test]
     fn a_step_above_the_bound_is_an_error() {
         let model = model();
-        let masses = model.nodal_lumped_masses();
         let time_scale = model
             .fastest_time_scale(
                 &NodalReferenceCoordinates::from(reference()),
@@ -308,14 +317,18 @@ mod time_scale {
             .unwrap()
             .in_seconds();
         let run = |dt: f64| {
-            model.integrate_bounded(
+            ElasticExplicitDynamics::integrate(
+                &model,
+                Execution::Serial,
+                Checked {
+                    safety: 1.0,
+                    interval: 1,
+                },
+                Lumped,
                 &VelocityVerlet::new(Time::seconds(dt)),
-                1.0,
-                1,
                 &[Time::seconds(0.0), Time::seconds(10.0 * dt)],
                 (reference().into(), uniform_velocities([0.0; 3])),
                 &(),
-                &masses,
                 &fixed_dofs(&[]),
             )
         };
@@ -343,15 +356,14 @@ mod implicit {
     #[test]
     fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionError> {
         let (model, dt, steps) = (model(), 1e-3, 20);
-        let masses = model.nodal_lumped_masses();
         let (times, coordinates, ..) = ElasticImplicitDynamics::integrate(
             &model,
+            Lumped,
             &Newmark::new(Time::seconds(dt)),
             solver(1e-3),
             &times(dt, steps),
             (reference().into(), uniform_velocities([3.0, -1.0, 2.0])),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
@@ -364,16 +376,15 @@ mod implicit {
     #[test]
     fn fixed_degrees_of_freedom_do_not_move() {
         let (model, dt, steps) = (model(), 1e-5, 20);
-        let masses = model.nodal_lumped_masses();
         let fixed = vec![0, 1, 2, 5];
         let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
+            Lumped,
             &Newmark::new(Time::seconds(dt)),
             solver(1.0),
             &times(dt, steps),
             (stretched(), uniform_velocities([3.0, 0.0, 4.0])),
             &(),
-            &masses,
             &fixed_dofs(&fixed),
         )
         .unwrap();
@@ -388,26 +399,27 @@ mod implicit {
     #[test]
     fn a_released_stretch_follows_the_explicit_motion() -> Result<(), AssertionError> {
         let (model, dt, steps) = (model(), 2e-6, 100);
-        let masses = model.nodal_lumped_masses();
         let interval = times(dt, steps);
         let state = || (stretched(), uniform_velocities([0.0; 3]));
         let (_, implicit, ..) = ElasticImplicitDynamics::integrate(
             &model,
+            Lumped,
             &Newmark::new(Time::seconds(dt)),
             solver(1.0),
             &interval,
             state(),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
+            Execution::Serial,
+            Unchecked,
+            Lumped,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let moved = (0..reference().len())
@@ -427,12 +439,12 @@ mod implicit {
         let masses = model.nodal_masses();
         let (_, _, velocities, _) = ElasticImplicitDynamics::integrate(
             &model,
+            Consistent,
             &Newmark::new(Time::seconds(dt)),
             solver(1.0),
             &times(dt, steps),
             (stretched(), uniform_velocities([0.0; 3])),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )
         .unwrap();

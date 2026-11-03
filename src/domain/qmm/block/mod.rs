@@ -6,10 +6,7 @@ mod test;
 mod time_scale;
 
 use crate::{
-    domain::{
-        block::{add_node_neighbors, element::Elements},
-        qmm::Discretization,
-    },
+    domain::{block::element::Items, qmm::Discretization},
     geometry::mesh::InnerProducts,
     math::Quantity,
     units::{Density, Volume},
@@ -53,8 +50,11 @@ impl<C> Block<C> {
     }
 }
 
-impl<C, R> Elements for Block<C, R> {
-    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        add_node_neighbors(self.points.iter().map(Point::neighbors), neighbors)
+impl<C, R> Items for Block<C, R> {
+    fn number_of_items(&self) -> usize {
+        self.points.len()
+    }
+    fn nodes_of(&self, item: usize) -> &[usize] {
+        self.points[item].neighbors()
     }
 }

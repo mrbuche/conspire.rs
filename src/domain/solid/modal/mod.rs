@@ -1,4 +1,8 @@
 #[cfg(test)]
+#[cfg_attr(
+    not(any(feature = "fem", feature = "vem", feature = "cbm")),
+    allow(unused_macros, unused_imports)
+)]
 pub(crate) mod test;
 
 use crate::{
