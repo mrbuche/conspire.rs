@@ -1,12 +1,22 @@
-use super::ElasticModes;
+use super::{ElasticModes, ElasticViscoplasticModes};
 use crate::{
-    constitutive::solid::{elastic::Elastic, hyperelastic::NeoHookean},
+    constitutive::{
+        canonical::Canonical,
+        fluid::viscoplastic::ViscoplasticFlow,
+        solid::{elastic::Elastic, hyperelastic::NeoHookean},
+    },
     domain::{
         Model, NodalCoordinates,
-        solid::{NodalForcesSolid, elastic::ElasticElements, mass::InertialMass},
+        block::solid::viscoplastic::ViscoplasticStateVariables,
+        solid::{
+            NodalForcesSolid,
+            elastic::ElasticElements,
+            elastic_viscoplastic::ElasticViscoplasticElements,
+            mass::{InertialMass, LumpedMassElements},
+        },
     },
     math::{
-        Current, Quantity, Tensor, TensorRank1Vec, Vector,
+        Current, Differentiable, Quantity, Tensor, TensorRank1Vec, Vector,
         assert::{Assert, AssertionError},
     },
     units::{Density, Rate, Stress},
@@ -350,6 +360,187 @@ fn stretching_changes_the_tangent_modulus_enough_to_see() {
         )
     });
 }
+
+pub(crate) fn flowing() -> Canonical<NeoHookean, ViscoplasticFlow> {
+    Canonical::from((
+        material(),
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ))
+}
+
+pub(crate) fn elastic_modulus(stretch: f64, plastic_stretch: f64) -> f64 {
+    let lateral = plastic_stretch.sqrt();
+    let elastic = [
+        [lateral, 0.0, 0.0],
+        [0.0, lateral, 0.0],
+        [0.0, 0.0, stretch / plastic_stretch],
+    ]
+    .into();
+    material()
+        .first_piola_kirchhoff_tangent_stiffness(&elastic)
+        .unwrap()[2][2][2][2]
+        .value()
+        / plastic_stretch.powi(2)
+}
+
+pub(crate) fn plastic_state<B, const G: usize>(
+    model: &Model<B, 3>,
+    plastic_stretch: f64,
+) -> ViscoplasticStateVariables<G, Quantity>
+where
+    B: ElasticViscoplasticElements<ViscoplasticStateVariables<G, Quantity>, 3>,
+{
+    let lateral = 1.0 / plastic_stretch.sqrt();
+    let mut state = model.initial_state();
+    state.iter_mut().for_each(|element| {
+        element.iter_mut().for_each(|point| {
+            point.0 = [
+                [lateral, 0.0, 0.0],
+                [0.0, lateral, 0.0],
+                [0.0, 0.0, plastic_stretch],
+            ]
+            .into()
+        })
+    });
+    state
+}
+
+fn found<B, S>(
+    model: &Model<B, 3>,
+    stretch: f64,
+    state: &S,
+    near: f64,
+    count: usize,
+) -> Result<Vec<f64>, AssertionError>
+where
+    B: ElasticViscoplasticElements<S, 3> + LumpedMassElements<3>,
+    S: Differentiable,
+{
+    Ok(model
+        .modes(
+            &stretched(stretch),
+            state,
+            &model.nodal_lumped_masses(),
+            &fixed(),
+            Quantity::new(near),
+            count,
+        )?
+        .frequencies
+        .iter()
+        .map(|frequency| frequency.value())
+        .collect())
+}
+
+fn among(found: &[f64], expected: f64, tol: f64) -> Result<(), AssertionError> {
+    let nearest = found
+        .iter()
+        .copied()
+        .min_by(|a, b| (a - expected).abs().total_cmp(&(b - expected).abs()))
+        .unwrap_or(expected);
+    relatively(tol).eq_within_tols(nearest, expected)
+}
+
+pub(crate) fn unyielded_follows_the_chain<B, S>(
+    model: &Model<B, 3>,
+    state: &S,
+    tol: f64,
+) -> Result<(), AssertionError>
+where
+    B: ElasticViscoplasticElements<S, 3> + LumpedMassElements<3>,
+    S: Differentiable,
+{
+    [1.0, 0.98, 1.02].iter().try_for_each(|&stretch| {
+        (1..=3).try_for_each(|n| {
+            among(
+                &found(model, stretch, state, 1.001 * chain(stretch, n), 4)?,
+                chain(stretch, n),
+                tol,
+            )
+        })
+    })
+}
+
+pub(crate) fn plastic_follows_the_chain<B, S>(
+    model: &Model<B, 3>,
+    state: &S,
+    plastic_stretch: f64,
+    tol: f64,
+) -> Result<(), AssertionError>
+where
+    B: ElasticViscoplasticElements<S, 3> + LumpedMassElements<3>,
+    S: Differentiable,
+{
+    [1.0, 1.03].iter().try_for_each(|&stretch| {
+        (1..=3).try_for_each(|n| {
+            let expected = chain_of(elastic_modulus(stretch, plastic_stretch), n);
+            among(
+                &found(model, stretch, state, 1.001 * expected, 4)?,
+                expected,
+                tol,
+            )
+        })
+    })
+}
+
+pub(crate) fn plastic_state_moves_the_frequencies<B, S>(
+    model: &Model<B, 3>,
+    state: &S,
+    plastic_stretch: f64,
+    tol: f64,
+) -> Result<(), AssertionError>
+where
+    B: ElasticViscoplasticElements<S, 3> + LumpedMassElements<3>,
+    S: Differentiable,
+{
+    let unyielded = chain(1.0, 1);
+    let yielded = chain_of(elastic_modulus(1.0, plastic_stretch), 1);
+    assert!(
+        relatively(2.0 * tol.max(1.5e-3))
+            .eq_within_tols(yielded, unyielded)
+            .is_err()
+    );
+    among(&found(model, 1.0, state, 1.001 * yielded, 1)?, yielded, tol)
+}
+
+macro_rules! viscoplastic_bar_tests {
+    ($model:path, $points:literal, $plastic:expr, $tol:expr) => {
+        #[test]
+        fn an_unyielded_bar_follows_the_chain_of_its_elastic_model()
+        -> Result<(), $crate::math::assert::AssertionError> {
+            use $crate::domain::solid::elastic_viscoplastic::ElasticViscoplasticElements as _;
+            let model = $model();
+            let state = model.initial_state();
+            $crate::domain::solid::modal::test::unyielded_follows_the_chain(&model, &state, $tol)
+        }
+        #[test]
+        fn a_plastic_state_follows_the_chain_of_its_elastic_tangent()
+        -> Result<(), $crate::math::assert::AssertionError> {
+            let model = $model();
+            let state =
+                $crate::domain::solid::modal::test::plastic_state::<_, $points>(&model, $plastic);
+            $crate::domain::solid::modal::test::plastic_follows_the_chain(
+                &model, &state, $plastic, $tol,
+            )
+        }
+        #[test]
+        fn a_plastic_state_moves_the_frequencies()
+        -> Result<(), $crate::math::assert::AssertionError> {
+            let model = $model();
+            let state =
+                $crate::domain::solid::modal::test::plastic_state::<_, $points>(&model, $plastic);
+            $crate::domain::solid::modal::test::plastic_state_moves_the_frequencies(
+                &model, &state, $plastic, $tol,
+            )
+        }
+    };
+}
+
+pub(crate) use viscoplastic_bar_tests;
 
 macro_rules! lumped_bar_tests {
     ($model:path, $tol:expr) => {

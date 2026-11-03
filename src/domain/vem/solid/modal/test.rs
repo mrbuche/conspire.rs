@@ -1,6 +1,11 @@
 use crate::{
-    constitutive::solid::hyperelastic::NeoHookean,
-    domain::solid::modal::test::{ELEMENTS, coordinates, density, lumped_bar_tests, material},
+    constitutive::{
+        canonical::Canonical, fluid::viscoplastic::ViscoplasticFlow,
+        solid::hyperelastic::NeoHookean,
+    },
+    domain::solid::modal::test::{
+        ELEMENTS, coordinates, density, flowing, lumped_bar_tests, material, viscoplastic_bar_tests,
+    },
     math::Quantity,
     units::Density,
     vem::{
@@ -13,6 +18,7 @@ use crate::{
 };
 
 type Cells = Block<NeoHookean, Element, Quantity<Density>>;
+type Flowing = Block<Canonical<NeoHookean, ViscoplasticFlow>, Element, Quantity<Density>>;
 
 const FACES: [[usize; 4]; 6] = [
     [0, 3, 2, 1],
@@ -23,18 +29,23 @@ const FACES: [[usize; 4]; 6] = [
     [1, 2, 6, 5],
 ];
 
-fn cells() -> Model<Cells, 3> {
-    let reference = coordinates().into();
-    let faces_nodes: Vec<Vec<usize>> = (0..ELEMENTS)
+fn connectivity() -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
+    let faces_nodes = (0..ELEMENTS)
         .flat_map(|k| {
             FACES
                 .iter()
                 .map(move |face| face.iter().map(|&node| 4 * k + node).collect())
         })
         .collect();
-    let elements_faces: Vec<Vec<usize>> = (0..ELEMENTS)
+    let elements_faces = (0..ELEMENTS)
         .map(|k| (6 * k..6 * k + 6).collect())
         .collect();
+    (elements_faces, faces_nodes)
+}
+
+fn cells() -> Model<Cells, 3> {
+    let reference = coordinates().into();
+    let (elements_faces, faces_nodes) = connectivity();
     (
         Block::<_, Element>::from((
             material(),
@@ -49,7 +60,29 @@ fn cells() -> Model<Cells, 3> {
         .into()
 }
 
+fn flowing_cells() -> Model<Flowing, 3> {
+    let reference = coordinates().into();
+    let (elements_faces, faces_nodes) = connectivity();
+    (
+        Block::<_, Element>::from((
+            flowing(),
+            elements_faces,
+            faces_nodes,
+            &reference,
+            DEFAULT_STABILIZATION,
+        ))
+        .with_density(density()),
+        reference,
+    )
+        .into()
+}
+
 mod hexahedra {
     use super::*;
     lumped_bar_tests!(cells, 1e-8, below);
+}
+
+mod viscoplastic {
+    use super::*;
+    viscoplastic_bar_tests!(flowing_cells, 1, 1.1, 1e-8);
 }
