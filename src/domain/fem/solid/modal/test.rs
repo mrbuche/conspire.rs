@@ -1,7 +1,8 @@
 use crate::{
     domain::solid::modal::test::{
         ELEMENTS, at_rest, check_shapes, coordinates, density, exact, flowing, frequencies,
-        kuhn_tets, lumped_bar_tests, material, relatively, viscoplastic_bar_tests,
+        kuhn_tets, lumped_bar_tests, material, plastic_bar_tests, plasticity, relatively,
+        viscoplastic_bar_tests,
     },
     fem::{
         Model,
@@ -125,4 +126,38 @@ mod viscoplastic {
             .into()
     }
     viscoplastic_bar_tests!(bar, 8, 1.1, 1e-8);
+}
+
+mod plastic {
+    use super::*;
+    use crate::constitutive::{
+        canonical::Canonical,
+        fluid::plastic::{Linear, PlasticFlow, VonMises},
+        solid::hyperelastic::NeoHookean,
+    };
+    type Bar = Block<
+        Canonical<NeoHookean, PlasticFlow<VonMises, Linear>>,
+        Hexahedron,
+        8,
+        3,
+        8,
+        8,
+        Quantity<Density>,
+    >;
+    fn bar() -> Model<Bar, 3> {
+        let reference = coordinates().into();
+        (
+            Bar::from((
+                plasticity(),
+                density(),
+                (0..ELEMENTS)
+                    .map(|k| from_fn(|i| 4 * k + i))
+                    .collect::<Vec<[usize; 8]>>(),
+                &reference,
+            )),
+            reference,
+        )
+            .into()
+    }
+    plastic_bar_tests!(bar, 8, 1.1, 1e-8);
 }

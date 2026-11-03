@@ -294,6 +294,43 @@ where
             )?,
         ))
     }
+    fn nodal_elastic_stiffnesses(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates,
+        state_variables: &PlasticStateVariables<1>,
+    ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
+        let tangents = self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .zip(state_variables)
+            .map(|(deformation_gradient, state_variable)| {
+                constitutive_model.first_piola_kirchhoff_tangent_stiffness(
+                    deformation_gradient,
+                    &state_variable.0,
+                )
+            })
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses, _>>()
+            .map_err(|error| self.upstream(error))?;
+        let tetrahedra = self
+            .tetrahedra()
+            .iter()
+            .zip(self.tetrahedra_coordinates(nodal_coordinates).iter())
+            .map(|(tetrahedron, tetrahedron_coordinates)| {
+                tetrahedron.nodal_elastic_stiffnesses(
+                    constitutive_model,
+                    tetrahedron_coordinates,
+                    state_variables,
+                )
+            })
+            .collect::<Result<Vec<_>, FiniteElementError>>()
+            .map_err(|error| self.upstream(error))?;
+        self.stabilized_stiffnesses(
+            &tangents,
+            &tetrahedra.iter().collect::<Vec<_>>(),
+            nodal_coordinates.len(),
+        )
+    }
     fn updated_state(
         &self,
         constitutive_model: &C,

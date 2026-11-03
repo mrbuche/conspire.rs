@@ -113,6 +113,28 @@ where
         )?;
         Ok((nodal_forces, nodal_stiffnesses))
     }
+    /// Adds the nodal stiffnesses of the elastic response with the plastic state held, with
+    /// no plastic step taken, the instantaneous stiffness of small motions about the state.
+    fn nodal_elastic_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError>;
+    /// Computes the nodal stiffnesses of the elastic response with the plastic state held.
+    fn nodal_elastic_stiffnesses(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
+        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        self.nodal_elastic_stiffnesses_into(
+            nodal_coordinates,
+            state_variables,
+            &mut nodal_stiffnesses,
+        )?;
+        Ok(nodal_stiffnesses)
+    }
     /// An empty monolithic system holding the sparsity structure of its blocks, or
     /// `None` for a domain that does not support [`SolveStrategy::Monolithic`].
     fn monolithic_system(&self, _num_nodes: usize) -> Option<MonolithicSystem> {
@@ -174,6 +196,18 @@ where
             state_variables,
             local_solver,
             nodal_forces,
+            nodal_stiffnesses,
+        )
+    }
+    fn nodal_elastic_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.blocks().nodal_elastic_stiffnesses_into(
+            nodal_coordinates,
+            state_variables,
             nodal_stiffnesses,
         )
     }

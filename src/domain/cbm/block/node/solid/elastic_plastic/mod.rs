@@ -62,6 +62,32 @@ where
                 .collect(),
         ))
     }
+    fn nodal_elastic_stiffnesses(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &NodalCoordinates<3>,
+        state_variables: &PlasticStateVariables<1>,
+    ) -> Result<Vec<Vec<NodalStiffness>>, ConstitutiveError> {
+        let first_piola_kirchhoff_tangent_stiffness = constitutive_model
+            .first_piola_kirchhoff_tangent_stiffness(
+                &self.deformation_gradients(nodal_coordinates),
+                &state_variables[0].0,
+            )?;
+        Ok(self
+            .gradient_vectors()
+            .iter()
+            .map(|gradient_vector_a| {
+                self.gradient_vectors()
+                    .iter()
+                    .map(|gradient_vector_b| {
+                        first_piola_kirchhoff_tangent_stiffness
+                            .contract_second_fourth_with_first(gradient_vector_a, gradient_vector_b)
+                            * self.volume
+                    })
+                    .collect()
+            })
+            .collect())
+    }
     fn updated_state(
         &self,
         constitutive_model: &C,

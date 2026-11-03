@@ -21,6 +21,14 @@ where
         state_variables: &PlasticStateVariables<G>,
         local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<(Self::Forces, Self::Stiffnesses), Self::Error>;
+    /// The nodal stiffnesses of the elastic response with the plastic state held, with
+    /// no plastic step taken: the instantaneous stiffness of small motions about it.
+    fn nodal_elastic_stiffnesses(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &Self::Coordinates,
+        state_variables: &PlasticStateVariables<G>,
+    ) -> Result<Self::Stiffnesses, Self::Error>;
     fn updated_state(
         &self,
         constitutive_model: &C,

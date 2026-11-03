@@ -1,10 +1,15 @@
 use crate::{
     constitutive::{
-        canonical::Canonical, fluid::viscoplastic::ViscoplasticFlow,
+        canonical::Canonical,
+        fluid::{
+            plastic::{Linear, PlasticFlow, VonMises},
+            viscoplastic::ViscoplasticFlow,
+        },
         solid::hyperelastic::NeoHookean,
     },
     domain::solid::modal::test::{
-        ELEMENTS, coordinates, density, flowing, lumped_bar_tests, material, viscoplastic_bar_tests,
+        ELEMENTS, coordinates, density, flowing, lumped_bar_tests, material, plastic_bar_tests,
+        plasticity, viscoplastic_bar_tests,
     },
     math::Quantity,
     units::Density,
@@ -19,6 +24,8 @@ use crate::{
 
 type Cells = Block<NeoHookean, Element, Quantity<Density>>;
 type Flowing = Block<Canonical<NeoHookean, ViscoplasticFlow>, Element, Quantity<Density>>;
+type Plastic =
+    Block<Canonical<NeoHookean, PlasticFlow<VonMises, Linear>>, Element, Quantity<Density>>;
 
 const FACES: [[usize; 4]; 6] = [
     [0, 3, 2, 1],
@@ -77,6 +84,23 @@ fn flowing_cells() -> Model<Flowing, 3> {
         .into()
 }
 
+fn plastic_cells() -> Model<Plastic, 3> {
+    let reference = coordinates().into();
+    let (elements_faces, faces_nodes) = connectivity();
+    (
+        Block::<_, Element>::from((
+            plasticity(),
+            elements_faces,
+            faces_nodes,
+            &reference,
+            DEFAULT_STABILIZATION,
+        ))
+        .with_density(density()),
+        reference,
+    )
+        .into()
+}
+
 mod hexahedra {
     use super::*;
     lumped_bar_tests!(cells, 1e-8, below);
@@ -85,4 +109,9 @@ mod hexahedra {
 mod viscoplastic {
     use super::*;
     viscoplastic_bar_tests!(flowing_cells, 1, 1.1, 1e-8);
+}
+
+mod plastic {
+    use super::*;
+    plastic_bar_tests!(plastic_cells, 1, 1.1, 1e-8);
 }

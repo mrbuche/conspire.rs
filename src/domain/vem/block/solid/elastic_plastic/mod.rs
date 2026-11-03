@@ -68,6 +68,37 @@ where
             })
             .map_err(|error| ElementModelError::upstream(error, self))
     }
+    fn nodal_elastic_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &PlasticStateVariablesField<1>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid,
+    ) -> Result<(), ElementModelError> {
+        self.elements()
+            .iter()
+            .zip(self.elements_nodes())
+            .zip(state_variables)
+            .try_for_each(|((element, nodes), state_variables_element)| {
+                element
+                    .nodal_elastic_stiffnesses(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        state_variables_element,
+                    )?
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(object, &node_a)| {
+                        object
+                            .into_iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
+                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                            })
+                    });
+                Ok::<(), VirtualElementError>(())
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
+    }
     fn updated_state(
         &self,
         nodal_coordinates: &NodalCoordinates,

@@ -7,6 +7,7 @@ use crate::{
         factor::FreeFactored,
         solid::{
             NodalStiffnessesSolid, elastic::ElasticElements,
+            elastic_plastic::ElasticPlasticElements,
             elastic_viscoplastic::ElasticViscoplasticElements, mass::InertialMass,
         },
     },
@@ -102,6 +103,47 @@ where
     ) -> Result<Modes<D>, ModalError> {
         let tangent = self
             .nodal_stiffnesses(nodal_coordinates, state_variables)
+            .map_err(|error| ModalError::upstream(error, "the stiffnesses"))?;
+        modes_of(tangent, nodal_coordinates.len(), masses, fixed, near, count)
+    }
+}
+
+/// Vibration of elastic-plastic solids about a given state.
+pub trait ElasticPlasticModes<S, const D: usize> {
+    /// The `count` modes with angular frequencies nearest `near`, of small
+    /// vibrations about the given coordinates and plastic state.
+    ///
+    /// The plastic state is the one at the coordinates, as committed by the stepper
+    /// after a load step. The stiffness is the elastic tangent with the plastic
+    /// deformation gradient held, and not the consistent tangent of a plastic step:
+    /// a vibration unloads as much as it loads, and unloading is elastic, so the
+    /// vibration shakes down to an elastic response about the state.
+    fn modes(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        masses: &impl InertialMass<D>,
+        fixed: &[usize],
+        near: Quantity<Rate>,
+        count: usize,
+    ) -> Result<Modes<D>, ModalError>;
+}
+
+impl<B, S, const D: usize> ElasticPlasticModes<S, D> for Model<B, D>
+where
+    B: ElasticPlasticElements<S, D>,
+{
+    fn modes(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        masses: &impl InertialMass<D>,
+        fixed: &[usize],
+        near: Quantity<Rate>,
+        count: usize,
+    ) -> Result<Modes<D>, ModalError> {
+        let tangent = self
+            .nodal_elastic_stiffnesses(nodal_coordinates, state_variables)
             .map_err(|error| ModalError::upstream(error, "the stiffnesses"))?;
         modes_of(tangent, nodal_coordinates.len(), masses, fixed, near, count)
     }
