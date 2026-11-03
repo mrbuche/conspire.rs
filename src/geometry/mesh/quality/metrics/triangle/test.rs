@@ -9,7 +9,7 @@ fn tri<const D: usize>(coordinates: Vec<[f64; D]>) -> Mesh<D> {
 fn equilateral_is_perfect() {
     let mesh = tri(vec![[0.0, 0.0], [1.0, 0.0], [0.5, 0.75_f64.sqrt()]]);
     assert!((mesh.minimum_scaled_jacobians()[0][0] - 1.0).abs() < 1.0e-10);
-    assert!((mesh.maximum_edge_ratios()[0][0] - 1.0).abs() < 1.0e-10);
+    assert!((mesh.edge_ratios()[0][0] - 1.0).abs() < 1.0e-10);
 }
 
 #[test]

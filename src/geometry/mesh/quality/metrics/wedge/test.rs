@@ -21,7 +21,7 @@ fn perfect_wedge_is_unit() {
     let mesh = wedge(PERFECT.to_vec());
     assert!((mesh.minimum_scaled_jacobians()[0][0] - 1.0).abs() < 1.0e-12);
     assert!(mesh.minimum_jacobians()[0][0] > 0.0);
-    assert!((mesh.maximum_edge_ratios()[0][0] - 1.0).abs() < 1.0e-12);
+    assert!((mesh.edge_ratios()[0][0] - 1.0).abs() < 1.0e-12);
     assert!(mesh.maximum_skews()[0][0].abs() < 1.0e-12);
     assert!((mesh.volumes()[0][0] - HALF_SQRT_3 / 2.0).abs() < 1.0e-12);
 }
