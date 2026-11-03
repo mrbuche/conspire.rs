@@ -3,13 +3,16 @@ pub(crate) mod test;
 
 use crate::{
     domain::{
-        Model, NodalAccelerations, NodalCoordinates,
+        Model, NodalCoordinates,
         factor::FreeFactored,
-        solid::{NodalStiffnessesSolid, elastic::ElasticElements, mass::InertialMass},
+        solid::{
+            NodalStiffnessesSolid, elastic::ElasticElements,
+            elastic_viscoplastic::ElasticViscoplasticElements, mass::InertialMass,
+        },
     },
     math::{
-        Current, Quantity, Scalar, Style, StyledError, Tensor, TensorRank1Vec, Vector,
-        assert::AssertionError, optimize::Lanczos, styled_error,
+        Current, Differentiable, Quantity, Scalar, Style, StyledError, Tensor, TensorRank1Vec,
+        Vector, assert::AssertionError, optimize::Lanczos, styled_error,
     },
     units::Rate,
 };
@@ -56,69 +59,125 @@ where
         near: Quantity<Rate>,
         count: usize,
     ) -> Result<Modes<D>, ModalError> {
-        let mut tangent = self
+        let tangent = self
             .nodal_stiffnesses(nodal_coordinates)
             .map_err(|error| ModalError::upstream(error, "the stiffnesses"))?;
-        let shift = near.value().powi(2);
-        masses.add_to_stiffnesses(-shift, &mut tangent);
-        let factors = FreeFactored::<D>::factor_blocks(&tangent, fixed)
-            .map_err(|error| ModalError::upstream(error, "the shifted stiffnesses"))?;
-        let free = factors.free();
-        let total = D * nodal_coordinates.len();
-        let expand = |reduced: &Vector| {
-            let mut full = Vector::zero(total);
-            free.iter()
-                .zip(reduced.as_slice())
-                .for_each(|(&index, &entry)| full[index] = entry);
-            full
-        };
-        let gather = |full: &Vector| -> Vector { free.iter().map(|&index| full[index]).collect() };
-        let pairs = Lanczos::default()
-            .solve(
-                |reduced| gather(&factors.solve(&expand(reduced))),
-                |reduced| {
-                    let accelerations = NodalAccelerations::<D>::from(expand(reduced));
-                    gather(&masses.inertial_forces(&accelerations).into_erased().into())
-                },
-                shift,
-                free.len(),
-                count,
-            )
-            .map_err(|error| ModalError::upstream(error, "the eigensolver"))?;
-        let norm = stiffness_norm(&tangent);
-        for (&value, reduced) in pairs.values.iter().zip(&pairs.vectors) {
-            let full = expand(reduced);
-            let kx = stiffness_times(&tangent, &full);
-            let mx: Vector = masses
-                .inertial_forces(&full.clone().into())
-                .into_erased()
-                .into();
-            let residual = free
-                .iter()
-                .map(|&index| (kx[index] - (value - shift) * mx[index]).abs())
-                .fold(0.0_f64, f64::max);
-            let size = full.as_slice().iter().fold(0.0_f64, |m, x| m.max(x.abs()));
-            if residual.is_nan() || residual > VERIFIED * norm * size {
-                return Err(ModalError::Unverified(residual / (norm * size)));
-            }
-        }
-        let scale = pairs.values.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
-        if let Some(&value) = pairs.values.iter().find(|&&v| v < -1e-8 * scale) {
-            return Err(ModalError::Indefinite(value));
-        }
-        Ok(Modes {
-            frequencies: pairs
-                .values
-                .iter()
-                .map(|&value| Quantity::new(value.max(0.0).sqrt()))
-                .collect(),
-            shapes: pairs
-                .vectors
-                .iter()
-                .map(|reduced| expand(reduced).into())
-                .collect(),
-        })
+        modes_of(tangent, nodal_coordinates.len(), masses, fixed, near, count)
     }
+}
+
+/// Vibration of elastic-viscoplastic solids about a given state.
+pub trait ElasticViscoplasticModes<S, const D: usize> {
+    /// The `count` modes with angular frequencies nearest `near`, of small
+    /// vibrations about the given coordinates and state variables.
+    ///
+    /// The stiffness is the elastic tangent with the plastic deformation gradient
+    /// held at the given state: the instantaneous response, with no flow during the
+    /// vibration, which is exact when the vibration is much faster than the flow.
+    /// Neither the damping nor the relaxation of the flow is accounted for.
+    fn modes(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        masses: &impl InertialMass<D>,
+        fixed: &[usize],
+        near: Quantity<Rate>,
+        count: usize,
+    ) -> Result<Modes<D>, ModalError>;
+}
+
+impl<B, S, const D: usize> ElasticViscoplasticModes<S, D> for Model<B, D>
+where
+    B: ElasticViscoplasticElements<S, D>,
+    S: Differentiable,
+{
+    fn modes(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        masses: &impl InertialMass<D>,
+        fixed: &[usize],
+        near: Quantity<Rate>,
+        count: usize,
+    ) -> Result<Modes<D>, ModalError> {
+        let tangent = self
+            .nodal_stiffnesses(nodal_coordinates, state_variables)
+            .map_err(|error| ModalError::upstream(error, "the stiffnesses"))?;
+        modes_of(tangent, nodal_coordinates.len(), masses, fixed, near, count)
+    }
+}
+
+fn modes_of<const D: usize>(
+    mut tangent: NodalStiffnessesSolid<D>,
+    nodes: usize,
+    masses: &impl InertialMass<D>,
+    fixed: &[usize],
+    near: Quantity<Rate>,
+    count: usize,
+) -> Result<Modes<D>, ModalError> {
+    let shift = near.value().powi(2);
+    masses.add_to_stiffnesses(-shift, &mut tangent);
+    let factors = FreeFactored::<D>::factor_blocks(&tangent, fixed)
+        .map_err(|error| ModalError::upstream(error, "the shifted stiffnesses"))?;
+    let free = factors.free();
+    let total = D * nodes;
+    let expand = |reduced: &Vector| {
+        let mut full = Vector::zero(total);
+        free.iter()
+            .zip(reduced.as_slice())
+            .for_each(|(&index, &entry)| full[index] = entry);
+        full
+    };
+    let gather = |full: &Vector| -> Vector { free.iter().map(|&index| full[index]).collect() };
+    let pairs = Lanczos::default()
+        .solve(
+            |reduced| gather(&factors.solve(&expand(reduced))),
+            |reduced| {
+                gather(
+                    &masses
+                        .inertial_forces(&expand(reduced).into())
+                        .into_erased()
+                        .into(),
+                )
+            },
+            shift,
+            free.len(),
+            count,
+        )
+        .map_err(|error| ModalError::upstream(error, "the eigensolver"))?;
+    let norm = stiffness_norm(&tangent);
+    for (&value, reduced) in pairs.values.iter().zip(&pairs.vectors) {
+        let full = expand(reduced);
+        let kx = stiffness_times(&tangent, &full);
+        let mx: Vector = masses
+            .inertial_forces(&full.clone().into())
+            .into_erased()
+            .into();
+        let residual = free
+            .iter()
+            .map(|&index| (kx[index] - (value - shift) * mx[index]).abs())
+            .fold(0.0_f64, f64::max);
+        let size = full.as_slice().iter().fold(0.0_f64, |m, x| m.max(x.abs()));
+        if residual.is_nan() || residual > VERIFIED * norm * size {
+            return Err(ModalError::Unverified(residual / (norm * size)));
+        }
+    }
+    let scale = pairs.values.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+    if let Some(&value) = pairs.values.iter().find(|&&v| v < -1e-8 * scale) {
+        return Err(ModalError::Indefinite(value));
+    }
+    Ok(Modes {
+        frequencies: pairs
+            .values
+            .iter()
+            .map(|&value| Quantity::new(value.max(0.0).sqrt()))
+            .collect(),
+        shapes: pairs
+            .vectors
+            .iter()
+            .map(|reduced| expand(reduced).into())
+            .collect(),
+    })
 }
 
 const VERIFIED: Scalar = 1e-6;

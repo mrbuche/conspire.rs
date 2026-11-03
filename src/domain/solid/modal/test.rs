@@ -131,10 +131,13 @@ pub(crate) fn tangent_modulus(stretch: f64) -> f64 {
         .value()
 }
 
-pub(crate) fn chain(stretch: f64, n: usize) -> f64 {
+pub(crate) fn chain_of(modulus: f64, n: usize) -> f64 {
     let theta = (2 * n - 1) as f64 * PI / (2.0 * ELEMENTS as f64);
-    2.0 * (tangent_modulus(stretch) / DENSITY).sqrt() / (LENGTH / ELEMENTS as f64)
-        * (theta / 2.0).sin()
+    2.0 * (modulus / DENSITY).sqrt() / (LENGTH / ELEMENTS as f64) * (theta / 2.0).sin()
+}
+
+pub(crate) fn chain(stretch: f64, n: usize) -> f64 {
+    chain_of(tangent_modulus(stretch), n)
 }
 
 pub(crate) fn frequencies<B>(
