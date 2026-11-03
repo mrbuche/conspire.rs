@@ -1,20 +1,17 @@
 use super::{
-    Energy, Frame, Gradient, POINTS, Reach, SERIAL, Surface, bounded, displacements, node_scales,
-    scales, terms,
+    element::bounded,
+    kind::{HEXAHEDRON, KINDS},
 };
 use crate::{
     geometry::{
-        Coordinate, CoordinateList, Coordinates,
+        Coordinate, CoordinateList,
         mesh::{Connectivity, Dualization, Fitting, Mesh, MeshError, Tessellation, Verdict},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
-    math::{
-        Quantity, QuantityVector, Scalar, Tensor, TensorListVec,
-        assert::{Assert, AssertionError},
-    },
+    math::{Quantity, Scalar, Tensor},
     units::{Area, Dimensionless, Length},
 };
-use std::{collections::BTreeSet, f64::consts::TAU, sync::Mutex, time::Instant};
+use std::{collections::BTreeSet, f64::consts::TAU, time::Instant};
 
 const SWEEPS: usize = 20;
 const UNREACHABLE: Quantity = Dimensionless::of(1.0);
@@ -26,9 +23,9 @@ fn improve(mesh: &mut Mesh<3>, target: &Tessellation, sweeps: usize) -> MeshErro
     }
 }
 
-type Raw = [[Scalar; 3]; 8];
+pub(super) type Raw = [[Scalar; 3]; 8];
 
-const UNIT: Raw = [
+pub(super) const UNIT: Raw = [
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
     [1.0, 1.0, 0.0],
@@ -39,11 +36,11 @@ const UNIT: Raw = [
     [0.0, 1.0, 1.0],
 ];
 
-fn offset(index: usize, seed: Scalar) -> Scalar {
+pub(super) fn offset(index: usize, seed: Scalar) -> Scalar {
     (seed + 12.9898 * index as Scalar).sin() * 43758.5453 % 1.0
 }
 
-fn distorted(scale: Scalar, seed: Scalar) -> Raw {
+pub(super) fn distorted(scale: Scalar, seed: Scalar) -> Raw {
     let mut nodes = UNIT;
     nodes
         .iter_mut()
@@ -52,76 +49,21 @@ fn distorted(scale: Scalar, seed: Scalar) -> Raw {
     nodes
 }
 
-fn typed(nodes: &Raw) -> CoordinateList<3, 8> {
+pub(super) fn typed(nodes: &Raw) -> CoordinateList<3, 8> {
     nodes.iter().map(|&node| node.into()).collect()
 }
 
-fn energy(theta: Scalar, nodes: &Raw) -> Scalar {
-    terms(
-        Quantity::new(theta),
-        Quantity::new(1.3),
-        &typed(nodes),
-        false,
-    )
-    .0
-    .value()
+pub(super) fn terms(
+    theta: Quantity,
+    scale: Quantity<Length>,
+    nodes: &CoordinateList<3, 8>,
+    derivative: bool,
+) -> (Quantity<Area>, CoordinateList<3, 8>) {
+    let (value, slopes, _) = bounded(&KINDS[HEXAHEDRON as usize], theta, scale, nodes, derivative);
+    (value, slopes)
 }
 
-fn check(theta: Scalar, nodes: Raw) {
-    let (_, analytic) = terms(
-        Quantity::new(theta),
-        Quantity::new(1.3),
-        &typed(&nodes),
-        true,
-    );
-    let step = 1.0e-6;
-    (0..8).for_each(|n| {
-        (0..3).for_each(|i| {
-            let mut above = nodes;
-            let mut below = nodes;
-            above[n][i] += step;
-            below[n][i] -= step;
-            let numerical = (energy(theta, &above) - energy(theta, &below)) / (2.0 * step);
-            let exact = analytic[n][i].value();
-            assert!(
-                (exact - numerical).abs() < 1.0e-6,
-                "node {n} axis {i}: {exact} vs {numerical}"
-            );
-        })
-    })
-}
-
-#[test]
-fn gradient_matches_finite_difference_on_the_scaled_branch() {
-    check(2.0, distorted(0.25, 1.0))
-}
-
-#[test]
-fn gradient_matches_finite_difference_on_the_jacobian_branch() {
-    let mut nodes = UNIT;
-    nodes[6] = [0.2, 0.3, 0.4];
-    nodes[2] = [0.1, 0.2, -0.3];
-    let coordinates = typed(&nodes);
-    assert!(
-        POINTS
-            .iter()
-            .any(|weights| Frame::new(weights, &coordinates).scaled < Quantity::default())
-    );
-    check(0.5, nodes)
-}
-
-#[test]
-fn rectified_branch_is_flat() {
-    let (value, slope) = terms(Quantity::new(0.1), Quantity::new(1.0), &typed(&UNIT), true);
-    assert_eq!(value.value(), 0.0);
-    assert!(
-        slope
-            .iter()
-            .all(|node| (0..3).all(|i| node[i].value() == 0.0))
-    );
-}
-
-fn cube() -> Tessellation {
+pub(super) fn cube() -> Tessellation {
     let faces: Vec<[usize; 3]> = vec![
         [0, 2, 1],
         [0, 3, 2],
@@ -143,7 +85,7 @@ fn cube() -> Tessellation {
     .into()
 }
 
-fn grid(n: usize, wobble: Scalar) -> Mesh<3> {
+pub(super) fn grid(n: usize, wobble: Scalar) -> Mesh<3> {
     let id = |i: usize, j: usize, k: usize| i + (n + 1) * (j + (n + 1) * k);
     let mut coordinates = Vec::new();
     for k in 0..=n {
@@ -384,312 +326,76 @@ fn improves_a_buffered_torus() {
     assert!(after >= before);
 }
 
-#[test]
-fn parallel_evaluation_matches_the_serial_sum_exactly() {
-    let mesh = grid(11, 0.9);
-    let hexes: Vec<[usize; 8]> = mesh
+fn tetrahedra(mesh: &Mesh<3>) -> Mesh<3> {
+    let tets: Vec<[usize; 4]> = mesh
         .iter()
         .flat_map(|block| match block {
             Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
             _ => unreachable!(),
         })
+        .flat_map(|hex| {
+            [
+                [0, 1, 2, 6],
+                [0, 2, 3, 6],
+                [0, 3, 7, 6],
+                [0, 7, 4, 6],
+                [0, 4, 5, 6],
+                [0, 5, 1, 6],
+            ]
+            .map(|tet| tet.map(|node| hex[node]))
+        })
         .collect();
-    assert!(hexes.len() > 2 * SERIAL);
-    let coordinates = mesh.coordinates().clone();
-    let scales = scales(&hexes, &coordinates);
-    let theta = Quantity::new(0.3);
-    let mut total = Quantity::<Area>::default();
-    let mut gradient = Gradient::zero(coordinates.len());
-    hexes.iter().zip(&scales).for_each(|(hex, &scale)| {
-        let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
-        let (value, slopes) = terms(theta, scale, &nodes, true);
-        total -= value;
-        hex.iter()
-            .zip(slopes)
-            .for_each(|(&node, slope)| gradient[node] -= slope)
+    (
+        vec![Connectivity::Tetrahedral(tets.into())],
+        mesh.coordinates().clone(),
+    )
+        .into()
+}
+
+#[test]
+fn improves_a_wobbly_tetrahedral_grid_without_leaving_the_cube() {
+    let mut mesh = tetrahedra(&grid(3, 0.9));
+    assert!(matches!(
+        mesh.connectivities(),
+        [Connectivity::Tetrahedral(_)]
+    ));
+    let before = worst(&mesh);
+    assert!(before > 0.0);
+    improve(&mut mesh, &cube(), 6);
+    let after = worst(&mesh);
+    assert!(after > before + 0.05, "{before} -> {after}");
+    mesh.coordinates().iter().for_each(|node| {
+        assert!((0..3).all(|i| node[i].value() > -1.0e-3 && node[i].value() < 1.0 + 1.0e-3))
     });
-    let energy = Energy {
-        boundary: &[],
-        hexes: &hexes,
-        lambda: TensorListVec::default(),
-        planes: Vec::new(),
-        rho: Quantity::new(1.0),
-        scales,
-        scratch: Mutex::default(),
-        theta,
-    };
-    let mut parallel = Gradient::zero(coordinates.len());
-    let value = energy.evaluate(&coordinates, Some(&mut parallel));
-    assert_eq!(value.value().to_bits(), total.value().to_bits());
-    gradient.iter().zip(parallel.iter()).for_each(|(a, b)| {
-        (0..3).for_each(|i| assert_eq!(a[i].value().to_bits(), b[i].value().to_bits()))
+}
+
+fn wedges(mesh: &Mesh<3>) -> Mesh<3> {
+    let wedges: Vec<[usize; 6]> = mesh
+        .iter()
+        .flat_map(|block| match block {
+            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
+            _ => unreachable!(),
+        })
+        .flat_map(|hex| {
+            [[0, 1, 2, 4, 5, 6], [0, 2, 3, 4, 6, 7]].map(|wedge| wedge.map(|node| hex[node]))
+        })
+        .collect();
+    (
+        vec![Connectivity::Wedge(wedges.into())],
+        mesh.coordinates().clone(),
+    )
+        .into()
+}
+
+#[test]
+fn improves_a_wobbly_wedge_grid_without_leaving_the_cube() {
+    let mut mesh = wedges(&grid(3, 0.9));
+    let before = worst(&mesh);
+    assert!(before > 0.0);
+    improve(&mut mesh, &cube(), 6);
+    let after = worst(&mesh);
+    assert!(after > before + 0.05, "{before} -> {after}");
+    mesh.coordinates().iter().for_each(|node| {
+        assert!((0..3).all(|i| node[i].value() > -1.0e-3 && node[i].value() < 1.0 + 1.0e-3))
     });
-    assert_eq!(
-        energy.evaluate(&coordinates, None).value().to_bits(),
-        total.value().to_bits()
-    );
-}
-
-#[test]
-fn evaluation_keeps_nothing_from_the_previous_call() {
-    let mesh = grid(11, 0.9);
-    let hexes: Vec<[usize; 8]> = mesh
-        .iter()
-        .flat_map(|block| match block {
-            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
-            _ => unreachable!(),
-        })
-        .collect();
-    assert!(hexes.len() > 2 * SERIAL);
-    let coordinates = mesh.coordinates().clone();
-    let mut stretched = coordinates.clone();
-    stretched.iter_mut().for_each(|node| node[0] *= 1.1);
-    let scales = scales(&hexes, &coordinates);
-    let energy = || Energy {
-        boundary: &[],
-        hexes: &hexes,
-        lambda: TensorListVec::default(),
-        planes: Vec::new(),
-        rho: Quantity::new(1.0),
-        scales: scales.clone(),
-        scratch: Mutex::default(),
-        theta: Quantity::new(0.3),
-    };
-    let gradient = |energy: &Energy, at: &Coordinates<3>| {
-        let mut slopes = Gradient::zero(at.len());
-        let value = energy.evaluate(at, Some(&mut slopes));
-        (value.value().to_bits(), slopes)
-    };
-    let value = |energy: &Energy, at: &Coordinates<3>| energy.evaluate(at, None).value().to_bits();
-    let (fresh_a, fresh_b) = (energy(), energy());
-    let reference_a = gradient(&fresh_a, &coordinates);
-    let reference_b = gradient(&fresh_b, &stretched);
-    assert_ne!(reference_a.0, reference_b.0);
-    let reused = energy();
-    for (at, reference) in [
-        (&coordinates, &reference_a),
-        (&stretched, &reference_b),
-        (&coordinates, &reference_a),
-    ] {
-        let (bits, slopes) = gradient(&reused, at);
-        assert_eq!(bits, reference.0);
-        slopes.iter().zip(reference.1.iter()).for_each(|(a, b)| {
-            (0..3).for_each(|i| assert_eq!(a[i].value().to_bits(), b[i].value().to_bits()))
-        });
-    }
-    assert_eq!(value(&reused, &stretched), reference_b.0);
-    assert_eq!(value(&reused, &coordinates), reference_a.0);
-    assert_eq!(value(&reused, &stretched), reference_b.0);
-}
-
-#[test]
-fn skipping_hexes_that_cannot_reach_the_threshold_changes_nothing() {
-    let mesh = grid(11, 0.9);
-    let hexes: Vec<[usize; 8]> = mesh
-        .iter()
-        .flat_map(|block| match block {
-            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
-            _ => unreachable!(),
-        })
-        .collect();
-    let coordinates = mesh.coordinates().clone();
-    let scales = scales(&hexes, &coordinates);
-    let energy = || Energy {
-        boundary: &[],
-        hexes: &hexes,
-        lambda: TensorListVec::default(),
-        planes: Vec::new(),
-        rho: Quantity::new(1.0),
-        scales: scales.clone(),
-        scratch: Mutex::default(),
-        theta: Quantity::new(0.3),
-    };
-    let reused = energy();
-    reused.evaluate(&coordinates, Some(&mut Gradient::zero(coordinates.len())));
-    for (round, amplitude) in [1.0e-4, 1.0e-3, 3.0e-3, 1.0e-2, 3.0e-2]
-        .into_iter()
-        .enumerate()
-    {
-        let mut moved = coordinates.clone();
-        moved.iter_mut().enumerate().for_each(|(n, node)| {
-            (0..3).for_each(|i| {
-                node[i] += Quantity::new(amplitude * offset(3 * n + i, round as Scalar))
-            })
-        });
-        assert_eq!(
-            reused.evaluate(&moved, None).value().to_bits(),
-            energy().evaluate(&moved, None).value().to_bits(),
-            "amplitude {amplitude}"
-        );
-    }
-}
-
-#[test]
-fn skipping_hexes_in_the_gradient_changes_nothing_over_many_moves() {
-    let mesh = grid(11, 0.9);
-    let hexes: Vec<[usize; 8]> = mesh
-        .iter()
-        .flat_map(|block| match block {
-            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
-            _ => unreachable!(),
-        })
-        .collect();
-    let mut coordinates = mesh.coordinates().clone();
-    let scales = scales(&hexes, &coordinates);
-    let energy = || Energy {
-        boundary: &[],
-        hexes: &hexes,
-        lambda: TensorListVec::default(),
-        planes: Vec::new(),
-        rho: Quantity::new(1.0),
-        scales: scales.clone(),
-        scratch: Mutex::default(),
-        theta: Quantity::new(0.6),
-    };
-    let gradient = |energy: &Energy, at: &Coordinates<3>| {
-        let mut slopes = Gradient::zero(at.len());
-        let value = energy.evaluate(at, Some(&mut slopes));
-        (value.value().to_bits(), slopes)
-    };
-    let reused = energy();
-    gradient(&reused, &coordinates);
-    for round in 0..40 {
-        coordinates.iter_mut().enumerate().for_each(|(n, node)| {
-            let height = node[1];
-            node[0] += height * 0.008;
-            (0..3)
-                .for_each(|i| node[i] += Quantity::new(1.0e-5 * offset(3 * n + i, round as Scalar)))
-        });
-        let (value, slopes) = gradient(&reused, &coordinates);
-        let (fresh_value, fresh_slopes) = gradient(&energy(), &coordinates);
-        assert_eq!(value, fresh_value, "value in round {round}");
-        slopes.iter().zip(fresh_slopes.iter()).for_each(|(a, b)| {
-            (0..3).for_each(|i| {
-                assert_eq!(
-                    a[i].value().to_bits(),
-                    b[i].value().to_bits(),
-                    "round {round}"
-                )
-            })
-        });
-        let mut trial = coordinates.clone();
-        trial
-            .iter_mut()
-            .for_each(|node| node[0] += Quantity::new(1.0e-4));
-        assert_eq!(
-            reused.evaluate(&trial, None).value().to_bits(),
-            energy().evaluate(&trial, None).value().to_bits(),
-            "trial in round {round}"
-        );
-    }
-}
-
-#[test]
-fn the_decayed_bound_never_exceeds_what_the_moved_hexahedron_still_has() {
-    let nodes = distorted(0.15, 2.0);
-    let (sj, _, _) = {
-        let (_, _, (margin, shortest)) =
-            bounded(Quantity::new(0.0), Quantity::new(1.0), &typed(&nodes), true);
-        (margin.value(), shortest.value(), ())
-    };
-    assert!(sj > 0.3);
-    let theta = Quantity::new(sj - 0.2);
-    let (_, _, bound) = bounded(theta, Quantity::new(1.0), &typed(&nodes), true);
-    let base: Coordinates<3> = nodes.to_vec().into();
-    let bounds = [bound];
-    let hex = [0, 1, 2, 3, 4, 5, 6, 7];
-    let (margin, shortest) = bound;
-    let step = (margin - Quantity::new(1.0e-9)) * shortest / 12.0 * 0.9;
-    let mut skipped = 0;
-    for seed in 0..200 {
-        let mut moved = nodes;
-        moved.iter_mut().enumerate().for_each(|(n, node)| {
-            (0..3).for_each(|i| {
-                let sign = if offset(3 * n + i, seed as Scalar) < 0.0 {
-                    -1.0
-                } else {
-                    1.0
-                };
-                node[i] += sign * step.value() / 3.0_f64.sqrt()
-            })
-        });
-        let current: Coordinates<3> = moved.to_vec().into();
-        let mut displaced = Vec::new();
-        displacements(&current, &base, &mut displaced);
-        let reach = Reach {
-            bounds: &bounds,
-            moved: &displaced,
-        };
-        let Some(distance) = reach.within(0, &hex) else {
-            continue;
-        };
-        skipped += 1;
-        let (lower, shorter) = reach.decayed(0, distance);
-        let (_, _, (margin, shortest)) = bounded(theta, Quantity::new(1.0), &typed(&moved), true);
-        assert!(margin >= lower && shortest >= shorter, "seed {seed}");
-    }
-    assert_eq!(skipped, 200);
-}
-
-#[test]
-fn planes_do_not_depend_on_how_the_nodes_are_shared_among_threads() -> Result<(), AssertionError> {
-    let mesh = grid(15, 0.5);
-    let hexes: Vec<[usize; 8]> = mesh
-        .iter()
-        .flat_map(|block| match block {
-            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
-            _ => unreachable!(),
-        })
-        .collect();
-    let mut boundary: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
-    boundary.sort_unstable();
-    boundary.dedup();
-    assert!(boundary.len() > 2 * SERIAL);
-    let coordinates = mesh.coordinates().clone();
-    let sizes = node_scales(
-        &boundary,
-        &hexes,
-        &scales(&hexes, &coordinates),
-        coordinates.len(),
-    );
-    let target = cube();
-    let surface = Surface::new(&target);
-    let planes = surface.planes(&boundary, &sizes, &coordinates);
-    let mut expected = Vec::new();
-    for (index, &node) in boundary.iter().enumerate() {
-        for mut plane in surface.planes(&[node], &sizes, &coordinates) {
-            plane.boundary = index;
-            expected.push(plane)
-        }
-    }
-    assert!(!planes.is_empty());
-    assert_eq!(planes.len(), expected.len());
-    for (plane, expected) in planes.iter().zip(&expected) {
-        assert_eq!(
-            (plane.boundary, plane.slot),
-            (expected.boundary, expected.slot)
-        );
-        Assert::eq(plane.offset.value(), expected.offset.value())?;
-        Assert::eq(&plane.normal, &expected.normal)?
-    }
-    Ok(())
-}
-
-#[test]
-fn a_node_beside_an_edge_keeps_the_planes_of_both_faces() -> Result<(), AssertionError> {
-    let target = cube();
-    let surface = Surface::new(&target);
-    let coordinates = Coordinates::from(vec![[1.005, -2.0e-5, 0.5]]);
-    let sizes: QuantityVector<Length> = [Quantity::new(0.33)].into_iter().collect();
-    let planes = surface.planes(&[0], &sizes, &coordinates);
-    assert_eq!(planes.len(), 2);
-    let has = |normal: [Scalar; 3], offset: Scalar| {
-        planes.iter().any(|plane| {
-            (0..3).all(|i| (plane.normal[i].value() - normal[i]).abs() < 1.0e-12)
-                && (plane.offset.value() - offset).abs() < 1.0e-12
-        })
-    };
-    assert!(has([1.0, 0.0, 0.0], 1.0));
-    assert!(has([0.0, -1.0, 0.0], 0.0));
-    Ok(())
 }

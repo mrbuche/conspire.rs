@@ -16,7 +16,9 @@ impl StyledError for MeshError {
             Self::Budget { theta, sweeps } => format!(
                 "{h}The scaled Jacobian pass used all {sweeps} sweeps without reaching {theta:.2}."
             ),
-            Self::HexahedraRequired => format!("{h}The mesh must consist of hexahedra."),
+            Self::HexahedraRequired => {
+                format!("{h}The mesh must consist of hexahedra, tetrahedra, pyramids or wedges.")
+            }
             Self::Minimization => format!("{h}Could not minimize the energy."),
             Self::Stall { theta, sweeps } => format!(
                 "{h}The scaled Jacobian pass stalled after {sweeps} sweeps short of {theta:.2}."
