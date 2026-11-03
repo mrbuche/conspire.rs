@@ -73,3 +73,32 @@ fn finite_difference() -> Result<(), AssertionError> {
         Ok(())
     }
 }
+
+mod tangent {
+    use super::*;
+    use crate::{
+        constitutive::fluid::viscous::test::finite_difference_tangent,
+        mechanics::{
+            CauchyTangentStiffness, FirstPiolaKirchhoffTangentStiffness,
+            SecondPiolaKirchhoffTangentStiffness,
+        },
+    };
+    finite_difference_tangent!(
+        cauchy,
+        viscous_cauchy_stress,
+        viscous_cauchy_tangent_stiffness,
+        CauchyTangentStiffness
+    );
+    finite_difference_tangent!(
+        first_piola_kirchhoff,
+        viscous_first_piola_kirchhoff_stress,
+        viscous_first_piola_kirchhoff_tangent_stiffness,
+        FirstPiolaKirchhoffTangentStiffness
+    );
+    finite_difference_tangent!(
+        second_piola_kirchhoff,
+        viscous_second_piola_kirchhoff_stress,
+        viscous_second_piola_kirchhoff_tangent_stiffness,
+        SecondPiolaKirchhoffTangentStiffness
+    );
+}

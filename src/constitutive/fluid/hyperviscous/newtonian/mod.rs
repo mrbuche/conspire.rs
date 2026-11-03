@@ -11,7 +11,8 @@ use crate::{
     },
     math::{ContractWith, IDENTITY, Quantity, Rank2, TensorRank4},
     mechanics::{
-        CauchyRateTangentStiffness, CauchyStress, DeformationGradient, DeformationGradientRate,
+        CauchyRateTangentStiffness, CauchyStress, CauchyTangentStiffness, DeformationGradient,
+        DeformationGradientRate,
     },
     units::{Dissipation, Viscosity},
 };
@@ -70,6 +71,31 @@ impl Viscous for Newtonian {
                     &deformation_gradient_inverse_transpose,
                 ),
         )
+    }
+    fn viscous_cauchy_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
+        let jacobian = deformation_gradient.determinant();
+        let deformation_gradient_inverse = deformation_gradient.inverse();
+        let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
+        let velocity_gradient = deformation_gradient_rate * &deformation_gradient_inverse;
+        let cauchy_stress =
+            self.viscous_cauchy_stress(deformation_gradient, deformation_gradient_rate)?;
+        let scaled_velocity_gradient = &velocity_gradient * (self.shear_viscosity() / jacobian);
+        Ok((TensorRank4::dyad_ik_jl(
+            &scaled_velocity_gradient,
+            &deformation_gradient_inverse_transpose,
+        ) + TensorRank4::dyad_il_jk(
+            &deformation_gradient_inverse_transpose,
+            &scaled_velocity_gradient,
+        ) + TensorRank4::dyad_ij_kl(
+            &(IDENTITY
+                * ((self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity()) / jacobian)),
+            &(&deformation_gradient_inverse * &velocity_gradient).transpose(),
+        ) + TensorRank4::dyad_ij_kl(&cauchy_stress, &deformation_gradient_inverse_transpose))
+            * -1.0)
     }
 }
 
