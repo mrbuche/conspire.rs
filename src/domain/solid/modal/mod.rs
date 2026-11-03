@@ -117,7 +117,7 @@ where
 pub struct DampedModes<const D: usize> {
     /// The undamped modes of the stiffness at rest.
     pub modes: Modes<D>,
-    /// The fraction of critical damping of each mode.
+    /// The fraction of critical damping of each mode, taken as zero for a mode of zero frequency.
     pub damping_ratios: Vec<Scalar>,
 }
 

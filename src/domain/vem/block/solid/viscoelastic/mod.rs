@@ -73,7 +73,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocities,
-        nodal_stiffnesses: &mut NodalDampingsSolid,
+        nodal_dampings: &mut NodalDampingsSolid,
     ) -> Result<(), ElementModelError> {
         self.elements()
             .iter()
@@ -92,7 +92,7 @@ where
                             .into_iter()
                             .zip(nodes)
                             .for_each(|(nodal_stiffness, &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                                nodal_dampings[node_a][node_b] += nodal_stiffness
                             })
                     });
                 Ok::<(), VirtualElementError>(())

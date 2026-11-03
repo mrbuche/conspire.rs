@@ -58,7 +58,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+        nodal_dampings: &mut NodalDampingsSolid<D>,
     ) -> Result<(), ElementModelError>;
     /// Computes the derivatives of the nodal forces with respect to the nodal velocities.
     fn nodal_dampings(
@@ -66,9 +66,9 @@ where
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
     ) -> Result<NodalDampingsSolid<D>, ElementModelError> {
-        let mut nodal_stiffnesses = NodalDampingsSolid::zero(nodal_coordinates.len());
-        self.nodal_dampings_into(nodal_coordinates, nodal_velocities, &mut nodal_stiffnesses)?;
-        Ok(nodal_stiffnesses)
+        let mut nodal_dampings = NodalDampingsSolid::zero(nodal_coordinates.len());
+        self.nodal_dampings_into(nodal_coordinates, nodal_velocities, &mut nodal_dampings)?;
+        Ok(nodal_dampings)
     }
 }
 
@@ -98,10 +98,10 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+        nodal_dampings: &mut NodalDampingsSolid<D>,
     ) -> Result<(), ElementModelError> {
         self.blocks
-            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
+            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_dampings)
     }
 }
 
@@ -136,12 +136,12 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+        nodal_dampings: &mut NodalDampingsSolid<D>,
     ) -> Result<(), ElementModelError> {
         self.0
-            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)?;
+            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_dampings)?;
         self.1
-            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
+            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_dampings)
     }
 }
 

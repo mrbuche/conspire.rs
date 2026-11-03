@@ -329,6 +329,11 @@ where
     type Unit;
     /// Adds a multiple of another tensor in place.
     fn axpy(&mut self, factor: TensorRank0, other: &Self) {
+        debug_assert_eq!(
+            self.len(),
+            other.len(),
+            "axpy of tensors of different lengths"
+        );
         self.iter_mut()
             .zip(other.iter())
             .for_each(|(entry, other_entry)| entry.axpy(factor, other_entry));

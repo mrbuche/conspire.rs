@@ -135,6 +135,21 @@ fn rejects_an_impossible_count() {
 }
 
 #[test]
+fn rejects_more_pairs_than_the_basis_holds() {
+    let n = 40;
+    let k = stiffness(n);
+    let m = vec![1.0; n];
+    let a = shifted(&k, &m, -0.1);
+    let error = Lanczos {
+        max_steps: 4,
+        ..Default::default()
+    }
+    .solve(inverse(&a), diagonal(&m), -0.1, n, 5)
+    .unwrap_err();
+    assert!(matches!(error, LanczosError::BasisTooSmall(5, 4)));
+}
+
+#[test]
 fn reports_an_unconverged_solve() {
     let n = 40;
     let k = stiffness(n);

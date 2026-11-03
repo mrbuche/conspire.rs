@@ -64,6 +64,9 @@ impl Lanczos {
         if count == 0 || count > size {
             return Err(LanczosError::InvalidCount(count, size));
         }
+        if count > self.max_steps {
+            return Err(LanczosError::BasisTooSmall(count, self.max_steps));
+        }
         let mut state = SEED;
         let mut locked = self.run(&mut shift_invert, &mut mass, &[], size, count, &mut state)?;
         while locked.len() < size {
@@ -133,7 +136,8 @@ impl Lanczos {
             let finished = j == free || broke;
             if restart.is_none() && j >= want && (finished || j.is_multiple_of(CHECK) || j == limit)
             {
-                let (values, vectors) = tridiagonal(&alphas, &betas);
+                let (values, vectors) =
+                    tridiagonal(&alphas, &betas).ok_or(LanczosError::Tridiagonal(j))?;
                 let mut order: Vec<usize> = (0..j).collect();
                 order.sort_by(|&a, &b| values[b].abs().total_cmp(&values[a].abs()));
                 let wanted = &order[..want];
@@ -226,8 +230,12 @@ fn fresh(
 }
 
 /// Eigen-decomposition of a symmetric tridiagonal matrix by implicit QL:
-/// the eigenvalues, and `vectors[i][k]` the `i`-th component of eigenvector `k`.
-fn tridiagonal(diagonal: &[Scalar], off_diagonal: &[Scalar]) -> (Vec<Scalar>, Vec<Vec<Scalar>>) {
+/// the eigenvalues, and `vectors[i][k]` the `i`-th component of eigenvector `k`,
+/// or `None` if the iteration did not converge.
+fn tridiagonal(
+    diagonal: &[Scalar],
+    off_diagonal: &[Scalar],
+) -> Option<(Vec<Scalar>, Vec<Vec<Scalar>>)> {
     let n = diagonal.len();
     let mut d = diagonal.to_vec();
     let mut e = off_diagonal.to_vec();
@@ -243,6 +251,7 @@ fn tridiagonal(diagonal: &[Scalar], off_diagonal: &[Scalar]) -> (Vec<Scalar>, Ve
             m += 1;
         }
         if m > l {
+            let mut converged = false;
             for _ in 0..100 {
                 let mut g = d[l];
                 let mut p = (d[l + 1] - g) / (2.0 * e[l]);
@@ -282,22 +291,30 @@ fn tridiagonal(diagonal: &[Scalar], off_diagonal: &[Scalar]) -> (Vec<Scalar>, Ve
                 e[l] = s * p;
                 d[l] = c * p;
                 if e[l].abs() <= Scalar::EPSILON * tst1 {
+                    converged = true;
                     break;
                 }
+            }
+            if !converged {
+                return None;
             }
         }
         d[l] += f;
         e[l] = 0.0;
     }
-    (d, z)
+    Some((d, z))
 }
 
 /// Possible errors encountered during a Lanczos eigensolve.
 pub enum LanczosError {
     InvalidCount(usize, usize),
+    /// More eigenpairs were wanted than the largest Krylov basis holds.
+    BasisTooSmall(usize, usize),
     MaximumStepsReached(usize),
-    /// No directions were left to search after finding this many of the wanted pairs.
+    /// No directions were left to search after this many steps, short of the number of wanted pairs.
     Exhausted(usize, usize),
+    /// The eigenproblem of the Krylov basis of this size did not converge.
+    Tridiagonal(usize),
     ZeroStart,
 }
 
@@ -308,12 +325,18 @@ impl StyledError for LanczosError {
             Self::InvalidCount(count, size) => {
                 format!("{h}Cannot find {count} eigenpairs of a problem of size {size}.{c}")
             }
+            Self::BasisTooSmall(count, steps) => format!(
+                "{h}Cannot find {count} eigenpairs with a Krylov basis of at most {steps} vectors.{c}"
+            ),
             Self::MaximumStepsReached(steps) => {
                 format!("{h}The wanted eigenpairs did not converge in {steps} iterations.{c}")
             }
-            Self::Exhausted(found, wanted) => format!(
-                "{h}The space was exhausted after {found} of the {wanted} wanted eigenpairs.{c}\n\
+            Self::Exhausted(steps, wanted) => format!(
+                "{h}The space was exhausted after {steps} steps, short of the {wanted} wanted eigenpairs.{c}\n\
                 The mass may be singular on what is left."
+            ),
+            Self::Tridiagonal(size) => format!(
+                "{h}The eigenproblem of the Krylov basis of size {size} did not converge.{c}"
             ),
             Self::ZeroStart => format!("{h}The starting vector has no mass.{c}"),
         }

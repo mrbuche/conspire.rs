@@ -1,4 +1,4 @@
-use super::{HyperelasticModes, HyperviscoelasticModes};
+use super::{HyperelasticModes, HyperviscoelasticModes, ModalError};
 use crate::{
     constitutive::{
         canonical::Canonical,
@@ -323,9 +323,11 @@ where
     B: HyperelasticElements<3>,
 {
     let all = frequencies(model, &at_rest(), masses, lowest(), 12)?;
-    match frequencies(model, &at_rest(), masses, Quantity::new(all[4]), 3) {
-        Err(_) => Ok(()),
-        Ok(found) => found.iter().try_for_each(|&value| {
+    match model.modes(&at_rest(), masses, &fixed(), Quantity::new(all[4]), 3) {
+        Err(ModalError::Unverified(_) | ModalError::Upstream(..)) => Ok(()),
+        Err(error) => Err(error.into()),
+        Ok(modes) => modes.frequencies.iter().try_for_each(|frequency| {
+            let value = frequency.value();
             let nearest = all
                 .iter()
                 .copied()

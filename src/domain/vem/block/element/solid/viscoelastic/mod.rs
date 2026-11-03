@@ -193,7 +193,7 @@ where
         let inverse_num_nodes = 1.0 / num_nodes as Scalar;
         let tetrahedra_coordinates = self.tetrahedra_coordinates(nodal_coordinates);
         let tetrahedra_velocities = self.tetrahedra_coordinates(nodal_velocities);
-        let mut stiffnesses = self
+        let mut dampings = self
             .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(
@@ -240,12 +240,12 @@ where
             )
             .sum::<ElementNodalDampingsSolid>();
         let num_faces = self.faces_nodes().len();
-        let mut faces_stiffnesses = vec![Damping::zero(); num_faces];
+        let mut faces_dampings = vec![Damping::zero(); num_faces];
         let mut faces_rows = vec![Damping::zero(); num_faces];
         let mut faces_columns = vec![Damping::zero(); num_faces];
         let mut rows = vec![Damping::zero(); num_nodes];
         let mut columns = vec![Damping::zero(); num_nodes];
-        let mut center_stiffness = Damping::zero();
+        let mut center_damping = Damping::zero();
         self.tetrahedra()
             .iter()
             .zip(
@@ -259,37 +259,39 @@ where
                     (tetrahedron, (tetrahedron_coordinates, tetrahedron_velocities)),
                     &[face, node_b, node_a],
                 )| {
-                    let nodal_stiffnesses = tetrahedron.nodal_dampings(
+                    let tetrahedron_dampings = tetrahedron.nodal_dampings(
                         constitutive_model,
                         tetrahedron_coordinates,
                         tetrahedron_velocities,
                     )?;
                     let face_nodes = &self.faces_nodes()[face];
                     let weight = stabilization / face_nodes.len() as Scalar;
-                    faces_stiffnesses[face] += &nodal_stiffnesses[0][0];
-                    faces_rows[face] += &nodal_stiffnesses[0][3];
-                    faces_columns[face] += &nodal_stiffnesses[3][0];
-                    let face_node_b = &nodal_stiffnesses[0][1] * weight;
-                    let face_node_a = &nodal_stiffnesses[0][2] * weight;
-                    let node_b_face = &nodal_stiffnesses[1][0] * weight;
-                    let node_a_face = &nodal_stiffnesses[2][0] * weight;
+                    faces_dampings[face] += &tetrahedron_dampings[0][0];
+                    faces_rows[face] += &tetrahedron_dampings[0][3];
+                    faces_columns[face] += &tetrahedron_dampings[3][0];
+                    let face_node_b = &tetrahedron_dampings[0][1] * weight;
+                    let face_node_a = &tetrahedron_dampings[0][2] * weight;
+                    let node_b_face = &tetrahedron_dampings[1][0] * weight;
+                    let node_a_face = &tetrahedron_dampings[2][0] * weight;
                     face_nodes.iter().for_each(|&face_node| {
-                        stiffnesses[face_node][node_b] += &face_node_b;
-                        stiffnesses[face_node][node_a] += &face_node_a;
-                        stiffnesses[node_b][face_node] += &node_b_face;
-                        stiffnesses[node_a][face_node] += &node_a_face;
+                        dampings[face_node][node_b] += &face_node_b;
+                        dampings[face_node][node_a] += &face_node_a;
+                        dampings[node_b][face_node] += &node_b_face;
+                        dampings[node_a][face_node] += &node_a_face;
                     });
-                    stiffnesses[node_b][node_b] += &nodal_stiffnesses[1][1] * stabilization;
-                    stiffnesses[node_b][node_a] += &nodal_stiffnesses[1][2] * stabilization;
-                    stiffnesses[node_a][node_b] += &nodal_stiffnesses[2][1] * stabilization;
-                    stiffnesses[node_a][node_a] += &nodal_stiffnesses[2][2] * stabilization;
-                    rows[node_b] += &nodal_stiffnesses[1][3] * (stabilization * inverse_num_nodes);
-                    rows[node_a] += &nodal_stiffnesses[2][3] * (stabilization * inverse_num_nodes);
+                    dampings[node_b][node_b] += &tetrahedron_dampings[1][1] * stabilization;
+                    dampings[node_b][node_a] += &tetrahedron_dampings[1][2] * stabilization;
+                    dampings[node_a][node_b] += &tetrahedron_dampings[2][1] * stabilization;
+                    dampings[node_a][node_a] += &tetrahedron_dampings[2][2] * stabilization;
+                    rows[node_b] +=
+                        &tetrahedron_dampings[1][3] * (stabilization * inverse_num_nodes);
+                    rows[node_a] +=
+                        &tetrahedron_dampings[2][3] * (stabilization * inverse_num_nodes);
                     columns[node_b] +=
-                        &nodal_stiffnesses[3][1] * (stabilization * inverse_num_nodes);
+                        &tetrahedron_dampings[3][1] * (stabilization * inverse_num_nodes);
                     columns[node_a] +=
-                        &nodal_stiffnesses[3][2] * (stabilization * inverse_num_nodes);
-                    center_stiffness += &nodal_stiffnesses[3][3]
+                        &tetrahedron_dampings[3][2] * (stabilization * inverse_num_nodes);
+                    center_damping += &tetrahedron_dampings[3][3]
                         * (stabilization * inverse_num_nodes * inverse_num_nodes);
                     Ok::<(), FiniteElementError>(())
                 },
@@ -298,13 +300,13 @@ where
         self.faces_nodes()
             .iter()
             .zip(
-                faces_stiffnesses
+                faces_dampings
                     .iter()
                     .zip(faces_rows.iter().zip(faces_columns.iter())),
             )
-            .for_each(|(face_nodes, (face_stiffness, (face_row, face_column)))| {
+            .for_each(|(face_nodes, (face_damping, (face_row, face_column)))| {
                 let inverse_num_nodes_face = 1.0 / face_nodes.len() as Scalar;
-                let face_stiffness = face_stiffness
+                let face_damping = face_damping
                     * (stabilization * inverse_num_nodes_face * inverse_num_nodes_face);
                 let face_row =
                     face_row * (stabilization * inverse_num_nodes_face * inverse_num_nodes);
@@ -314,16 +316,16 @@ where
                     rows[face_node_a] += &face_row;
                     columns[face_node_a] += &face_column;
                     face_nodes.iter().for_each(|&face_node_b| {
-                        stiffnesses[face_node_a][face_node_b] += &face_stiffness
+                        dampings[face_node_a][face_node_b] += &face_damping
                     })
                 })
             });
-        rows.iter_mut().for_each(|row| *row += &center_stiffness);
-        stiffnesses
+        rows.iter_mut().for_each(|row| *row += &center_damping);
+        dampings
             .iter_mut()
             .zip(rows.iter())
-            .for_each(|(stiffness, row)| {
-                stiffness
+            .for_each(|(damping, row)| {
+                damping
                     .iter_mut()
                     .zip(columns.iter())
                     .for_each(|(entry, column)| {
@@ -331,6 +333,6 @@ where
                         *entry += column
                     })
             });
-        Ok(stiffnesses)
+        Ok(dampings)
     }
 }
