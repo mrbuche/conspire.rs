@@ -16,6 +16,8 @@ pub(crate) mod hyperviscoelastic;
 pub(crate) mod loads;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod mass;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod modal;
 pub(crate) mod time_scale;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod viscoelastic;
