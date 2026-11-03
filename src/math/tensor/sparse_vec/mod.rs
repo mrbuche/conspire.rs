@@ -128,6 +128,12 @@ where
 {
     type Item = T;
     type Unit = T::Unit;
+    fn axpy(&mut self, factor: TensorRank0, other: &Self) {
+        other
+            .0
+            .iter()
+            .for_each(|(column, entry)| self[*column].axpy(factor, entry));
+    }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter().map(|(_, entry)| entry)
     }
