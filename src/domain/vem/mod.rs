@@ -46,7 +46,10 @@ pub use crate::domain::{
     NodalVelocitiesHistory,
     solid::{
         NodalForcesSolid,
-        dynamics::{ElasticExplicitDynamics, ElasticImplicitDynamics},
+        dynamics::{
+            Checked, Consistent, ElasticExplicitDynamics, ElasticImplicitDynamics, Execution,
+            Lumped, MassChoice, Stability, Unchecked,
+        },
     },
 };
 

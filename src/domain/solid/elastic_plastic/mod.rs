@@ -3,7 +3,7 @@ use crate::{
     domain::{
         ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        block::{element::Elements, solver_from_neighbors},
         boundary::{ConstrainAt, LoadAt, LoadStiffnessAt},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
@@ -442,9 +442,7 @@ where
         let mut state_history = Vec::new();
         coordinates_history.push(nodal_coordinates.clone());
         state_history.push(state.clone());
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
+        let neighbors = self.finalized_neighbors();
         let mut system = match strategy {
             SolveStrategy::Condensed(_) => None,
             SolveStrategy::Monolithic { .. } => Some(

@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod test;
 
+mod choice;
+
+pub use choice::{Consistent, Lumped, MassChoice};
+
 use crate::{
     domain::{
         Blocks, ElementModel, Model, NodalAccelerations, NodalReferenceCoordinates,

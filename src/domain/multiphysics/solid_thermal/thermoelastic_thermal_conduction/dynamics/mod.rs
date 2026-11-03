@@ -1,7 +1,11 @@
 pub mod implicit;
+mod stability;
 pub mod time_scale;
 
-use self::time_scale::ThermoelasticThermalConductionTimeScaleElements;
+#[cfg_attr(not(feature = "fem"), allow(unused_imports))]
+pub use crate::domain::stability::{Checked, Unchecked};
+pub use stability::Stability;
+
 use super::{motion::Motion, rates::ThermoelasticThermalConductionRateElements};
 use crate::{
     domain::{
@@ -11,19 +15,18 @@ use crate::{
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, join_states,
         },
-        solid::mass::{InverseMass, MassMatrix, NodalLumpedMasses},
+        solid::mass::{InverseMass, MassChoice, MassMatrix},
         thermal::{
             NodalTemperatures,
             capacity::{
-                HeatCapacityMatrix, InverseHeatCapacity, NodalLumpedHeatCapacities,
-                NodalTemperatureRates,
+                CapacityChoice, HeatCapacityMatrix, InverseHeatCapacity, NodalTemperatureRates,
             },
             transient::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
     },
     math::{
-        Quantity, Scalar, Tensor,
-        integrate::{ExplicitDynamicsCoupled, IntegrationError, Spectrum, Times},
+        Quantity, Tensor,
+        integrate::{ExplicitDynamicsCoupled, IntegrationError, Times},
     },
     units::Time,
 };
@@ -76,7 +79,10 @@ where
 }
 
 /// The motion and temperatures of a thermoelastic model that conducts heat.
-pub trait ThermoelasticThermalConductionDynamics {
+pub trait ThermoelasticThermalConductionDynamics
+where
+    Self: Sized,
+{
     #[expect(clippy::too_many_arguments)]
     fn nodal_rates(
         &self,
@@ -90,13 +96,20 @@ pub trait ThermoelasticThermalConductionDynamics {
     ) -> Result<(NodalAccelerations<3>, NodalTemperatureRates), ElementModelError>;
     /// Integrates the motion and temperatures of the model with an explicit coupled integrator.
     ///
-    /// The masses and heat capacities may be lumped or consistent. Fixed degrees of freedom,
-    /// whose indices are `4 * node + component` with the temperature as the last component, are
+    /// The masses are those of `mass` ([`Lumped`](crate::domain::lumping::Lumped) or
+    /// [`Consistent`](crate::domain::lumping::Consistent)) that the blocks of the model make,
+    /// and the heat capacities those of `capacity`, in the same way.
+    /// `stability` ([`Unchecked`] or [`Checked`]) says whether the time step is checked against
+    /// the stability limit, which a policy may only do for some choices of masses and heat
+    /// capacities. Fixed degrees of freedom, whose indices are `4 * node + component` with the temperature as the last component, are
     /// held by giving them no velocity or rate of change, so that their initial values are the
     /// ones prescribed. Linear constraints are not supported.
     #[expect(clippy::too_many_arguments)]
-    fn integrate(
+    fn integrate<C, K>(
         &self,
+        stability: impl Stability<Self, C, K>,
+        mass: C,
+        capacity: K,
         integrator: &impl ExplicitDynamicsCoupled<
             NodalCoordinates<3>,
             NodalTemperatures,
@@ -110,44 +123,11 @@ pub trait ThermoelasticThermalConductionDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
-        masses: &impl MassMatrix<3>,
-        capacities: &impl HeatCapacityMatrix,
-        conditions: &impl ConstrainAt<SolidThermal<3>>,
-    ) -> Result<Solution, IntegrationError>;
-    /// Integrates the motion and temperatures of the model like [`integrate`](Self::integrate),
-    /// with a time step limited by the fastest time scales of the elements.
-    ///
-    /// Only lumped masses and heat capacities are accepted, since the estimates of the highest
-    /// frequency and of the largest eigenvalue are those of the lumped ones, which consistent
-    /// ones exceed. The estimates assemble the element stiffnesses, and are refreshed every
-    /// `interval` evaluations of the bound, which for the integrators here is every step. The
-    /// time step may use at most the fraction `safety` of the stability limit, which is the
-    /// stricter of that of the motion along the imaginary axis and of the diffusion along the
-    /// real axis, and a step above it is an error.
-    #[expect(clippy::too_many_arguments)]
-    fn integrate_bounded(
-        &self,
-        integrator: &impl ExplicitDynamicsCoupled<
-            NodalCoordinates<3>,
-            NodalTemperatures,
-            NodalCoordinatesHistory<3>,
-            NodalVelocitiesHistory<3>,
-            NodalAccelerationsHistory<3>,
-            NodalTemperaturesHistory,
-            NodalTemperatureRatesHistory,
-        >,
-        safety: Scalar,
-        interval: usize,
-        time: &[Quantity<Time>],
-        initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
-        initial_temperatures: NodalTemperatures,
-        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
-        masses: &NodalLumpedMasses,
-        capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>
     where
-        Self: ThermoelasticThermalConductionTimeScaleElements;
+        C: MassChoice<Self>,
+        K: CapacityChoice<Self>;
 }
 
 impl<B> ThermoelasticThermalConductionDynamics for Model<B, 3>
@@ -180,8 +160,11 @@ where
             capacities.nodal_temperature_rates(&unbalanced_heating),
         ))
     }
-    fn integrate(
+    fn integrate<C, K>(
         &self,
+        stability: impl Stability<Self, C, K>,
+        mass: C,
+        capacity: K,
         integrator: &impl ExplicitDynamicsCoupled<
             NodalCoordinates<3>,
             NodalTemperatures,
@@ -195,95 +178,20 @@ where
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
-        masses: &impl MassMatrix<3>,
-        capacities: &impl HeatCapacityMatrix,
-        conditions: &impl ConstrainAt<SolidThermal<3>>,
-    ) -> Result<Solution, IntegrationError> {
-        let initial_time = *time
-            .first()
-            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
-        let (masses, capacities, initial_velocities, motion) = held(
-            masses,
-            capacities,
-            conditions,
-            initial_time,
-            &mut initial_coordinates,
-            &mut initial_temperatures,
-            initial_velocities,
-            "explicit thermoelastic-thermal dynamics",
-            Stepping::Explicit,
-        )?;
-        let (times, mut coordinates, velocities, accelerations, mut temperatures, rates) =
-            integrator.integrate_coupled(
-                |time,
-                 coordinates: &NodalCoordinates<3>,
-                 velocities: &NodalVelocities<3>,
-                 temperatures: &NodalTemperatures| {
-                    let (mut coordinates, mut temperatures) =
-                        (coordinates.clone(), temperatures.clone());
-                    motion.apply(time, &mut coordinates, &mut temperatures);
-                    self.nodal_rates(
-                        &coordinates,
-                        velocities,
-                        &temperatures,
-                        time,
-                        applied_loads,
-                        &masses,
-                        &capacities,
-                    )
-                    .map_err(|error| error.to_string())
-                },
-                time,
-                initial_coordinates,
-                initial_velocities,
-                initial_temperatures,
-            )?;
-        motion.record(&times, &mut coordinates, &mut temperatures);
-        Ok((
-            times,
-            coordinates,
-            velocities,
-            accelerations,
-            temperatures,
-            rates,
-        ))
-    }
-    fn integrate_bounded(
-        &self,
-        integrator: &impl ExplicitDynamicsCoupled<
-            NodalCoordinates<3>,
-            NodalTemperatures,
-            NodalCoordinatesHistory<3>,
-            NodalVelocitiesHistory<3>,
-            NodalAccelerationsHistory<3>,
-            NodalTemperaturesHistory,
-            NodalTemperatureRatesHistory,
-        >,
-        safety: Scalar,
-        interval: usize,
-        time: &[Quantity<Time>],
-        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
-        mut initial_temperatures: NodalTemperatures,
-        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
-        masses: &NodalLumpedMasses,
-        capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>
     where
-        Self: ThermoelasticThermalConductionTimeScaleElements,
+        C: MassChoice<Self>,
+        K: CapacityChoice<Self>,
     {
-        if interval == 0 {
-            return Err(IntegrationError::Intermediate(
-                "The interval between estimates of the time scales must be at least one."
-                    .to_string(),
-            ));
-        }
         let initial_time = *time
             .first()
             .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let masses = mass.masses(self);
+        let capacities = capacity.capacities(self);
         let (masses, capacities, initial_velocities, motion) = held(
-            masses,
-            capacities,
+            &masses,
+            &capacities,
             conditions,
             initial_time,
             &mut initial_coordinates,
@@ -292,13 +200,16 @@ where
             "explicit thermoelastic-thermal dynamics",
             Stepping::Explicit,
         )?;
-        let mut evaluations = 0;
-        let mut time_scales = (
-            Time::seconds(Scalar::INFINITY),
-            Time::seconds(Scalar::INFINITY),
-        );
         let (times, mut coordinates, velocities, accelerations, mut temperatures, rates) =
-            integrator.integrate_coupled_bounded(
+            stability.integrate(
+                self,
+                |time, coordinates, temperatures| {
+                    let (mut coordinates, mut temperatures) =
+                        (coordinates.clone(), temperatures.clone());
+                    motion.apply(time, &mut coordinates, &mut temperatures);
+                    (coordinates, temperatures)
+                },
+                integrator,
                 |time,
                  coordinates: &NodalCoordinates<3>,
                  velocities: &NodalVelocities<3>,
@@ -317,25 +228,8 @@ where
                     )
                     .map_err(|error| error.to_string())
                 },
-                |time,
-                 coordinates: &NodalCoordinates<3>,
-                 _: &NodalVelocities<3>,
-                 temperatures: &NodalTemperatures| {
-                    if evaluations % interval == 0 {
-                        let (mut coordinates, mut temperatures) =
-                            (coordinates.clone(), temperatures.clone());
-                        motion.apply(time, &mut coordinates, &mut temperatures);
-                        time_scales = self
-                            .fastest_time_scales(&self.coordinates, &coordinates, &temperatures)
-                            .map_err(|error| error.to_string())?;
-                    }
-                    evaluations += 1;
-                    Ok(Spectrum::Mixed(time_scales.1, time_scales.0))
-                },
-                safety,
                 time,
-                initial_coordinates,
-                initial_velocities,
+                (initial_coordinates, initial_velocities),
                 initial_temperatures,
             )?;
         motion.record(&times, &mut coordinates, &mut temperatures);

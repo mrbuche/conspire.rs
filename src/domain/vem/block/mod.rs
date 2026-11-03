@@ -12,7 +12,7 @@ mod time_scale;
 mod volume;
 
 use crate::{
-    domain::block::{add_node_neighbors, element::Elements, trimmed_type_name},
+    domain::block::{element::Items, trimmed_type_name},
     geometry::mesh::PolytopalConnectivity,
     math::{Scalar, TensorRank1Vec},
     vem::{NodalReferenceCoordinates, block::element::VirtualElement},
@@ -67,12 +67,12 @@ impl<C, F, R> Debug for Block<C, F, R> {
     }
 }
 
-impl<C, F, R> Elements for Block<C, F, R> {
-    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        add_node_neighbors(
-            self.elements_nodes().iter().map(|nodes| nodes.as_slice()),
-            neighbors,
-        )
+impl<C, F, R> Items for Block<C, F, R> {
+    fn number_of_items(&self) -> usize {
+        self.elements().len()
+    }
+    fn nodes_of(&self, item: usize) -> &[usize] {
+        &self.elements_nodes()[item]
     }
 }
 

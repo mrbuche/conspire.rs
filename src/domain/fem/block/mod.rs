@@ -14,9 +14,9 @@ mod time_scale;
 pub mod volume;
 
 use crate::{
-    domain::block::{add_node_neighbors, trimmed_type_name},
+    domain::block::{element::Items, trimmed_type_name},
     fem::{
-        Elements, NodalReferenceCoordinates,
+        NodalReferenceCoordinates,
         block::element::{
             ElementNodalReferenceCoordinates, FiniteElement,
             planar::PlanarElementNodalReferenceCoordinates,
@@ -91,16 +91,16 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> Elements
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> Items
     for Block<C, F, G, M, N, P, R, H>
 where
     F: FiniteElement<G, M, N, P>,
 {
-    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        add_node_neighbors(
-            self.connectivity().iter().map(|nodes| nodes.as_slice()),
-            neighbors,
-        )
+    fn number_of_items(&self) -> usize {
+        self.elements().len()
+    }
+    fn nodes_of(&self, item: usize) -> &[usize] {
+        &self.connectivity().iter().as_slice()[item]
     }
 }
 
@@ -205,5 +205,3 @@ where
             .into()
     }
 }
-
-pub(crate) use crate::domain::block::{finalize_node_neighbors, solver_from_neighbors};

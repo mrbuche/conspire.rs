@@ -42,7 +42,7 @@ pub mod solid;
 pub mod thermal {
     pub mod capacity {
         pub use crate::domain::thermal::capacity::{
-            FixedLumpedHeatCapacities, HeatCapacityMatrix, InertialHeatCapacity,
+            CapacityChoice, FixedLumpedHeatCapacities, HeatCapacityMatrix, InertialHeatCapacity,
             InverseHeatCapacity, LumpedHeatCapacityElements, NodalLumpedHeatCapacities,
             NodalTemperatureRates,
         };
@@ -67,7 +67,10 @@ pub use crate::domain::{
     block::element::Elements,
     solid::{
         NodalDampingsSolid, NodalForcesSolid, NodalStiffnessesSolid, SolidElements,
-        dynamics::{ElasticExplicitDynamics, ElasticImplicitDynamics},
+        dynamics::{
+            Checked, Consistent, ElasticExplicitDynamics, ElasticImplicitDynamics, Execution,
+            Lumped, MassChoice, Stability, Unchecked,
+        },
         elastic::ElasticElements,
         elastic_hyperviscous::ElasticHyperviscousElements,
         elastic_viscoplastic::ElasticViscoplasticElements,

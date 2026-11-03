@@ -1,17 +1,13 @@
 use crate::{
-    cbm::{
-        ElasticElements, ElasticExplicitDynamics, Model, NodalCoordinates,
-        NodalReferenceCoordinates, NodalVelocities, block::Block,
-    },
+    cbm::{ElasticElements, Model, NodalCoordinates, NodalReferenceCoordinates, block::Block},
     constitutive::solid::hyperelastic::NeoHookean,
-    domain::solid::dynamics::test::fixed_dofs,
     domain::{
         solid::time_scale::TimeScaleElements,
         time_scale::{largest_eigenvalue, time_scale_from_eigenvalue},
     },
     geometry::mesh::PrimitiveConnectivity,
-    math::{Quantity, Tensor, integrate::VelocityVerlet},
-    units::{Density, Stress, Time},
+    math::{Quantity, Tensor},
+    units::{Density, Stress},
 };
 
 const DENSITY: Quantity<Density> = Density::kilograms_per_cubic_meter(7.8e3);
@@ -127,34 +123,4 @@ fn a_stiffer_body_is_faster() {
         .in_seconds()
     };
     assert!(stiff(4.0) < stiff(1.0));
-}
-
-#[test]
-fn a_bounded_integration_runs_below_the_limit_and_errors_above_it() {
-    let model = model(COORDINATES);
-    let masses = model.nodal_lumped_masses();
-    let limit = model
-        .fastest_time_scale(
-            &NodalReferenceCoordinates::from(COORDINATES),
-            &NodalCoordinates::from(COORDINATES),
-        )
-        .unwrap()
-        .in_seconds();
-    let run = |dt: f64| {
-        model.integrate_bounded(
-            &VelocityVerlet::new(Time::seconds(dt)),
-            1.0,
-            1,
-            &[Time::seconds(0.0), Time::seconds(10.0 * dt)],
-            (
-                NodalCoordinates::from(COORDINATES),
-                NodalVelocities::from(COORDINATES.map(|_| [0.0; 3])),
-            ),
-            &(),
-            &masses,
-            &fixed_dofs(&[]),
-        )
-    };
-    assert!(run(0.5 * limit).is_ok());
-    assert!(run(4.0 * limit).is_err());
 }

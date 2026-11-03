@@ -5,7 +5,7 @@ use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, Minimize, Model, NodalState, ProvidesTangent,
         Root, SolverFor,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        block::element::Elements,
         boundary::{Conservative, Constrain, Load, LoadStiffness},
     },
     math::{
@@ -144,12 +144,7 @@ where
         Self: ProvidesTangent<NodalFields<L>, S::Tangent>,
     {
         let equality_constraint = boundary_conditions.constraint();
-        let sparse = S::SPARSE.then(|| {
-            let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-            self.node_neighbors(&mut neighbors);
-            finalize_node_neighbors(&mut neighbors);
-            solver_from_neighbors(&neighbors, &equality_constraint, 1, true)
-        });
+        let sparse = S::SPARSE.then(|| self.sparse_solver(&equality_constraint, 1, true));
         solver.root(
             |nodal_fields: &NodalFields<L>| {
                 let mut nodal_forces = self.nodal_forces(nodal_fields)?;
@@ -199,12 +194,7 @@ where
         Self: ProvidesTangent<NodalFields<L>, S::Tangent>,
     {
         let equality_constraint = boundary_conditions.constraint();
-        let sparse = S::SPARSE.then(|| {
-            let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-            self.node_neighbors(&mut neighbors);
-            finalize_node_neighbors(&mut neighbors);
-            solver_from_neighbors(&neighbors, &equality_constraint, 1, true)
-        });
+        let sparse = S::SPARSE.then(|| self.sparse_solver(&equality_constraint, 1, true));
         solver.minimize(
             |nodal_fields: &NodalFields<L>| {
                 Ok(self.potential(nodal_fields)? + applied_loads.potential_energy(nodal_fields)?)

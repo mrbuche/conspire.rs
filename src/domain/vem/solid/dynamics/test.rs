@@ -10,8 +10,9 @@ use crate::{
     },
     units::{Density, Energy, STANDARD_GRAVITY, Stress, Time},
     vem::{
-        ElasticExplicitDynamics, ElasticImplicitDynamics, Model, NodalAccelerations,
-        NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        ElasticExplicitDynamics, ElasticImplicitDynamics, Execution, Lumped, MassChoice, Model,
+        NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        Unchecked,
         block::{
             Block,
             element::{DEFAULT_STABILIZATION, Element},
@@ -64,18 +65,18 @@ fn uniform_velocities(velocity: [f64; 3]) -> NodalVelocities {
     COORDINATES.map(|_| velocity).into()
 }
 
-fn weights(
-    masses: &impl crate::domain::solid::mass::InertialMass<3>,
+fn weights<T, C>(
+    model: &Model<T, 3>,
+    mass: C,
 ) -> crate::domain::boundary::Loads<
     crate::domain::boundary::Solid<3>,
     ((), crate::domain::solid::loads::DeadLoad),
-> {
+>
+where
+    C: MassChoice<Model<T, 3>>,
+{
     crate::domain::boundary::Loads::<crate::domain::boundary::Solid<3>>::new()
-        .body_acceleration(
-            &NodalReferenceCoordinates::from(COORDINATES),
-            masses,
-            &gravity()[0],
-        )
+        .body_acceleration(model, mass, &gravity()[0])
         .unwrap()
 }
 
@@ -119,10 +120,12 @@ mod explicit {
     #[test]
     fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-4);
-        let masses = model.nodal_lumped_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Lumped);
         let (times, coordinates, velocities, accelerations) = ElasticExplicitDynamics::integrate(
             &model,
+            Execution::Serial,
+            Unchecked,
+            Lumped,
             &VelocityVerlet::new(Time::seconds(dt)),
             &time(dt, 100),
             (
@@ -130,7 +133,6 @@ mod explicit {
                 uniform_velocities([0.0; 3]),
             ),
             &weights,
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let (elapsed, g) = (
@@ -159,9 +161,9 @@ mod implicit {
     #[test]
     fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
-        let masses = model.nodal_lumped_masses();
         let (times, coordinates, ..) = ElasticImplicitDynamics::integrate(
             &model,
+            Lumped,
             &integrator(dt),
             solver(1e-3),
             &time(dt, STEPS),
@@ -170,7 +172,6 @@ mod implicit {
                 uniform_velocities([3.0, -1.0, 2.0]),
             ),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
@@ -181,10 +182,10 @@ mod implicit {
     #[test]
     fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
-        let masses = model.nodal_lumped_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Lumped);
         let (times, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
+            Lumped,
             &integrator(dt),
             solver(1e-3),
             &time(dt, STEPS),
@@ -193,7 +194,6 @@ mod implicit {
                 uniform_velocities([0.0; 3]),
             ),
             &weights,
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let (elapsed, g) = (
@@ -215,10 +215,10 @@ mod implicit {
     #[test]
     fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
-        let masses = model.nodal_lumped_masses();
-        let weights = weights(&masses);
+        let weights = weights(&model, Lumped);
         let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
+            Lumped,
             &integrator(dt),
             solver(1e-3),
             &time(dt, STEPS),
@@ -227,7 +227,6 @@ mod implicit {
                 uniform_velocities([3.0, 0.0, 4.0]),
             ),
             &weights,
-            &masses,
             &fixed_dofs(&[0, 1, 2, 5]),
         )?;
         let last = &coordinates[STEPS];
@@ -241,26 +240,27 @@ mod implicit {
     #[test]
     fn a_released_stretch_follows_the_explicit_motion() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 2e-5);
-        let masses = model.nodal_lumped_masses();
         let interval = time(dt, 100);
         let state = || (stretched(), uniform_velocities([0.0; 3]));
         let (_, implicit, ..) = ElasticImplicitDynamics::integrate(
             &model,
+            Lumped,
             &integrator(dt),
             solver(1.0),
             &interval,
             state(),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
+            Execution::Serial,
+            Unchecked,
+            Lumped,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let moved = (implicit[100][4][2] - implicit[0][4][2]).norm().value();
@@ -279,12 +279,12 @@ mod implicit {
         let steps = 200;
         let (_, coordinates, velocities, _) = ElasticImplicitDynamics::integrate(
             &model,
+            Lumped,
             &integrator(dt),
             solver(1.0),
             &time(dt, steps),
             (stretched(), uniform_velocities([0.0; 3])),
             &(),
-            &masses,
             &fixed_dofs(&[]),
         )?;
         let energy = |step: usize| -> Quantity<Energy> {
