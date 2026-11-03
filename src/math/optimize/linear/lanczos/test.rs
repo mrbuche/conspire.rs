@@ -148,3 +148,54 @@ fn reports_an_unconverged_solve() {
     .unwrap_err();
     assert!(matches!(error, LanczosError::MaximumStepsReached(4)));
 }
+
+fn divided_by(d: Vec<Scalar>) -> impl FnMut(&Vector) -> Vector {
+    move |x| x.as_slice().iter().zip(&d).map(|(x, d)| x / d).collect()
+}
+
+fn repeated(multiplicity: usize, distinct: usize) -> Vec<Scalar> {
+    (1..=distinct)
+        .flat_map(|value| vec![value as Scalar; multiplicity])
+        .collect()
+}
+
+fn pencil(spectrum: &[Scalar], shift: Scalar, count: usize) -> Result<Vec<Scalar>, LanczosError> {
+    let size = spectrum.len();
+    let ones = vec![1.0; size];
+    Lanczos::default()
+        .solve(
+            divided_by(spectrum.iter().map(|k| k - shift).collect()),
+            diagonal(&ones),
+            shift,
+            size,
+            count,
+        )
+        .map(|pairs| pairs.values)
+}
+
+#[test]
+fn double_eigenvalues_are_found_twice() -> Result<(), AssertionError> {
+    let found = pencil(&repeated(2, 10), -0.5, 6)?;
+    within(1e-10).eq_within_tols(
+        Vector::from(found),
+        Vector::from(vec![1.0, 1.0, 2.0, 2.0, 3.0, 3.0]),
+    )
+}
+
+#[test]
+fn triple_eigenvalues_are_found_three_times() -> Result<(), AssertionError> {
+    let found = pencil(&repeated(3, 8), -0.5, 7)?;
+    within(1e-10).eq_within_tols(
+        Vector::from(found),
+        Vector::from(vec![1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0]),
+    )
+}
+
+#[test]
+fn more_modes_than_distinct_eigenvalues_are_found() -> Result<(), AssertionError> {
+    let found = pencil(&repeated(2, 3), -0.5, 5)?;
+    within(1e-10).eq_within_tols(
+        Vector::from(found),
+        Vector::from(vec![1.0, 1.0, 2.0, 2.0, 3.0]),
+    )
+}
