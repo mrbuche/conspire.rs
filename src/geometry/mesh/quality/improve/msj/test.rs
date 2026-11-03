@@ -1,7 +1,7 @@
 use super::{
-    Energy, Gradient, Reach, SERIAL, Surface, bounded, displacements,
+    Energy, Gradient, Reach, SERIAL, bounded, displacements,
     kind::{HEXAHEDRON, KINDS},
-    node_scales, scales,
+    scales,
 };
 use crate::{
     geometry::{
@@ -9,10 +9,7 @@ use crate::{
         mesh::{Connectivity, Dualization, Fitting, Mesh, MeshError, Tessellation, Verdict},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
-    math::{
-        Quantity, QuantityVector, Scalar, Tensor, TensorListVec,
-        assert::{Assert, AssertionError},
-    },
+    math::{Quantity, Scalar, Tensor, TensorListVec},
     units::{Area, Dimensionless, Length},
 };
 use std::{collections::BTreeSet, f64::consts::TAU, sync::Mutex, time::Instant};
@@ -67,7 +64,7 @@ pub(super) fn terms(
     (value, slopes)
 }
 
-fn cube() -> Tessellation {
+pub(super) fn cube() -> Tessellation {
     let faces: Vec<[usize; 3]> = vec![
         [0, 2, 1],
         [0, 3, 2],
@@ -89,7 +86,7 @@ fn cube() -> Tessellation {
     .into()
 }
 
-fn grid(n: usize, wobble: Scalar) -> Mesh<3> {
+pub(super) fn grid(n: usize, wobble: Scalar) -> Mesh<3> {
     let id = |i: usize, j: usize, k: usize| i + (n + 1) * (j + (n + 1) * k);
     let mut coordinates = Vec::new();
     for k in 0..=n {
@@ -589,69 +586,6 @@ fn the_decayed_bound_never_exceeds_what_the_moved_hexahedron_still_has() {
         assert!(margin >= lower && shortest >= shorter, "seed {seed}");
     }
     assert_eq!(skipped, 200);
-}
-
-#[test]
-fn planes_do_not_depend_on_how_the_nodes_are_shared_among_threads() -> Result<(), AssertionError> {
-    let mesh = grid(15, 0.5);
-    let hexes: Vec<[usize; 8]> = mesh
-        .iter()
-        .flat_map(|block| match block {
-            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
-            _ => unreachable!(),
-        })
-        .collect();
-    let mut boundary: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
-    boundary.sort_unstable();
-    boundary.dedup();
-    assert!(boundary.len() > 2 * SERIAL);
-    let coordinates = mesh.coordinates().clone();
-    let sizes = node_scales(
-        &boundary,
-        &hexes,
-        &scales(&hexes, &vec![0u8; hexes.len()], &coordinates),
-        coordinates.len(),
-    );
-    let target = cube();
-    let surface = Surface::new(&target);
-    let planes = surface.planes(&boundary, &sizes, &coordinates);
-    let mut expected = Vec::new();
-    for (index, &node) in boundary.iter().enumerate() {
-        for mut plane in surface.planes(&[node], &sizes, &coordinates) {
-            plane.boundary = index;
-            expected.push(plane)
-        }
-    }
-    assert!(!planes.is_empty());
-    assert_eq!(planes.len(), expected.len());
-    for (plane, expected) in planes.iter().zip(&expected) {
-        assert_eq!(
-            (plane.boundary, plane.slot),
-            (expected.boundary, expected.slot)
-        );
-        Assert::eq(plane.offset.value(), expected.offset.value())?;
-        Assert::eq(&plane.normal, &expected.normal)?
-    }
-    Ok(())
-}
-
-#[test]
-fn a_node_beside_an_edge_keeps_the_planes_of_both_faces() -> Result<(), AssertionError> {
-    let target = cube();
-    let surface = Surface::new(&target);
-    let coordinates = Coordinates::from(vec![[1.005, -2.0e-5, 0.5]]);
-    let sizes: QuantityVector<Length> = [Quantity::new(0.33)].into_iter().collect();
-    let planes = surface.planes(&[0], &sizes, &coordinates);
-    assert_eq!(planes.len(), 2);
-    let has = |normal: [Scalar; 3], offset: Scalar| {
-        planes.iter().any(|plane| {
-            (0..3).all(|i| (plane.normal[i].value() - normal[i]).abs() < 1.0e-12)
-                && (plane.offset.value() - offset).abs() < 1.0e-12
-        })
-    };
-    assert!(has([1.0, 0.0, 0.0], 1.0));
-    assert!(has([0.0, -1.0, 0.0], 0.0));
-    Ok(())
 }
 
 fn tetrahedra(mesh: &Mesh<3>) -> Mesh<3> {
