@@ -8,7 +8,10 @@ use crate::{
         solid::{
             NodalStiffnessesSolid, elastic::ElasticElements,
             elastic_plastic::ElasticPlasticElements,
-            elastic_viscoplastic::ElasticViscoplasticElements, mass::InertialMass,
+            elastic_viscoplastic::ElasticViscoplasticElements, hyperelastic::HyperelasticElements,
+            hyperelastic_plastic::HyperelasticPlasticElements,
+            hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
+            hyperviscoelastic::HyperviscoelasticElements, mass::InertialMass,
             viscoelastic::ViscoelasticElements,
         },
     },
@@ -30,8 +33,8 @@ pub struct Modes<const D: usize> {
     pub shapes: Vec<TensorRank1Vec<D, Current>>,
 }
 
-/// Vibration of elastic solids about a given state.
-pub trait ElasticModes<const D: usize> {
+/// Vibration of hyperelastic solids about a given state.
+pub trait HyperelasticModes<const D: usize> {
     /// The `count` modes with angular frequencies nearest `near`, of small
     /// vibrations about the given coordinates.
     ///
@@ -49,9 +52,9 @@ pub trait ElasticModes<const D: usize> {
     ) -> Result<Modes<D>, ModalError>;
 }
 
-impl<B, const D: usize> ElasticModes<D> for Model<B, D>
+impl<B, const D: usize> HyperelasticModes<D> for Model<B, D>
 where
-    B: ElasticElements<D>,
+    B: HyperelasticElements<D>,
 {
     fn modes(
         &self,
@@ -68,8 +71,8 @@ where
     }
 }
 
-/// Vibration of elastic-viscoplastic solids about a given state.
-pub trait ElasticViscoplasticModes<S, const D: usize> {
+/// Vibration of hyperelastic-viscoplastic solids about a given state.
+pub trait HyperelasticViscoplasticModes<S, const D: usize> {
     /// The `count` modes with angular frequencies nearest `near`, of small
     /// vibrations about the given coordinates and state variables.
     ///
@@ -88,9 +91,9 @@ pub trait ElasticViscoplasticModes<S, const D: usize> {
     ) -> Result<Modes<D>, ModalError>;
 }
 
-impl<B, S, const D: usize> ElasticViscoplasticModes<S, D> for Model<B, D>
+impl<B, S, const D: usize> HyperelasticViscoplasticModes<S, D> for Model<B, D>
 where
-    B: ElasticViscoplasticElements<S, D>,
+    B: HyperelasticViscoplasticElements<S, D>,
     S: Differentiable,
 {
     fn modes(
@@ -133,8 +136,8 @@ impl<const D: usize> DampedModes<D> {
     }
 }
 
-/// Vibration of viscoelastic solids about a given state.
-pub trait ViscoelasticModes<const D: usize> {
+/// Vibration of hyperviscoelastic solids about a given state.
+pub trait HyperviscoelasticModes<const D: usize> {
     /// The `count` modes with angular frequencies nearest `near`, of small vibrations
     /// about the given coordinates, with the damping of each.
     ///
@@ -154,9 +157,9 @@ pub trait ViscoelasticModes<const D: usize> {
     ) -> Result<DampedModes<D>, ModalError>;
 }
 
-impl<B, const D: usize> ViscoelasticModes<D> for Model<B, D>
+impl<B, const D: usize> HyperviscoelasticModes<D> for Model<B, D>
 where
-    B: ViscoelasticElements<D>,
+    B: HyperviscoelasticElements<D>,
 {
     fn modes(
         &self,
@@ -196,8 +199,8 @@ where
     }
 }
 
-/// Vibration of elastic-plastic solids about a given state.
-pub trait ElasticPlasticModes<S, const D: usize> {
+/// Vibration of hyperelastic-plastic solids about a given state.
+pub trait HyperelasticPlasticModes<S, const D: usize> {
     /// The `count` modes with angular frequencies nearest `near`, of small
     /// vibrations about the given coordinates and plastic state.
     ///
@@ -217,9 +220,9 @@ pub trait ElasticPlasticModes<S, const D: usize> {
     ) -> Result<Modes<D>, ModalError>;
 }
 
-impl<B, S, const D: usize> ElasticPlasticModes<S, D> for Model<B, D>
+impl<B, S, const D: usize> HyperelasticPlasticModes<S, D> for Model<B, D>
 where
-    B: ElasticPlasticElements<S, D>,
+    B: HyperelasticPlasticElements<S, D>,
 {
     fn modes(
         &self,

@@ -161,6 +161,21 @@ mod plastic {
             .into()
     }
     plastic_bar_tests!(bar, 8, 1.1, 1e-8);
+    #[test]
+    fn the_free_energy_follows_the_hyperelastic_one_until_it_yields() -> Result<(), AssertionError>
+    {
+        use crate::domain::solid::{
+            elastic_plastic::ElasticPlasticElements as _,
+            modal::test::{plastic_free_energy_follows_the_elastic, plastic_state},
+        };
+        let model = bar();
+        plastic_free_energy_follows_the_elastic(
+            &model,
+            &model.initial_state(),
+            &plastic_state::<8>(model.initial_state(), 1.1),
+            &hexes(),
+        )
+    }
 }
 
 mod viscoelastic {

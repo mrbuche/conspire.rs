@@ -8,6 +8,8 @@ pub(crate) mod elastic_viscoplastic;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperelastic;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub(crate) mod hyperelastic_plastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperelastic_viscoplastic;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperviscoelastic;

@@ -1,4 +1,4 @@
-use super::{ElasticModes, ViscoelasticModes};
+use super::{HyperelasticModes, HyperviscoelasticModes};
 use crate::{
     constitutive::{
         canonical::Canonical,
@@ -15,8 +15,10 @@ use crate::{
         solid::{
             NodalForcesSolid,
             elastic::ElasticElements,
+            hyperelastic::HyperelasticElements,
+            hyperelastic_plastic::HyperelasticPlasticElements,
+            hyperviscoelastic::HyperviscoelasticElements,
             mass::{InertialMass, LumpedMassElements},
-            viscoelastic::ViscoelasticElements,
         },
     },
     math::{
@@ -162,7 +164,7 @@ pub(crate) fn frequencies<B>(
     count: usize,
 ) -> Result<Vec<f64>, AssertionError>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     Ok(model
         .modes(coordinates, masses, &fixed(), near, count)?
@@ -181,7 +183,7 @@ fn flat(shape: &TensorRank1Vec<3, Current>) -> Vec<f64> {
 
 fn stiffness_times<B>(model: &Model<B, 3>, coordinates: &NodalCoordinates<3>, x: &[f64]) -> Vec<f64>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     let tangent = model.nodal_stiffnesses(coordinates).unwrap();
     let mut product = vec![0.0; x.len()];
@@ -209,7 +211,7 @@ pub(crate) fn check_shapes<B>(
     masses: impl InertialMass<3>,
 ) -> Result<(), AssertionError>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     let modes = model.modes(coordinates, &masses, &fixed(), lowest(), 3)?;
     let shapes: Vec<Vec<f64>> = modes.shapes.iter().map(flat).collect();
@@ -254,7 +256,7 @@ pub(crate) fn follows_the_chain<B>(
     tol: f64,
 ) -> Result<(), AssertionError>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     stretches.iter().try_for_each(|&stretch| {
         (1..=highest).try_for_each(|n| {
@@ -275,7 +277,7 @@ pub(crate) fn is_below_the_continuous_bar<B>(
     masses: &impl InertialMass<3>,
 ) -> Result<(), AssertionError>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     (1..=3).try_for_each(|n| {
         let found = frequencies(model, &at_rest(), masses, Quantity::new(exact(n)), 1)?;
@@ -289,7 +291,7 @@ pub(crate) fn finds_the_modes_nearest_a_frequency<B>(
     masses: &impl InertialMass<3>,
 ) -> Result<(), AssertionError>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     let all = frequencies(model, &at_rest(), masses, lowest(), 12)?;
     let target = 0.5 * (all[4] + all[5]);
@@ -306,7 +308,7 @@ pub(crate) fn is_ascending<B>(
     masses: &impl InertialMass<3>,
 ) -> Result<(), AssertionError>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     let found = frequencies(model, &at_rest(), masses, lowest(), 5)?;
     assert!(found.windows(2).all(|pair| pair[0] < pair[1]));
@@ -318,7 +320,7 @@ pub(crate) fn never_returns_a_wrong_mode_for_a_shift_on_a_frequency<B>(
     masses: &impl InertialMass<3>,
 ) -> Result<(), AssertionError>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     let all = frequencies(model, &at_rest(), masses, lowest(), 12)?;
     match frequencies(model, &at_rest(), masses, Quantity::new(all[4]), 3) {
@@ -339,7 +341,7 @@ pub(crate) fn stretching_moves_the_frequencies<B>(
     masses: &impl InertialMass<3>,
 ) -> Result<(), AssertionError>
 where
-    B: ElasticElements<3>,
+    B: HyperelasticElements<3>,
 {
     let rest = frequencies(model, &at_rest(), masses, lowest(), 1)?[0];
     let stretch = 1.02;
@@ -425,6 +427,43 @@ pub(crate) fn plastic_state<const G: usize>(
     state
 }
 
+pub(crate) fn plastic_free_energy_follows_the_elastic<P, E, S>(
+    plastic: &Model<P, 3>,
+    unyielded: &S,
+    yielded: &S,
+    elastic: &Model<E, 3>,
+) -> Result<(), AssertionError>
+where
+    P: HyperelasticPlasticElements<S, 3>,
+    E: HyperelasticElements<3>,
+{
+    let stretched = stretched(1.03);
+    let scale = HyperelasticElements::helmholtz_free_energy(elastic, &stretched)?
+        .value()
+        .abs();
+    [at_rest(), stretched.clone()]
+        .iter()
+        .try_for_each(|coordinates| {
+            absolutely(1e-10 * scale).eq_within_tols(
+                HyperelasticPlasticElements::helmholtz_free_energy(
+                    plastic,
+                    coordinates,
+                    unyielded,
+                )?
+                .value(),
+                HyperelasticElements::helmholtz_free_energy(elastic, coordinates)?.value(),
+            )
+        })?;
+    let difference =
+        HyperelasticPlasticElements::helmholtz_free_energy(plastic, &stretched, yielded)?.value()
+            - HyperelasticElements::helmholtz_free_energy(elastic, &stretched)?.value();
+    assert!(
+        difference.abs() > 1e-3 * scale,
+        "a plastic deformation did not change the free energy"
+    );
+    Ok(())
+}
+
 fn among(found: &[f64], expected: f64, tol: f64) -> Result<(), AssertionError> {
     let nearest = found
         .iter()
@@ -495,7 +534,7 @@ pub(crate) fn viscoelastic_frequencies_follow_the_chain<B>(
     tol: f64,
 ) -> Result<(), AssertionError>
 where
-    B: ViscoelasticElements<3> + LumpedMassElements<3>,
+    B: HyperviscoelasticElements<3> + LumpedMassElements<3>,
 {
     (1..=4).try_for_each(|n| {
         let expected = chain(1.0, n);
@@ -522,7 +561,7 @@ pub(crate) fn viscoelastic_damping_follows_the_viscosity<B>(
     tol: f64,
 ) -> Result<(), AssertionError>
 where
-    B: ViscoelasticElements<3> + LumpedMassElements<3>,
+    B: HyperviscoelasticElements<3> + LumpedMassElements<3>,
 {
     let constrained = BULK_MODULUS + 4.0 * SHEAR_MODULUS / 3.0;
     let viscous = BULK_VISCOSITY + 4.0 * SHEAR_VISCOSITY / 3.0;
@@ -681,7 +720,7 @@ macro_rules! viscoplastic_bar_tests {
             $plastic,
             $tol,
             $crate::domain::solid::elastic_viscoplastic::ElasticViscoplasticElements,
-            $crate::domain::solid::modal::ElasticViscoplasticModes
+            $crate::domain::solid::modal::HyperelasticViscoplasticModes
         );
     };
 }
@@ -694,7 +733,7 @@ macro_rules! plastic_bar_tests {
             $plastic,
             $tol,
             $crate::domain::solid::elastic_plastic::ElasticPlasticElements,
-            $crate::domain::solid::modal::ElasticPlasticModes
+            $crate::domain::solid::modal::HyperelasticPlasticModes
         );
     };
 }

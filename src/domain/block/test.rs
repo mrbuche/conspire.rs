@@ -870,17 +870,18 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
             use super::*;
             #[test]
             fn deformed_finite_difference() -> Result<(), AssertionError> {
-                match get_block()
+                let stiffnesses = match get_block()
                     .nodal_stiffnesses(&get_coordinates_block(), &get_velocities_block())
                 {
-                    Ok(stiffnesses) => $crate::math::assert::Assert::default().eq_within_fd_tol(
-                        &stiffnesses,
-                        &get_finite_difference_of_nodal_forces_with_respect_to_coordinates(
-                            true, true,
-                        )?,
-                    ),
-                    Err(_) => Ok(()),
-                }
+                    Err(error) if format!("{error:?}").contains("zero velocities") => {
+                        return Ok(());
+                    }
+                    result => result?,
+                };
+                $crate::math::assert::Assert::default().eq_within_fd_tol(
+                    &stiffnesses,
+                    &get_finite_difference_of_nodal_forces_with_respect_to_coordinates(true, true)?,
+                )
             }
             #[test]
             fn deformed_at_rest_finite_difference() -> Result<(), AssertionError> {
