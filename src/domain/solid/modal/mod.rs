@@ -1,3 +1,6 @@
+#[cfg(test)]
+pub(crate) mod test;
+
 use crate::{
     domain::{
         Model, NodalAccelerations, NodalCoordinates,
