@@ -1,0 +1,28 @@
+[book]
+authors = ["Michael R. Buche <mrbuche@sandia.gov>", "Chad B. Hovey <chovey@sandia.gov>"]
+description = "c o n s p i r e"
+language = "en"
+src = "book/"
+title = "conspire"
+
+[build]
+build-dir = "book/build/"
+create-missing = false
+
+[rust]
+edition = "2024"
+
+[output.html.fold]
+enable = true
+level = 0
+
+[output.html]
+edit-url-template = "https://github.com/mrbuche/conspire/edit/main/{path}"
+git-repository-url = "https://github.com/mrbuche/conspire"
+additional-css = ["book/custom.css"]
+additional-js = ["book/custom.js"]
+
+[preprocessor.katex]
+after = [ "links" ]
+block-delimiter = { left = "```math", right = "```" }
+inline-delimiter = { left = "$`", right = "`$" }
