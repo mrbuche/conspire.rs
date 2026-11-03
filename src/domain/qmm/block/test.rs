@@ -3,10 +3,13 @@ use crate::{
     EPSILON,
     constitutive::solid::{elastic::Elastic, hyperelastic::NeoHookean},
     domain::{
-        ElementModel, NodalCoordinates, NodalReferenceCoordinates, Root,
+        ElementModel, Minimize, NodalCoordinates, NodalReferenceCoordinates, Root,
         boundary::{Enforcement, Loads, Rows, Solid},
         qmm::{Discretization, Support},
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
+        solid::{
+            NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements,
+            hyperelastic::HyperelasticElements,
+        },
     },
     geometry::mesh::{Mesh, test::tetrahedra},
     math::{
@@ -120,6 +123,27 @@ fn nodal_forces_and_stiffnesses_finite_difference() -> Result<(), AssertionError
     Assert::default().eq_within_fd_tol(&nodal_stiffnesses, &finite_difference)
 }
 
+#[test]
+fn nodal_forces_are_the_gradient_of_the_helmholtz_free_energy() -> Result<(), AssertionError> {
+    let discretization = discretization();
+    let reference = discretization.coordinates().clone();
+    let block = Block::from((constitutive_model(), discretization));
+    let mut coordinates = apply(&deformation_gradient(), &reference);
+    coordinates[1] += Displacement::from([0.03, -0.02, 0.015]);
+    let forces = block.nodal_forces(&coordinates).unwrap();
+    (0..reference.len()).try_for_each(|node| {
+        (0..3).try_for_each(|j| {
+            let mut perturbed = coordinates.clone();
+            perturbed[node][j] += perturbation::<Length>(0.5 * EPSILON);
+            let energy_plus = block.helmholtz_free_energy(&perturbed).unwrap();
+            perturbed[node][j] -= perturbation::<Length>(EPSILON);
+            let energy_minus = block.helmholtz_free_energy(&perturbed).unwrap();
+            let gradient = (energy_plus - energy_minus) / perturbation::<Length>(EPSILON);
+            Assert::default().eq_within_fd_tol(forces[node][j], &gradient)
+        })
+    })
+}
+
 // The one seed off the boundary has a basis function that is nonzero on the
 // constrained boundary, so the exact affine field is not an equilibrium of it
 // without tractions, and the solution is only close to that field. With the
@@ -171,6 +195,37 @@ fn solve_approximates_an_affine_field_from_its_boundary_values() -> Result<(), A
     assert!(position_error < 0.05, "position error {position_error}");
     assert!(gradient_error < 0.05, "gradient error {gradient_error}");
     Ok(())
+}
+
+#[test]
+fn minimizing_the_energy_agrees_with_solving_for_zero_force() -> Result<(), AssertionError> {
+    let discretization = discretization();
+    let reference = discretization.coordinates().clone();
+    let number_of_nodes = reference.len();
+    let boundary: Vec<usize> = (0..number_of_nodes)
+        .filter(|&node| on_the_boundary(&reference, node))
+        .collect();
+    assert!(boundary.len() < number_of_nodes, "no interior seed");
+    let held = boundary.iter().fold(
+        Rows::<Solid<3>>::new(Enforcement::Elimination),
+        |rows, &node| {
+            let target = &deformation_gradient() * &reference[node];
+            (0..3).fold(rows, |rows, c| {
+                rows.hold(3 * node + c, Prescription::Absolute(target[c].value()))
+            })
+        },
+    );
+    let model = discretization.model(constitutive_model());
+    let by_root = Root::root(&model, &held, &(), NewtonRaphson::default())?;
+    let by_minimize = Minimize::minimize(&model, &held, &(), NewtonRaphson::default())?;
+    (0..number_of_nodes).try_for_each(|node| {
+        Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Default::default()
+        }
+        .eq_within_tols(&by_root[node], &by_minimize[node])
+    })
 }
 
 fn recovers_an_affine_field_exactly_with_tractions(

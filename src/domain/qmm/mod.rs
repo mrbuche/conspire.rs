@@ -20,7 +20,8 @@ pub mod mass {
 }
 
 pub use crate::domain::{
-    ElementModelError, Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities, Root,
+    ElementModelError, Minimize, Model, NodalCoordinates, NodalReferenceCoordinates,
+    NodalVelocities, Root,
     block::element::Elements,
     solid::{
         NodalForcesSolid, NodalStiffnessesSolid, SolidElements,
@@ -29,6 +30,7 @@ pub use crate::domain::{
             Lumped, MassChoice, Stability, Unchecked,
         },
         elastic::ElasticElements,
+        hyperelastic::HyperelasticElements,
     },
 };
 pub use discretization::{Discretization, Support};
