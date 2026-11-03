@@ -8,6 +8,7 @@ where
     Self: SolidElement,
 {
     type Forces;
+    type Stiffnesses;
     type Dampings;
     type Error;
     fn nodal_forces(
@@ -17,6 +18,12 @@ where
         nodal_velocities: &Self::Velocities,
     ) -> Result<Self::Forces, Self::Error>;
     fn nodal_stiffnesses(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &Self::Coordinates,
+        nodal_velocities: &Self::Velocities,
+    ) -> Result<Self::Stiffnesses, Self::Error>;
+    fn nodal_dampings(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &Self::Coordinates,

@@ -2,5 +2,6 @@
 mod test;
 
 pub use crate::domain::solid::modal::{
-    ElasticModes, ElasticPlasticModes, ElasticViscoplasticModes, ModalError, Modes,
+    DampedModes, ElasticModes, ElasticPlasticModes, ElasticViscoplasticModes, ModalError, Modes,
+    ViscoelasticModes,
 };

@@ -4,13 +4,15 @@ use crate::{
     fem::block::element::FiniteElementError,
     math::{ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray},
     mechanics::{
-        Damping, FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses, Force,
+        Damping, FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses,
+        FirstPiolaKirchhoffTangentStiffnesses, Force,
     },
     vem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, VirtualElement,
         VirtualElementError,
         solid::{
-            ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidElement, SolidVirtualElement,
+            ElementNodalDampingsSolid, ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+            SolidElement, SolidVirtualElement,
         },
     },
 };
@@ -22,6 +24,7 @@ where
         + ViscoelasticElement<
             C,
             Forces = ElementNodalForcesSolid,
+            Stiffnesses = ElementNodalStiffnessesSolid,
             Dampings = ElementNodalDampingsSolid,
             Error = VirtualElementError,
         >,
@@ -35,6 +38,7 @@ where
         + ViscoelasticElement<
             C,
             Forces = ElementNodalForcesSolid,
+            Stiffnesses = ElementNodalStiffnessesSolid,
             Dampings = ElementNodalDampingsSolid,
             Error = VirtualElementError,
         >,
@@ -46,6 +50,7 @@ where
     C: Viscoelastic,
 {
     type Forces = ElementNodalForcesSolid;
+    type Stiffnesses = ElementNodalStiffnessesSolid;
     type Dampings = ElementNodalDampingsSolid;
     type Error = VirtualElementError;
     fn nodal_forces(
@@ -135,6 +140,53 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates,
         nodal_velocities: &ElementNodalVelocities,
+    ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
+        let tetrahedra_velocities = self.tetrahedra_coordinates(nodal_velocities);
+        let tangents = self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .zip(
+                self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
+                    .iter(),
+            )
+            .map(|(deformation_gradient, deformation_gradient_rate)| {
+                constitutive_model.first_piola_kirchhoff_tangent_stiffness(
+                    deformation_gradient,
+                    deformation_gradient_rate,
+                )
+            })
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses, _>>()
+            .map_err(|error| self.upstream(error))?;
+        let tetrahedra = self
+            .tetrahedra()
+            .iter()
+            .zip(
+                self.tetrahedra_coordinates(nodal_coordinates)
+                    .iter()
+                    .zip(tetrahedra_velocities.iter()),
+            )
+            .map(
+                |(tetrahedron, (tetrahedron_coordinates, tetrahedron_velocities))| {
+                    tetrahedron.nodal_stiffnesses(
+                        constitutive_model,
+                        tetrahedron_coordinates,
+                        tetrahedron_velocities,
+                    )
+                },
+            )
+            .collect::<Result<Vec<_>, FiniteElementError>>()
+            .map_err(|error| self.upstream(error))?;
+        self.stabilized_stiffnesses(
+            &tangents,
+            &tetrahedra.iter().collect::<Vec<_>>(),
+            nodal_coordinates.len(),
+        )
+    }
+    fn nodal_dampings(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates,
+        nodal_velocities: &ElementNodalVelocities,
     ) -> Result<ElementNodalDampingsSolid, VirtualElementError> {
         let num_nodes = nodal_coordinates.len();
         let stabilization = self.stabilization();
@@ -207,7 +259,7 @@ where
                     (tetrahedron, (tetrahedron_coordinates, tetrahedron_velocities)),
                     &[face, node_b, node_a],
                 )| {
-                    let nodal_stiffnesses = tetrahedron.nodal_stiffnesses(
+                    let nodal_stiffnesses = tetrahedron.nodal_dampings(
                         constitutive_model,
                         tetrahedron_coordinates,
                         tetrahedron_velocities,

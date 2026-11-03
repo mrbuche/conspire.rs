@@ -1,8 +1,9 @@
-use super::ElasticModes;
+use super::{ElasticModes, ViscoelasticModes};
 use crate::{
     constitutive::{
         canonical::Canonical,
         fluid::{
+            hyperviscous::Newtonian,
             plastic::{Linear, PlasticFlow, VonMises},
             viscoplastic::ViscoplasticFlow,
         },
@@ -11,13 +12,18 @@ use crate::{
     domain::{
         Model, NodalCoordinates,
         block::solid::viscoplastic::ViscoplasticStateVariables,
-        solid::{NodalForcesSolid, elastic::ElasticElements, mass::InertialMass},
+        solid::{
+            NodalForcesSolid,
+            elastic::ElasticElements,
+            mass::{InertialMass, LumpedMassElements},
+            viscoelastic::ViscoelasticElements,
+        },
     },
     math::{
         Current, Quantity, Tensor, TensorRank1Vec, Vector,
         assert::{Assert, AssertionError},
     },
-    units::{Density, Rate, Stress},
+    units::{Density, Rate, Stress, Viscosity},
 };
 use std::{array::from_fn, f64::consts::PI};
 
@@ -470,6 +476,117 @@ pub(crate) fn plastic_state_moves_the_frequencies(
     );
     among(&find(1.0, 1.001 * yielded, 1)?, yielded, tol)
 }
+
+pub(crate) const BULK_VISCOSITY: f64 = 5.0e4;
+pub(crate) const SHEAR_VISCOSITY: f64 = 1.0e5;
+
+pub(crate) fn viscoelasticity() -> Canonical<NeoHookean, Newtonian> {
+    Canonical::from((
+        material(),
+        Newtonian {
+            bulk_viscosity: Viscosity::pascal_seconds(BULK_VISCOSITY),
+            shear_viscosity: Viscosity::pascal_seconds(SHEAR_VISCOSITY),
+        },
+    ))
+}
+
+pub(crate) fn viscoelastic_frequencies_follow_the_chain<B>(
+    model: &Model<B, 3>,
+    tol: f64,
+) -> Result<(), AssertionError>
+where
+    B: ViscoelasticElements<3> + LumpedMassElements<3>,
+{
+    (1..=4).try_for_each(|n| {
+        let expected = chain(1.0, n);
+        let found = model
+            .modes(
+                &at_rest(),
+                &model.nodal_lumped_masses(),
+                &fixed(),
+                Quantity::new(1.001 * expected),
+                4,
+            )?
+            .modes
+            .frequencies
+            .iter()
+            .map(|frequency| frequency.value())
+            .collect::<Vec<_>>();
+        among(&found, expected, tol)
+    })
+}
+
+pub(crate) fn viscoelastic_damping_follows_the_viscosity<B>(
+    model: &Model<B, 3>,
+    highest: usize,
+    tol: f64,
+) -> Result<(), AssertionError>
+where
+    B: ViscoelasticElements<3> + LumpedMassElements<3>,
+{
+    let constrained = BULK_MODULUS + 4.0 * SHEAR_MODULUS / 3.0;
+    let viscous = BULK_VISCOSITY + 4.0 * SHEAR_VISCOSITY / 3.0;
+    (1..=highest).try_for_each(|n| {
+        let frequency = chain(1.0, n);
+        let modes = model.modes(
+            &at_rest(),
+            &model.nodal_lumped_masses(),
+            &fixed(),
+            Quantity::new(1.001 * frequency),
+            4,
+        )?;
+        let ratio = viscous * frequency / (2.0 * constrained);
+        let damped = modes.damped_frequencies();
+        let found = modes
+            .modes
+            .frequencies
+            .iter()
+            .zip(&modes.damping_ratios)
+            .zip(&damped)
+            .any(|((undamped, &damping), damped)| {
+                relatively(tol)
+                    .eq_within_tols(undamped.value(), frequency)
+                    .is_ok()
+                    && relatively(tol).eq_within_tols(damping, ratio).is_ok()
+                    && relatively(tol)
+                        .eq_within_tols(damped.value(), frequency * (1.0 - ratio * ratio).sqrt())
+                        .is_ok()
+            });
+        if found {
+            Ok(())
+        } else {
+            Err(format!(
+                "No mode near {frequency} has the damping ratio {ratio}: {:?}",
+                modes.damping_ratios
+            )
+            .into())
+        }
+    })
+}
+
+macro_rules! viscoelastic_bar_tests {
+    ($model:path, $highest:expr, $tol:expr) => {
+        #[test]
+        fn the_undamped_frequencies_follow_the_chain_of_the_bar()
+        -> Result<(), $crate::math::assert::AssertionError> {
+            $crate::domain::solid::modal::test::viscoelastic_frequencies_follow_the_chain(
+                &$model(),
+                $tol,
+            )
+        }
+        #[test]
+        fn the_damping_ratios_follow_the_viscosity_of_the_bar()
+        -> Result<(), $crate::math::assert::AssertionError> {
+            $crate::domain::solid::modal::test::viscoelastic_damping_follows_the_viscosity(
+                &$model(),
+                $highest,
+                $tol,
+            )
+        }
+    };
+}
+
+pub(crate) use viscoelastic_bar_tests;
 
 macro_rules! inelastic_bar_tests {
     ($model:path, $points:literal, $plastic:expr, $tol:expr, $elements:path, $modes:path) => {

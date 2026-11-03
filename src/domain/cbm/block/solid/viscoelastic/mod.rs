@@ -3,7 +3,7 @@ use crate::{
     constitutive::{ConstitutiveError, solid::viscoelastic::Viscoelastic},
     domain::{
         ElementModelError, NodalCoordinates, NodalVelocities,
-        solid::{NodalDampingsSolid, NodalForcesSolid},
+        solid::{NodalDampingsSolid, NodalForcesSolid, NodalStiffnessesSolid},
     },
 };
 
@@ -38,12 +38,39 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-        nodal_stiffnesses: &mut NodalDampingsSolid<3>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
         self.nodes
             .iter()
             .try_for_each(|node| {
                 node.nodal_stiffnesses(
+                    &self.constitutive_model,
+                    nodal_coordinates,
+                    nodal_velocities,
+                )?
+                .into_iter()
+                .zip(node.neighbors())
+                .for_each(|(row, &neighbor_a)| {
+                    row.into_iter()
+                        .zip(node.neighbors())
+                        .for_each(|(block, &neighbor_b)| {
+                            nodal_stiffnesses[neighbor_a][neighbor_b] += block
+                        })
+                });
+                Ok::<(), ConstitutiveError>(())
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    fn nodal_dampings_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
+        nodal_stiffnesses: &mut NodalDampingsSolid<3>,
+    ) -> Result<(), ElementModelError> {
+        self.nodes
+            .iter()
+            .try_for_each(|node| {
+                node.nodal_dampings(
                     &self.constitutive_model,
                     nodal_coordinates,
                     nodal_velocities,

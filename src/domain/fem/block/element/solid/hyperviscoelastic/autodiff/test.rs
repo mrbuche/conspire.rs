@@ -112,13 +112,9 @@ macro_rules! viscous_tests {
             fn nodal_dampings_match_analytic() -> Result<(), AssertionError> {
                 let (element, coordinates, velocities, autodiff, hand) = setup();
                 let ad = element.autodiff_nodal_dampings(&autodiff, &coordinates, &velocities);
-                let hd = ViscoelasticElement::nodal_stiffnesses(
-                    &element,
-                    &hand,
-                    &coordinates,
-                    &velocities,
-                )
-                .unwrap();
+                let hd =
+                    ViscoelasticElement::nodal_dampings(&element, &hand, &coordinates, &velocities)
+                        .unwrap();
                 Assert::default().eq_within_tols(&ad, &hd)
             }
 

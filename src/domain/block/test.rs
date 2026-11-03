@@ -738,7 +738,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
-                        * get_block_transformed().nodal_stiffnesses(
+                        * get_block_transformed().nodal_dampings(
                             &get_coordinates_transformed_block(),
                             &get_velocities_transformed_block(),
                         )?
@@ -747,7 +747,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
                     let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
-                        * get_block_transformed().nodal_stiffnesses(
+                        * get_block_transformed().nodal_dampings(
                             &get_reference_coordinates_transformed_block().into(),
                             &NodalVelocities::zero(D),
                         )?
@@ -756,9 +756,9 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
             } else {
                 if is_deformed {
                     Ok(get_block()
-                        .nodal_stiffnesses(&get_coordinates_block(), &get_velocities_block())?)
+                        .nodal_dampings(&get_coordinates_block(), &get_velocities_block())?)
                 } else {
-                    Ok(get_block().nodal_stiffnesses(
+                    Ok(get_block().nodal_dampings(
                         &get_reference_coordinates_block().into(),
                         &NodalVelocities::zero(D),
                     )?)
@@ -817,6 +817,93 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
                         .collect()
                 })
                 .collect()
+        }
+        fn get_finite_difference_of_nodal_forces_with_respect_to_coordinates(
+            is_deformed: bool,
+            is_moving: bool,
+        ) -> Result<$crate::domain::solid::NodalStiffnessesSolid<3>, AssertionError> {
+            let block = get_block();
+            let nodal_velocities = if is_moving {
+                get_velocities_block()
+            } else {
+                NodalVelocities::zero(D)
+            };
+            let nodal_coordinates = if is_deformed {
+                get_coordinates_block()
+            } else {
+                get_reference_coordinates_block().into()
+            };
+            let mut finite_difference = $crate::math::Quantity::default();
+            (0..D)
+                .map(|node_a| {
+                    (0..D)
+                        .map(|node_b| {
+                            (0..3)
+                                .map(|i| {
+                                    (0..3)
+                                        .map(|j| {
+                                            let mut plus = nodal_coordinates.clone();
+                                            plus[node_b][j] +=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
+                                            finite_difference = block
+                                                .nodal_forces(&plus, &nodal_velocities)?[node_a][i];
+                                            let mut minus = nodal_coordinates.clone();
+                                            minus[node_b][j] -=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
+                                            finite_difference -= block
+                                                .nodal_forces(&minus, &nodal_velocities)?[node_a]
+                                                [i];
+                                            Ok(finite_difference
+                                                / $crate::math::assert::perturbation::<
+                                                    $crate::units::Length,
+                                                >(EPSILON))
+                                        })
+                                        .collect()
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+        mod nodal_stiffnesses_with_respect_to_coordinates {
+            use super::*;
+            #[test]
+            fn deformed_finite_difference() -> Result<(), AssertionError> {
+                match get_block()
+                    .nodal_stiffnesses(&get_coordinates_block(), &get_velocities_block())
+                {
+                    Ok(stiffnesses) => $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        &stiffnesses,
+                        &get_finite_difference_of_nodal_forces_with_respect_to_coordinates(
+                            true, true,
+                        )?,
+                    ),
+                    Err(_) => Ok(()),
+                }
+            }
+            #[test]
+            fn deformed_at_rest_finite_difference() -> Result<(), AssertionError> {
+                $crate::math::assert::Assert::default().eq_within_fd_tol(
+                    &get_block()
+                        .nodal_stiffnesses(&get_coordinates_block(), &NodalVelocities::zero(D))?,
+                    &get_finite_difference_of_nodal_forces_with_respect_to_coordinates(
+                        true, false,
+                    )?,
+                )
+            }
+            #[test]
+            fn undeformed_finite_difference() -> Result<(), AssertionError> {
+                $crate::math::assert::Assert::default().eq_within_fd_tol(
+                    &get_block().nodal_stiffnesses(
+                        &get_reference_coordinates_block().into(),
+                        &NodalVelocities::zero(D),
+                    )?,
+                    &get_finite_difference_of_nodal_forces_with_respect_to_coordinates(
+                        false, false,
+                    )?,
+                )
+            }
         }
         crate::domain::block::test::test_nodal_forces_and_nodal_stiffnesses!(
             $block,

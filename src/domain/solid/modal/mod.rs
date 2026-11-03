@@ -3,17 +3,18 @@ pub(crate) mod test;
 
 use crate::{
     domain::{
-        Model, NodalCoordinates,
+        Model, NodalCoordinates, NodalVelocities,
         factor::FreeFactored,
         solid::{
             NodalStiffnessesSolid, elastic::ElasticElements,
             elastic_plastic::ElasticPlasticElements,
             elastic_viscoplastic::ElasticViscoplasticElements, mass::InertialMass,
+            viscoelastic::ViscoelasticElements,
         },
     },
     math::{
         Current, Differentiable, Quantity, Scalar, Style, StyledError, Tensor, TensorRank1Vec,
-        Vector, assert::AssertionError, optimize::Lanczos, styled_error,
+        TensorRank2SparseVec2D, Vector, assert::AssertionError, optimize::Lanczos, styled_error,
     },
     units::Rate,
 };
@@ -108,6 +109,93 @@ where
     }
 }
 
+/// The natural frequencies of a viscoelastic solid, and the damping of each.
+#[derive(Clone, Debug)]
+pub struct DampedModes<const D: usize> {
+    /// The undamped modes of the stiffness at rest.
+    pub modes: Modes<D>,
+    /// The fraction of critical damping of each mode.
+    pub damping_ratios: Vec<Scalar>,
+}
+
+impl<const D: usize> DampedModes<D> {
+    /// The frequencies of the damped oscillation, zero for a mode that is critically
+    /// damped or more.
+    pub fn damped_frequencies(&self) -> Vec<Quantity<Rate>> {
+        self.modes
+            .frequencies
+            .iter()
+            .zip(&self.damping_ratios)
+            .map(|(frequency, ratio)| {
+                Quantity::new(frequency.value() * (1.0 - ratio * ratio).max(0.0).sqrt())
+            })
+            .collect()
+    }
+}
+
+/// Vibration of viscoelastic solids about a given state.
+pub trait ViscoelasticModes<const D: usize> {
+    /// The `count` modes with angular frequencies nearest `near`, of small vibrations
+    /// about the given coordinates, with the damping of each.
+    ///
+    /// The frequencies and shapes are those of the stiffness at rest, with the
+    /// deformation gradient rate zero, and the mass. The damping ratio of a mode is
+    /// $`\varphi^T C \varphi / 2\omega`$ for its mass-normalized shape $`\varphi`$ and
+    /// the damping matrix $`C`$ at rest. That is exact when the damping is proportional
+    /// to the stiffness or to the mass, as it is for the axial modes of a bar, and
+    /// otherwise a first-order estimate that ignores the coupling of modes by the damping.
+    fn modes(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        masses: &impl InertialMass<D>,
+        fixed: &[usize],
+        near: Quantity<Rate>,
+        count: usize,
+    ) -> Result<DampedModes<D>, ModalError>;
+}
+
+impl<B, const D: usize> ViscoelasticModes<D> for Model<B, D>
+where
+    B: ViscoelasticElements<D>,
+{
+    fn modes(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        masses: &impl InertialMass<D>,
+        fixed: &[usize],
+        near: Quantity<Rate>,
+        count: usize,
+    ) -> Result<DampedModes<D>, ModalError> {
+        let at_rest = NodalVelocities::<D>::zero(nodal_coordinates.len());
+        let tangent = self
+            .nodal_stiffnesses(nodal_coordinates, &at_rest)
+            .map_err(|error| ModalError::upstream(error, "the stiffnesses"))?;
+        let modes = modes_of(tangent, nodal_coordinates.len(), masses, fixed, near, count)?;
+        let dampings = self
+            .nodal_dampings(nodal_coordinates, &at_rest)
+            .map_err(|error| ModalError::upstream(error, "the dampings"))?;
+        let damping_ratios = modes
+            .frequencies
+            .iter()
+            .zip(&modes.shapes)
+            .map(|(frequency, shape)| {
+                let shape: Vector = shape.clone().into_erased().into();
+                let rate = &shape * &block_times(&dampings, &shape);
+                let frequency = frequency.value();
+                if frequency > 0.0 {
+                    rate / (2.0 * frequency)
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+        Ok(DampedModes {
+            modes,
+            damping_ratios,
+        })
+    }
+}
+
 /// Vibration of elastic-plastic solids about a given state.
 pub trait ElasticPlasticModes<S, const D: usize> {
     /// The `count` modes with angular frequencies nearest `near`, of small
@@ -190,7 +278,7 @@ fn modes_of<const D: usize>(
     let norm = stiffness_norm(&tangent);
     for (&value, reduced) in pairs.values.iter().zip(&pairs.vectors) {
         let full = expand(reduced);
-        let kx = stiffness_times(&tangent, &full);
+        let kx = block_times(&tangent, &full);
         let mx: Vector = masses
             .inertial_forces(&full.clone().into())
             .into_erased()
@@ -224,7 +312,10 @@ fn modes_of<const D: usize>(
 
 const VERIFIED: Scalar = 1e-6;
 
-fn stiffness_times<const D: usize>(tangent: &NodalStiffnessesSolid<D>, x: &Vector) -> Vector {
+fn block_times<const D: usize, U>(
+    tangent: &TensorRank2SparseVec2D<D, Current, Current, U>,
+    x: &Vector,
+) -> Vector {
     let mut product = Vector::zero(x.len());
     tangent.iter().enumerate().for_each(|(a, row)| {
         row.entries().for_each(|(b, block)| {

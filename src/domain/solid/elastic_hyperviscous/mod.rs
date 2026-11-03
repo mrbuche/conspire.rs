@@ -172,7 +172,7 @@ where
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
                 let mut nodal_dampings =
-                    self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?;
+                    self.nodal_dampings(nodal_coordinates, nodal_velocities)?;
                 applied_loads.add_stiffness_at(time, nodal_coordinates, &mut nodal_dampings)?;
                 Ok(nodal_dampings)
             },

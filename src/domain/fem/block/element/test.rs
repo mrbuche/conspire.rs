@@ -1800,7 +1800,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
-                        * get_element_transformed().nodal_stiffnesses(
+                        * get_element_transformed().nodal_dampings(
                             &$constitutive_model,
                             &coordinates_transformed(),
                             &velocities_transformed(),
@@ -1810,7 +1810,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                     let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
-                        * get_element_transformed().nodal_stiffnesses(
+                        * get_element_transformed().nodal_dampings(
                             &$constitutive_model,
                             &reference_coordinates_transformed().into(),
                             &ElementNodalVelocities::zero(),
@@ -1819,13 +1819,13 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                 }
             } else {
                 if is_deformed {
-                    Ok(get_element().nodal_stiffnesses(
+                    Ok(get_element().nodal_dampings(
                         &$constitutive_model,
                         &coordinates(),
                         &velocities(),
                     )?)
                 } else {
-                    Ok(get_element().nodal_stiffnesses(
+                    Ok(get_element().nodal_dampings(
                         &$constitutive_model,
                         &reference_coordinates().into(),
                         &ElementNodalVelocities::zero(),

@@ -2,6 +2,7 @@ use crate::{
     constitutive::{
         canonical::Canonical,
         fluid::{
+            hyperviscous::Newtonian,
             plastic::{Linear, PlasticFlow, VonMises},
             viscoplastic::ViscoplasticFlow,
         },
@@ -9,7 +10,7 @@ use crate::{
     },
     domain::solid::modal::test::{
         ELEMENTS, coordinates, density, flowing, lumped_bar_tests, material, plastic_bar_tests,
-        plasticity, viscoplastic_bar_tests,
+        plasticity, viscoelastic_bar_tests, viscoelasticity, viscoplastic_bar_tests,
     },
     math::Quantity,
     units::Density,
@@ -26,6 +27,7 @@ type Cells = Block<NeoHookean, Element, Quantity<Density>>;
 type Flowing = Block<Canonical<NeoHookean, ViscoplasticFlow>, Element, Quantity<Density>>;
 type Plastic =
     Block<Canonical<NeoHookean, PlasticFlow<VonMises, Linear>>, Element, Quantity<Density>>;
+type Viscoelastic = Block<Canonical<NeoHookean, Newtonian>, Element, Quantity<Density>>;
 
 const FACES: [[usize; 4]; 6] = [
     [0, 3, 2, 1],
@@ -84,6 +86,23 @@ fn flowing_cells() -> Model<Flowing, 3> {
         .into()
 }
 
+fn viscoelastic_cells() -> Model<Viscoelastic, 3> {
+    let reference = coordinates().into();
+    let (elements_faces, faces_nodes) = connectivity();
+    (
+        Block::<_, Element>::from((
+            viscoelasticity(),
+            elements_faces,
+            faces_nodes,
+            &reference,
+            DEFAULT_STABILIZATION,
+        ))
+        .with_density(density()),
+        reference,
+    )
+        .into()
+}
+
 fn plastic_cells() -> Model<Plastic, 3> {
     let reference = coordinates().into();
     let (elements_faces, faces_nodes) = connectivity();
@@ -114,4 +133,9 @@ mod viscoplastic {
 mod plastic {
     use super::*;
     plastic_bar_tests!(plastic_cells, 1, 1.1, 1e-8);
+}
+
+mod viscoelastic {
+    use super::*;
+    viscoelastic_bar_tests!(viscoelastic_cells, 3, 1e-8);
 }

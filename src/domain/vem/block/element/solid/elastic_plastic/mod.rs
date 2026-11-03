@@ -108,7 +108,7 @@ impl Element {
         forces.iter_mut().for_each(|force| *force += &center_force);
         Ok(forces)
     }
-    fn stabilized_stiffnesses(
+    pub(crate) fn stabilized_stiffnesses(
         &self,
         tangents: &FirstPiolaKirchhoffTangentStiffnesses,
         tetrahedra_stiffnesses: &[&TetrahedronStiffnesses<4>],

@@ -3,6 +3,7 @@ use crate::{
     constitutive::{
         canonical::Canonical,
         fluid::{
+            hyperviscous::Newtonian,
             plastic::{Linear, PlasticFlow, VonMises},
             viscoplastic::ViscoplasticFlow,
         },
@@ -10,7 +11,7 @@ use crate::{
     },
     domain::solid::modal::test::{
         coordinates, density, flowing, kuhn_tets, lumped_bar_tests, material, plastic_bar_tests,
-        plasticity, viscoplastic_bar_tests,
+        plasticity, viscoelastic_bar_tests, viscoelasticity, viscoplastic_bar_tests,
     },
     geometry::mesh::PrimitiveConnectivity,
     math::Quantity,
@@ -20,6 +21,7 @@ use crate::{
 type Particles = Block<NeoHookean, Quantity<Density>>;
 type Flowing = Block<Canonical<NeoHookean, ViscoplasticFlow>, Quantity<Density>>;
 type Plastic = Block<Canonical<NeoHookean, PlasticFlow<VonMises, Linear>>, Quantity<Density>>;
+type Viscoelastic = Block<Canonical<NeoHookean, Newtonian>, Quantity<Density>>;
 
 fn bar() -> Model<Particles, 3> {
     let reference = coordinates().into();
@@ -41,6 +43,21 @@ fn flowing_bar() -> Model<Flowing, 3> {
     (
         (
             flowing(),
+            density(),
+            PrimitiveConnectivity::from(kuhn_tets()),
+            &reference,
+        )
+            .into(),
+        reference,
+    )
+        .into()
+}
+
+fn viscoelastic_bar() -> Model<Viscoelastic, 3> {
+    let reference = coordinates().into();
+    (
+        (
+            viscoelasticity(),
             density(),
             PrimitiveConnectivity::from(kuhn_tets()),
             &reference,
@@ -79,4 +96,9 @@ mod viscoplastic {
 mod plastic {
     use super::*;
     plastic_bar_tests!(plastic_bar, 1, 1.3, 5e-3);
+}
+
+mod viscoelastic {
+    use super::*;
+    viscoelastic_bar_tests!(viscoelastic_bar, 2, 5e-3);
 }
