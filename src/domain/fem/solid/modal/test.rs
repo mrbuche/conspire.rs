@@ -3,7 +3,7 @@ use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     domain::solid::{NodalForcesSolid, mass::InertialMass},
     fem::{
-        Model, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates,
+        Model, NodalCoordinates, NodalReferenceCoordinates,
         block::{
             Block,
             element::linear::{Hexahedron, Tetrahedron},
@@ -13,7 +13,7 @@ use crate::{
     math::{Current, Quantity, Tensor, TensorRank1Vec, Vector},
     units::{Density, Rate, Stress},
 };
-use std::f64::consts::PI;
+use std::{array::from_fn, f64::consts::PI};
 
 type Hexes = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
 type Tets = Block<NeoHookean, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
@@ -65,7 +65,7 @@ fn hexes() -> Model<Hexes, 3> {
             material(),
             density(),
             (0..ELEMENTS)
-                .map(|k| std::array::from_fn(|i| 4 * k + i))
+                .map(|k| from_fn(|i| 4 * k + i))
                 .collect::<Vec<[usize; 8]>>(),
             &reference,
         )),
@@ -77,7 +77,7 @@ fn hexes() -> Model<Hexes, 3> {
 fn tets() -> Model<Tets, 3> {
     let nodes = coordinates();
     let volume = |[a, b, c, d]: [usize; 4]| {
-        let edge = |i: usize| std::array::from_fn::<f64, 3, _>(|x| nodes[i][x] - nodes[a][x]);
+        let edge = |i: usize| from_fn::<f64, 3, _>(|x| nodes[i][x] - nodes[a][x]);
         let (u, v, w) = (edge(b), edge(c), edge(d));
         u[0] * (v[1] * w[2] - v[2] * w[1]) - u[1] * (v[0] * w[2] - v[2] * w[0])
             + u[2] * (v[0] * w[1] - v[1] * w[0])
@@ -119,7 +119,15 @@ fn fixed() -> Vec<usize> {
 }
 
 fn at_rest() -> NodalCoordinates<3> {
-    NodalCoordinates::from(coordinates())
+    coordinates().into()
+}
+
+fn stretched(stretch: f64) -> NodalCoordinates<3> {
+    coordinates()
+        .into_iter()
+        .map(|[x, y, z]| [x, y, stretch * z])
+        .collect::<Vec<_>>()
+        .into()
 }
 
 fn lowest() -> Quantity<Rate> {
@@ -155,11 +163,11 @@ fn flat(shape: &TensorRank1Vec<3, Current>) -> Vec<f64> {
         .collect()
 }
 
-fn stiffness_times<B>(model: &Model<B, 3>, x: &[f64]) -> Vec<f64>
+fn stiffness_times<B>(model: &Model<B, 3>, coordinates: &NodalCoordinates<3>, x: &[f64]) -> Vec<f64>
 where
     B: ElasticElements<3>,
 {
-    let tangent = model.nodal_stiffnesses(&at_rest()).unwrap();
+    let tangent = model.nodal_stiffnesses(coordinates).unwrap();
     let mut product = vec![0.0; x.len()];
     tangent.iter().enumerate().for_each(|(a, row)| {
         row.entries().for_each(|(b, block)| {
@@ -172,20 +180,22 @@ where
 }
 
 fn mass_times(masses: &impl InertialMass<3>, x: &[f64]) -> Vec<f64> {
-    let forces: NodalForcesSolid<3> =
-        masses.inertial_forces(&NodalAccelerations::<3>::from(Vector::from(x)));
+    let forces: NodalForcesSolid<3> = masses.inertial_forces(&Vector::from(x).into());
     forces
         .iter()
         .flat_map(|node| node.iter().map(|entry| entry.value()))
         .collect()
 }
 
-fn check_shapes<B>(model: &Model<B, 3>, masses: impl InertialMass<3>)
-where
+fn check_shapes<B>(
+    model: &Model<B, 3>,
+    coordinates: &NodalCoordinates<3>,
+    masses: impl InertialMass<3>,
+) where
     B: ElasticElements<3>,
 {
     let modes = model
-        .modes(&at_rest(), &masses, &fixed(), lowest(), 3)
+        .modes(coordinates, &masses, &fixed(), lowest(), 3)
         .unwrap();
     let shapes: Vec<Vec<f64>> = modes.shapes.iter().map(flat).collect();
     for (k, shape) in shapes.iter().enumerate() {
@@ -193,7 +203,10 @@ where
             .iter()
             .for_each(|&index| assert_eq!(shape[index], 0.0));
         let lambda = modes.frequencies[k].value().powi(2);
-        let (kx, mx) = (stiffness_times(model, shape), mass_times(&masses, shape));
+        let (kx, mx) = (
+            stiffness_times(model, coordinates, shape),
+            mass_times(&masses, shape),
+        );
         let scale = kx.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
         let held = fixed();
         let residual = kx
@@ -277,7 +290,7 @@ mod hexahedra {
     #[test]
     fn shapes_solve_the_eigenproblem_and_are_mass_orthonormal() {
         let model = hexes();
-        check_shapes(&model, model.nodal_lumped_masses())
+        check_shapes(&model, &at_rest(), model.nodal_lumped_masses())
     }
 }
 
@@ -308,6 +321,71 @@ mod tetrahedra {
     #[test]
     fn shapes_solve_the_eigenproblem_and_are_mass_orthonormal() {
         let model = tets();
-        check_shapes(&model, model.nodal_masses())
+        check_shapes(&model, &at_rest(), model.nodal_masses())
+    }
+}
+
+mod prestressed {
+    use super::*;
+    use crate::constitutive::solid::elastic::Elastic;
+    fn tangent_modulus(stretch: f64) -> f64 {
+        let gradient = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, stretch]].into();
+        material()
+            .first_piola_kirchhoff_tangent_stiffness(&gradient)
+            .unwrap()[2][2][2][2]
+            .value()
+    }
+    fn chain(stretch: f64, n: usize) -> f64 {
+        let theta = (2 * n - 1) as f64 * PI / (2.0 * ELEMENTS as f64);
+        2.0 * (tangent_modulus(stretch) / DENSITY).sqrt() / (LENGTH / ELEMENTS as f64)
+            * (theta / 2.0).sin()
+    }
+    fn found(stretch: f64, n: usize) -> f64 {
+        let model = hexes();
+        model
+            .modes(
+                &stretched(stretch),
+                &model.nodal_lumped_masses(),
+                &fixed(),
+                Quantity::new(1.001 * chain(stretch, n)),
+                1,
+            )
+            .unwrap()
+            .frequencies[0]
+            .value()
+    }
+    #[test]
+    fn stretching_changes_the_tangent_modulus_enough_to_see() {
+        [0.98, 1.02]
+            .iter()
+            .for_each(|&stretch| assert!(relative(chain(stretch, 1), chain(1.0, 1)) > 5e-3));
+    }
+    #[test]
+    fn a_stretched_bar_follows_the_chain_of_its_tangent_modulus() {
+        [0.98, 1.02, 1.05].iter().for_each(|&stretch| {
+            (1..=3).for_each(|n| {
+                let (value, expected) = (found(stretch, n), chain(stretch, n));
+                assert!(
+                    relative(value, expected) < 1e-8,
+                    "{stretch} {n} {value} {expected}"
+                );
+            })
+        });
+    }
+    #[test]
+    fn a_stretched_bar_is_not_at_its_unstressed_frequencies() {
+        let model = hexes();
+        let masses = model.nodal_lumped_masses();
+        let rest = model
+            .modes(&at_rest(), &masses, &fixed(), lowest(), 1)
+            .unwrap()
+            .frequencies[0]
+            .value();
+        assert!(relative(found(1.02, 1), rest) > 5e-3);
+    }
+    #[test]
+    fn shapes_solve_the_eigenproblem_about_the_stretched_state() {
+        let model = hexes();
+        check_shapes(&model, &stretched(1.02), model.nodal_lumped_masses())
     }
 }
