@@ -15,7 +15,13 @@ const PASSES: usize = 64;
 const TOLERANCE: Scalar = 1.0e-6;
 
 impl Mesh<3> {
-    pub(super) fn restrict(&mut self) -> Result<(), &'static str> {
+    /// Removes hexahedra until every boundary node has a direction in which
+    /// it can move outward, as [`buffer`](Self::buffer) does before it adds the
+    /// layer.
+    ///
+    /// Calling it before `buffer` is safe: `buffer` calls it again, and the
+    /// second call removes nothing.
+    pub fn restrict(&mut self) -> Result<(), &'static str> {
         for _ in 0..PASSES {
             let [Connectivity::Hexahedral(block)] = self.connectivities() else {
                 return Err("restrict requires a single hexahedral block");
