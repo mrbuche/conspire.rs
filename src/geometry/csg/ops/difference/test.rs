@@ -82,33 +82,36 @@ fn zz_debug_nested() {
     let (outer, inner) = (solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3]));
     let oracle = Difference::new(solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3]));
     let coordinates = |p: &Coordinate<3>| [p[0].value(), p[1].value(), p[2].value()];
-    let mut missing = 0;
+    let mut inexact = 0;
     let mut log = String::new();
     for point in grid().iter() {
-        if oracle.project(point).is_some() {
+        let Some(result) = oracle.project(point) else {
+            continue;
+        };
+        if result.exact {
             continue;
         }
-        missing += 1;
-        if missing > 6 {
+        inexact += 1;
+        if inexact > 4 {
             continue;
         }
-        let outer_projection = outer.project(point).map(|q| q.point);
-        let inner_projection = inner.project(point).map(|q| q.point);
-        let describe = |q: &Option<Coordinate<3>>| {
-            q.as_ref().map(|q| {
-                (
-                    coordinates(q),
-                    outer.signed_distance(q).value(),
-                    inner.signed_distance(q).value(),
+        let describe = |name: &str, q: Option<crate::geometry::solid::Projection>| {
+            q.map(|q| {
+                format!(
+                    "  {name} point {:?} exact {} sd_outer {:e} sd_inner {:e} dist {:e}\n",
+                    coordinates(&q.point),
+                    q.exact,
+                    outer.signed_distance(&q.point).value(),
+                    inner.signed_distance(&q.point).value(),
+                    (&q.point - point).norm().value(),
                 )
             })
+            .unwrap_or_default()
         };
-        log += &format!(
-            "point {:?}\n  outer {:?}\n  inner {:?}\n",
-            coordinates(point),
-            describe(&outer_projection),
-            describe(&inner_projection)
-        );
+        log += &format!("query {:?}\n", coordinates(point));
+        log += &describe("outer", outer.project(point));
+        log += &describe("inner", inner.project(point));
+        log += &describe("result", Some(result));
     }
-    panic!("missing {missing}\n{log}");
+    panic!("inexact {inexact}\n{log}");
 }
