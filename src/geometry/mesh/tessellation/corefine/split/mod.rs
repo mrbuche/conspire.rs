@@ -9,11 +9,7 @@ use super::{
     triangulate::triangulate_constrained,
 };
 use crate::{
-    geometry::{
-        Coordinate,
-        mesh::{Connectivity, Mesh, Tessellation},
-        predicates::Cutter,
-    },
+    geometry::{Coordinate, mesh::Tessellation, predicates::Cutter},
     math::Tensor,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -125,11 +121,7 @@ pub(super) fn split(
         },
     )?;
     Ok(Split {
-        tessellation: Mesh::from((
-            vec![Connectivity::Triangular(refined.faces.into())],
-            vertices.into(),
-        ))
-        .into(),
+        tessellation: (refined.faces, vertices).into(),
         parents: refined.parents,
         curves: refined.curves,
         named,

@@ -2,8 +2,8 @@ use std::f64::consts::{FRAC_PI_3, FRAC_PI_4};
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, Tessellation, test::perpendicular_facet},
+        Coordinate,
+        mesh::{Tessellation, test::perpendicular_facet},
     },
     math::{Quantity, Tensor},
 };
@@ -35,9 +35,7 @@ const COORDINATES: [Coordinate<3>; 8] = [
 ];
 
 fn cube() -> Tessellation {
-    let connectivities = vec![Connectivity::Triangular(CONNECTIVITY.to_vec().into())];
-    let coordinates = Coordinates::from(COORDINATES);
-    Tessellation::from(Mesh::from((connectivities, coordinates)))
+    (CONNECTIVITY.to_vec(), COORDINATES).into()
 }
 
 #[test]
@@ -53,9 +51,7 @@ fn cube_center_ray_is_unit_thickness() {
 fn degenerate_face_does_not_panic() {
     let mut connectivity = CONNECTIVITY.to_vec();
     connectivity.push([0, 1, 1]);
-    let connectivities = vec![Connectivity::Triangular(connectivity.into())];
-    let coordinates = Coordinates::from(COORDINATES);
-    let tessellation = Tessellation::from(Mesh::from((connectivities, coordinates)));
+    let tessellation: Tessellation = (connectivity, COORDINATES).into();
     let diameters = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
     diameters
         .iter()

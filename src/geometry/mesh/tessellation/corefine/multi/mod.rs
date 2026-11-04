@@ -11,7 +11,7 @@ use super::{
 use crate::{
     geometry::{
         Coordinate,
-        mesh::{Connectivity, Mesh, Tessellation, Watertight},
+        mesh::{Tessellation, Watertight},
         predicates::Cutter,
     },
     math::Tensor,
@@ -98,11 +98,7 @@ fn surface(faces: Vec<[usize; 3]>, positions: &[&Coordinate<3>]) -> Tessellation
             })
         })
         .collect();
-    Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        vertices.into(),
-    ))
-    .into()
+    (faces, vertices).into()
 }
 
 /// Where a solid's numbers start in those of all the solids together.

@@ -3,7 +3,7 @@ use super::super::{Class, geometry::star_volume};
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh},
+        mesh::{Connectivity, Tessellation},
     },
     math::{CrossProduct, Quantity},
 };
@@ -60,10 +60,7 @@ fn agglomerate_sliver() {
         [3, 0, 4],
         [3, 4, 7],
     ];
-    let tessellation = crate::geometry::mesh::tessellation::Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(triangles.into())],
-        coordinates,
-    )));
+    let tessellation = Tessellation::from((triangles, coordinates));
     let mesh = (
         vec![Connectivity::Hexahedral(
             vec![[0, 1, 2, 3, 4, 5, 6, 7], [1, 8, 9, 2, 5, 10, 11, 6]].into(),

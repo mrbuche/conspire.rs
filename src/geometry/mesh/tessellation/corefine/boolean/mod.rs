@@ -5,10 +5,7 @@ mod test;
 
 use super::{Corefined, Region};
 use crate::{
-    geometry::{
-        Coordinate,
-        mesh::{Connectivity, Mesh, Tessellation},
-    },
+    geometry::{Coordinate, mesh::Tessellation},
     math::Tensor,
 };
 use std::collections::HashMap;
@@ -138,10 +135,6 @@ impl Corefined {
                 })
             })
             .collect();
-        Ok(Mesh::from((
-            vec![Connectivity::Triangular(faces.into())],
-            vertices.into(),
-        ))
-        .into())
+        Ok((faces, vertices).into())
     }
 }

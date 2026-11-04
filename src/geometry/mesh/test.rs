@@ -52,11 +52,7 @@ pub fn cuboid(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
             .into()
         })
         .collect();
-    Mesh::from((
-        vec![Connectivity::Triangular(CONNECTIVITY.to_vec().into())],
-        coordinates,
-    ))
-    .into()
+    (CONNECTIVITY.to_vec(), coordinates).into()
 }
 
 pub fn solid(minimum: [f64; 3], maximum: [f64; 3]) -> Watertight {
@@ -101,9 +97,7 @@ pub fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {
             ring_start(stacks) + j,
         ]);
     }
-    let coordinates = Coordinates::from(points);
-    let connectivities = vec![Connectivity::Triangular(faces.into())];
-    Mesh::from((connectivities, coordinates)).into()
+    (faces, points).into()
 }
 
 pub fn mesh_with_node_sets() -> Mesh<3> {
@@ -210,9 +204,7 @@ pub fn octahedron(levels: usize) -> Tessellation {
             })
             .collect();
     }
-    let coordinates = Coordinates::from(points);
-    let connectivities = vec![Connectivity::Triangular(faces.into())];
-    Mesh::from((connectivities, coordinates)).into()
+    (faces, points).into()
 }
 
 mod node_element_connectivity {

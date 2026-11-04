@@ -4,7 +4,7 @@ use crate::{
         Coordinate,
         bvh::closest_point_on_triangle,
         mesh::{
-            Connectivity, Mesh, Tessellation,
+            Tessellation,
             tessellation::corefine::{Feature, Key},
             test::cuboid,
         },
@@ -23,11 +23,7 @@ fn square(corner: [f64; 2], size: f64, triangles: [[usize; 3]; 2]) -> Tessellati
     ]
     .map(Into::into)
     .to_vec();
-    Mesh::from((
-        vec![Connectivity::Triangular(triangles.to_vec().into())],
-        coordinates.into(),
-    ))
-    .into()
+    (triangles.to_vec(), coordinates).into()
 }
 
 const RISING: [[usize; 3]; 2] = [[0, 1, 2], [0, 2, 3]];

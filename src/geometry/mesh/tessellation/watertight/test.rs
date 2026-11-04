@@ -3,7 +3,7 @@ use crate::{
     geometry::{
         Coordinate, Direction,
         mesh::{
-            Connectivity, Mesh, Tessellation,
+            Tessellation,
             test::{CONNECTIVITY, COORDINATES, cuboid, mesh, sphere},
         },
         solid::SolidOracle,
@@ -16,11 +16,7 @@ use crate::{
 };
 
 fn tessellation(faces: Vec<[usize; 3]>, coordinates: Vec<Coordinate<3>>) -> Tessellation {
-    Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        coordinates.into(),
-    ))
-    .into()
+    (faces, coordinates).into()
 }
 
 fn cube(faces: Vec<[usize; 3]>) -> Tessellation {
