@@ -14,9 +14,10 @@ use crate::{
         predicates::orient2d,
         solid::SolidOracle,
     },
-    units::Length,
+    math::{CrossProduct, Reference, Tensor, TensorRank1},
+    units::{Area, Length},
 };
-use std::{array::from_fn, cmp::Ordering, collections::HashMap};
+use std::{cmp::Ordering, collections::HashMap};
 
 /// Where a piece of the surface of one solid lies relative to another solid.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -93,7 +94,7 @@ fn regions(
         .flatten()
         .map(|nodes| [nodes[0], nodes[1], nodes[2]])
         .collect();
-    let corners = |face: usize| faces[face].map(|node| values(&coordinates[node]));
+    let corners = |face: usize| faces[face].map(|node| &coordinates[node]);
     let other_coordinates = other.mesh().coordinates();
     let other_faces: Vec<&[usize]> = other.mesh().connectivities().iter().flatten().collect();
     let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
@@ -131,12 +132,14 @@ fn regions(
         }
         let largest = *patch
             .iter()
-            .max_by(|&&a, &&b| norm(normal(corners(a))).total_cmp(&norm(normal(corners(b)))))
+            .max_by(|&&a, &&b| {
+                let size = |face| normal(corners(face)).norm().value();
+                size(a).total_cmp(&size(b))
+            })
             .unwrap_or(&start);
         let triangle = corners(largest);
-        let centre: [f64; 3] =
-            from_fn(|axis| triangle.iter().map(|corner| corner[axis]).sum::<f64>() / 3.0);
-        let direction = normal(triangle);
+        let centre = triangle.into_iter().sum::<Coordinate<3>>() / 3.0;
+        let direction = normal(triangle).normalized();
         let on = coplanar
             .get(&split.parents[largest])
             .into_iter()
@@ -144,14 +147,14 @@ fn regions(
             .find_map(|&index| {
                 let nodes = other_faces[index];
                 let corners = [nodes[0], nodes[1], nodes[2]].map(|node| &other_coordinates[node]);
-                inside(centre, corners).then(|| Region::Coincident {
-                    aligned: dot(direction, normal(corners.map(values))) > 0.0,
+                inside(&centre, corners).then(|| Region::Coincident {
+                    aligned: (&direction * normal(corners).normalized()).value() > 0.0,
                 })
             });
         let region = match on {
             Some(region) => region,
             None => {
-                let distance = solid.signed_distance(&centre.into());
+                let distance = solid.signed_distance(&centre);
                 if distance.abs() < Length::meters(1e-12) {
                     return Err("a piece lies on the other surface but not in its triangles");
                 }
@@ -168,35 +171,17 @@ fn regions(
 }
 
 /// Whether a point in the plane of a triangle is strictly inside it.
-fn inside(point: [f64; 3], triangle: [&Coordinate<3>; 3]) -> bool {
-    let n = normal(triangle.map(values));
+fn inside(point: &Coordinate<3>, triangle: [&Coordinate<3>; 3]) -> bool {
+    let n = normal(triangle);
     let axis = (0..3)
-        .max_by(|&a, &b| n[a].abs().total_cmp(&n[b].abs()))
+        .max_by(|&a, &b| n[a].value().abs().total_cmp(&n[b].value().abs()))
         .unwrap_or(2);
-    let point: Coordinate<3> = point.into();
     let signs =
-        [0, 1, 2].map(|edge| orient2d(triangle[edge], triangle[(edge + 1) % 3], &point, axis));
+        [0, 1, 2].map(|edge| orient2d(triangle[edge], triangle[(edge + 1) % 3], point, axis));
     signs[0] != Ordering::Equal && signs[0] == signs[1] && signs[1] == signs[2]
 }
 
-fn values(point: &Coordinate<3>) -> [f64; 3] {
-    [0, 1, 2].map(|axis| point[axis].value())
-}
-
-fn normal(triangle: [[f64; 3]; 3]) -> [f64; 3] {
-    let e = |i: usize| -> [f64; 3] { from_fn(|k| triangle[i][k] - triangle[0][k]) };
-    let (a, b) = (e(1), e(2));
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
-}
-
-fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
-    (0..3).map(|k| a[k] * b[k]).sum()
-}
-
-fn norm(a: [f64; 3]) -> f64 {
-    dot(a, a).sqrt()
+/// Twice the area of a triangle, in the direction its corners turn.
+fn normal([a, b, c]: [&Coordinate<3>; 3]) -> TensorRank1<3, Reference, Area> {
+    (&(b - a)).cross(&(c - a))
 }

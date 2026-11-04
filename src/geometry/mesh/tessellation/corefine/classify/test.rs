@@ -5,6 +5,7 @@ use crate::{
         mesh::{Tessellation, Watertight, test::solid},
         solid::SolidOracle,
     },
+    math::{CrossProduct, Tensor},
     units::Length,
 };
 use std::array::from_fn;
@@ -19,15 +20,8 @@ fn area(tessellation: &Tessellation, regions: &[Region], region: Region) -> f64 
         .zip(regions)
         .filter(|(_, found)| **found == region)
         .map(|(nodes, _)| {
-            let at = |i: usize| [0, 1, 2].map(|k| coordinates[nodes[i]][k].value());
-            let (a, b, c) = (at(0), at(1), at(2));
-            let (u, v): (Vec<f64>, Vec<f64>) = (0..3).map(|k| (b[k] - a[k], c[k] - a[k])).unzip();
-            let cross = [
-                u[1] * v[2] - u[2] * v[1],
-                u[2] * v[0] - u[0] * v[2],
-                u[0] * v[1] - u[1] * v[0],
-            ];
-            0.5 * cross.iter().map(|x| x * x).sum::<f64>().sqrt()
+            let [a, b, c] = [0, 1, 2].map(|i| &coordinates[nodes[i]]);
+            0.5 * (&(b - a)).cross(&(c - a)).norm().value()
         })
         .sum()
 }

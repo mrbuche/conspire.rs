@@ -52,10 +52,9 @@ pub(super) fn frame<'a>(
     segments: &[[Key; 2]],
     cutter: impl Fn(&Feature) -> Cutter<'a>,
 ) -> Result<Frame, &'static str> {
-    let corners = triangle.map(values);
-    let first = difference(corners[1], corners[0]);
-    let second = difference(corners[2], corners[0]);
-    let gram = [dot(first, first), dot(first, second), dot(second, second)];
+    let first = triangle[1] - triangle[0];
+    let second = triangle[2] - triangle[0];
+    let gram = [&first * &first, &first * &second, &second * &second].map(|g| g.value());
     let determinant = gram[0] * gram[2] - gram[1] * gram[1];
     if determinant.partial_cmp(&0.0) != Some(Ordering::Greater) || !determinant.is_finite() {
         return Err("the triangle is degenerate");
@@ -78,8 +77,8 @@ pub(super) fn frame<'a>(
     frame_points.resize(3 + keys.len(), [0.0, 0.0]);
     for (index, key) in keys.iter().enumerate() {
         if matches!(place(key)?, Place::Inside) {
-            let position = difference(values(found[key]), corners[0]);
-            let (a, b) = (dot(first, position), dot(second, position));
+            let position = found[key] - triangle[0];
+            let (a, b) = ((&first * &position).value(), (&second * &position).value());
             let point = [
                 (a * gram[2] - b * gram[1]) / determinant,
                 (b * gram[0] - a * gram[1]) / determinant,
@@ -93,13 +92,12 @@ pub(super) fn frame<'a>(
             let cutter_of = |index: usize| cutter(other(&keys[index - 3], side));
             along(p, q, &cutter_of(a), &cutter_of(b))
         })?;
-        let ends = [values(p), values(q)];
-        let length = difference(ends[1], ends[0]);
+        let length = q - p;
         let approximate: Vec<f64> = indices
             .iter()
             .map(|&index| {
-                let from_start = difference(values(found[&keys[index - 3]]), ends[0]);
-                dot(from_start, length) / dot(length, length)
+                let from_start = found[&keys[index - 3]] - p;
+                ((&from_start * &length) / (&length * &length)).value()
             })
             .collect();
         let placed = match edge {
@@ -169,18 +167,6 @@ fn within(point: [f64; 2]) -> Result<[f64; 2], &'static str> {
         })
         .find(|&candidate| strictly(candidate))
         .ok_or("a point inside the triangle is rounded out of it")
-}
-
-fn values(point: &Coordinate<3>) -> [f64; 3] {
-    [0, 1, 2].map(|axis| point[axis].value())
-}
-
-fn difference(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-    [0, 1, 2].map(|axis| a[axis] - b[axis])
-}
-
-fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
-    (0..3).map(|axis| a[axis] * b[axis]).sum()
 }
 
 /// The feature of a key on the tessellation of a triangle.
