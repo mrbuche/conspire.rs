@@ -9,10 +9,9 @@ use crate::{
             test::cuboid,
         },
     },
-    math::Tensor,
+    math::{Quantity, Tensor},
     units::Length,
 };
-use std::array::from_fn;
 
 fn square(corner: [f64; 2], size: f64, triangles: [[usize; 3]; 2]) -> Tessellation {
     let [x, y] = corner;
@@ -77,14 +76,12 @@ fn squares_with_crossing_diagonals_split_into_four_triangles() {
         },
     );
     constraints.iter().for_each(|constraint| {
-        let ends: Vec<[f64; 2]> = constraint
-            .segment
-            .iter()
-            .map(|point| [point[0].value(), point[1].value()])
-            .collect();
+        let centre = Coordinate::from([0.5, 0.5, 0.0]);
         assert!(
-            ends.iter()
-                .any(|end| (end[0] - 0.5).abs() < 1e-12 && (end[1] - 0.5).abs() < 1e-12)
+            constraint
+                .segment
+                .iter()
+                .any(|end| (end - &centre).norm() < Length::meters(1e-12))
         );
     });
 }
@@ -104,19 +101,11 @@ fn cubes_sharing_a_face_with_matching_diagonals_need_no_constraints() {
     assert!(first.coplanar_constraints(&second).unwrap().is_empty());
 }
 
-fn distance_to_segment(point: [f64; 3], segment: [[f64; 3]; 2]) -> f64 {
-    let [a, b] = segment;
-    let direction: [f64; 3] = from_fn(|i| b[i] - a[i]);
-    let length_squared: f64 = direction.iter().map(|x| x * x).sum();
-    let along: f64 = (0..3)
-        .map(|i| (point[i] - a[i]) * direction[i])
-        .sum::<f64>()
-        / length_squared;
-    let closest: [f64; 3] = std::array::from_fn(|i| a[i] + along.clamp(0.0, 1.0) * direction[i]);
-    (0..3)
-        .map(|i| (point[i] - closest[i]).powi(2))
-        .sum::<f64>()
-        .sqrt()
+fn distance_to_segment(point: &Coordinate<3>, [a, b]: [&Coordinate<3>; 2]) -> Quantity<Length> {
+    let direction = b - a;
+    let along = ((point - a) * &direction) / (&direction * &direction);
+    let closest = a.clone() + &direction * along.value().clamp(0.0, 1.0);
+    (point - &closest).norm()
 }
 
 fn check_geometry(first: &Tessellation, second: &Tessellation, constraints: &[Constraint]) {
@@ -139,16 +128,14 @@ fn check_geometry(first: &Tessellation, second: &Tessellation, constraints: &[Co
             let nearest = closest_point_on_triangle(end, triangle[0], triangle[1], triangle[2]);
             assert!((&nearest - end).norm() < Length::meters(1e-12));
         });
-        let ends = constraint
-            .segment
-            .each_ref()
-            .map(|end| [0, 1, 2].map(|i| end[i].value()));
         let on_an_edge = other.mesh().connectivities().iter().flatten().any(|nodes| {
             (0..3).any(|edge| {
                 let edge = [nodes[edge], nodes[(edge + 1) % 3]]
-                    .map(|node| [0, 1, 2].map(|i| other.mesh().coordinates()[node][i].value()));
-                ends.iter()
-                    .all(|&end| distance_to_segment(end, edge) < 1e-12)
+                    .map(|node| &other.mesh().coordinates()[node]);
+                constraint
+                    .segment
+                    .iter()
+                    .all(|end| distance_to_segment(end, edge) < Length::meters(1e-12))
             })
         });
         assert!(on_an_edge, "{:?}", constraint.keys);

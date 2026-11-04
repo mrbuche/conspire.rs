@@ -11,9 +11,12 @@
 mod test;
 
 use super::{Feature, Key, Side, triangulate::Input};
-use crate::geometry::{
-    Coordinate,
-    predicates::{Cutter, along, orient2d_planar},
+use crate::{
+    geometry::{
+        Coordinate,
+        predicates::{Cutter, along, orient2d_planar},
+    },
+    math::Quantity,
 };
 use std::{cmp::Ordering, collections::BTreeMap};
 
@@ -54,9 +57,11 @@ pub(super) fn frame<'a>(
 ) -> Result<Frame, &'static str> {
     let first = triangle[1] - triangle[0];
     let second = triangle[2] - triangle[0];
-    let gram = [&first * &first, &first * &second, &second * &second].map(|g| g.value());
+    let gram = [&first * &first, &first * &second, &second * &second];
     let determinant = gram[0] * gram[2] - gram[1] * gram[1];
-    if determinant.partial_cmp(&0.0) != Some(Ordering::Greater) || !determinant.is_finite() {
+    if determinant.partial_cmp(&Quantity::default()) != Some(Ordering::Greater)
+        || !determinant.value().is_finite()
+    {
         return Err("the triangle is degenerate");
     }
     let place = |key: &Key| place(own(key, side), &nodes);
@@ -78,10 +83,10 @@ pub(super) fn frame<'a>(
     for (index, key) in keys.iter().enumerate() {
         if matches!(place(key)?, Place::Inside) {
             let position = found[key] - triangle[0];
-            let (a, b) = ((&first * &position).value(), (&second * &position).value());
+            let (a, b) = (&first * &position, &second * &position);
             let point = [
-                (a * gram[2] - b * gram[1]) / determinant,
-                (b * gram[0] - a * gram[1]) / determinant,
+                ((a * gram[2] - b * gram[1]) / determinant).value(),
+                ((b * gram[0] - a * gram[1]) / determinant).value(),
             ];
             frame_points[index + 3] = within(point)?;
         }
@@ -133,7 +138,7 @@ pub(super) fn frame<'a>(
         .collect::<Result<Vec<_>, &'static str>>()?;
     Ok(Frame {
         input: Input {
-            gram,
+            gram: gram.map(|g| g.value()),
             points: frame_points,
             sides,
             segments,

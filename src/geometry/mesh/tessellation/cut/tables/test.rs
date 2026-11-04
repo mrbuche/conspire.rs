@@ -2,7 +2,8 @@ use super::super::test::{box_surface, dual, hexahedron, sphere};
 use super::super::{Class, Sign, Vertex};
 use crate::{
     geometry::mesh::Connectivity,
-    math::{CrossProduct, Tensor},
+    math::{CrossProduct, Quantity, Tensor},
+    units::{Length, Volume},
 };
 use std::collections::HashSet;
 
@@ -24,11 +25,12 @@ fn tables_single_hexahedron() {
         4
     );
     assert_eq!(tables.crossings().len(), 4);
+    let one = Length::meters(1.0);
     tables.crossings().values().for_each(|points| {
         assert_eq!(points.len(), 1);
         points
             .iter()
-            .for_each(|point| assert!((point.norm().value() - 1.0).abs() < 0.01))
+            .for_each(|point| assert!((point.norm() - one).abs() < Length::meters(0.01)))
     });
     assert_eq!(tables.segments().len(), 4);
     tables
@@ -70,16 +72,20 @@ fn tables_sphere_dual() {
         .unwrap();
     assert!(!tables.crossings().is_empty());
     tables.crossings().values().flatten().for_each(|point| {
-        let norm = point.norm().value();
-        assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
+        let norm = point.norm();
+        assert!(
+            (Length::meters(0.985)..=Length::meters(1.0 + 1e-9)).contains(&norm),
+            "{norm}"
+        )
     });
     let coordinates = mesh.coordinates();
+    let one = Length::meters(1.0);
     tables.signs().iter().for_each(|(&node, &sign)| {
-        let norm = coordinates[node].norm().value();
-        if (norm - 1.0).abs() > 0.02 {
+        let norm = coordinates[node].norm();
+        if (norm - one).abs() > Length::meters(0.02) {
             assert_eq!(
                 sign,
-                if norm < 1.0 {
+                if norm < one {
                     Sign::Inside
                 } else {
                     Sign::Outside
@@ -119,7 +125,10 @@ fn tables_double_crossing_edge() {
             assert_eq!(points.len(), 2);
             assert!(points[0][2] < points[1][2], "{points:?}");
             points.iter().for_each(|point| {
-                assert!((point[2].abs().value() - 0.05).abs() < 1e-9, "{point:?}")
+                assert!(
+                    (point[2].abs() - Length::meters(0.05)).abs() < Length::meters(1e-9),
+                    "{point:?}"
+                )
             });
         });
     let result = plate.assemble(&mesh, &classes, &tables).unwrap();
@@ -130,12 +139,18 @@ fn tables_double_crossing_edge() {
             let element: Vec<usize> = hexes.iter().flatten().copied().collect();
             let coordinates = result.coordinates();
             coordinates.iter().for_each(|point| {
-                assert!((point[2].abs().value() - 0.05).abs() < 1e-9, "{point:?}")
+                assert!(
+                    (point[2].abs() - Length::meters(0.05)).abs() < Length::meters(1e-9),
+                    "{point:?}"
+                )
             });
             let volume = &(&coordinates[element[1]] - &coordinates[element[0]])
                 .cross(&(&coordinates[element[3]] - &coordinates[element[0]]))
                 * &(&coordinates[element[4]] - &coordinates[element[0]]);
-            assert!((volume.value() - 0.4).abs() < 1e-9, "{volume}")
+            assert!(
+                (volume - Quantity::<Volume>::new(0.4)).abs() < Quantity::<Volume>::new(1e-9),
+                "{volume}"
+            )
         }
         _ => panic!(),
     }

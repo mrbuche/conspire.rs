@@ -14,10 +14,14 @@ use crate::{
         predicates::orient2d,
         solid::SolidOracle,
     },
-    math::{CrossProduct, Reference, Tensor, TensorRank1},
+    math::{CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1},
     units::{Area, Length},
 };
 use std::{cmp::Ordering, collections::HashMap};
+
+/// How far a point can be from a surface, as a fraction of `reach`, before it cannot be told to be
+/// off it. It is a few thousand times the rounding of the coordinates it is found from.
+const INDISTINGUISHABLE: Scalar = 1e-12;
 
 /// Where a piece of the surface of one solid lies relative to another solid.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -155,7 +159,7 @@ fn regions(
             Some(region) => region,
             None => {
                 let distance = solid.signed_distance(&centre);
-                if distance.abs() < Length::meters(1e-12) {
+                if distance.abs() < reach(&centre, triangle) * INDISTINGUISHABLE {
                     return Err("a piece lies on the other surface but not in its triangles");
                 }
                 if distance < Length::meters(0.0) {
@@ -179,6 +183,20 @@ fn inside(point: &Coordinate<3>, triangle: [&Coordinate<3>; 3]) -> bool {
     let signs =
         [0, 1, 2].map(|edge| orient2d(triangle[edge], triangle[(edge + 1) % 3], point, axis));
     signs[0] != Ordering::Equal && signs[0] == signs[1] && signs[1] == signs[2]
+}
+
+/// The length rounding is measured against for the centre of a triangle: how far it is from the
+/// origin, which sets the spacing of the numbers its coordinates are held in, or how big the
+/// triangle is, whichever is more.
+fn reach(centre: &Coordinate<3>, [a, b, c]: [&Coordinate<3>; 3]) -> Quantity<Length> {
+    [
+        (b - a).norm(),
+        (c - b).norm(),
+        (a - c).norm(),
+        centre.norm(),
+    ]
+    .into_iter()
+    .fold(Quantity::default(), Quantity::max)
 }
 
 /// Twice the area of a triangle, in the direction its corners turn.

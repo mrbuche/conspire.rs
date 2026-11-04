@@ -183,3 +183,32 @@ fn random_cuboids_on_a_coarse_grid_are_classified_by_the_side_they_are_on() {
         assert_sides(&corefined, &first, &second);
     }
 }
+
+#[test]
+fn the_classification_does_not_depend_on_the_size_of_the_solids() {
+    for scale in [1e-14, 1e-6, 1.0, 1e6] {
+        let at = |x: f64| [x * scale; 3];
+        let corefined = corefine(&solid(at(0.0), at(1.0)), &solid(at(0.5), at(1.5)));
+        let [first, second] = areas(&corefined);
+        let squared = scale * scale;
+        let expected = [(6.0 - 0.75) * squared, 0.75 * squared, 0.0, 0.0];
+        for found in [first, second] {
+            found
+                .iter()
+                .zip(&expected)
+                .for_each(|(f, e)| assert!((f - e).abs() < 1e-12 * squared, "{scale}"));
+        }
+    }
+}
+
+#[test]
+fn the_classification_does_not_depend_on_how_far_the_solids_are_from_the_origin() {
+    for shift in [0.0, 1e3, 1e6] {
+        let at = |x: f64| [x + shift; 3];
+        let corefined = corefine(&solid(at(0.0), at(1.0)), &solid(at(0.5), at(1.5)));
+        let [first, second] = areas(&corefined);
+        for found in [first, second] {
+            assert!((found[0] - 5.25).abs() < 1e-6 && (found[1] - 0.75).abs() < 1e-6);
+        }
+    }
+}
