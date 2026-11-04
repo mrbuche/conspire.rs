@@ -28,6 +28,20 @@ pub(super) enum Located {
     Vertex(usize),
 }
 
+/// How a junction is defined by the triangles that meet there.
+pub(super) enum How {
+    /// By the three planes of the triangles.
+    Planes,
+    /// By an edge of a triangle, where it meets the plane of another. The triangle is one of two in
+    /// one plane, so the three planes do not meet in a point.
+    Edge {
+        solid: usize,
+        triangle: usize,
+        edge: usize,
+        plane: (usize, usize),
+    },
+}
+
 /// A point where one triangle of each of three solids meet, inside or on the boundary of all
 /// three.
 pub(super) struct Junction {
@@ -37,6 +51,62 @@ pub(super) struct Junction {
     pub located: [Located; 3],
     /// Where the point is, rounded: to be placed, never to be decided from.
     pub position: Coordinate<3>,
+    pub how: How,
+}
+
+impl Junction {
+    /// The point, as defined by the corners of the triangles.
+    fn derived<'a>(&self, corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3]) -> Derived<'a> {
+        match &self.how {
+            How::Planes => Derived::Tpi(
+                self.triangles
+                    .map(|(solid, triangle)| corners(solid, triangle)),
+            ),
+            How::Edge {
+                solid,
+                triangle,
+                edge,
+                plane,
+            } => {
+                let owner = corners(*solid, *triangle);
+                Derived::Lpi {
+                    line: [owner[*edge], owner[(*edge + 1) % 3]],
+                    plane: corners(plane.0, plane.1),
+                }
+            }
+        }
+    }
+    /// A plane through the point that cuts across the curve along which two of the surfaces cross,
+    /// through three given points.
+    fn across<'a>(
+        &self,
+        pair: &[usize; 2],
+        corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3],
+    ) -> Result<[&'a Coordinate<3>; 3], &'static str> {
+        match &self.how {
+            How::Planes => self
+                .triangles
+                .iter()
+                .find(|(solid, _)| !pair.contains(solid))
+                .map(|&(solid, triangle)| corners(solid, triangle))
+                .ok_or("a triple point has no third surface"),
+            How::Edge {
+                solid,
+                triangle,
+                edge,
+                plane,
+            } => {
+                let owner = corners(*solid, *triangle);
+                let off = corners(plane.0, plane.1)
+                    .into_iter()
+                    .find(|corner| {
+                        orient3d(owner[0], owner[1], owner[2], corner) != Ordering::Equal
+                    })
+                    .ok_or("a triangle lies in the plane of another")?;
+                Ok([owner[*edge], owner[(*edge + 1) % 3], off])
+            }
+        }
+    }
 }
 
 /// The junctions among the solids, given for each pair of solids the pairs of their triangles that
@@ -80,6 +150,7 @@ pub(super) fn junctions<'a>(
                             triangles,
                             located,
                             position,
+                            how: How::Planes,
                         });
                     }
                 }
@@ -104,31 +175,157 @@ fn meeting(
                 orient3d(triangle[0], triangle[1], triangle[2], corner) != Ordering::Equal
             })
             .ok_or("two of three surfaces that meet are in one plane")?;
-        let off = *off;
-        let mut on = Vec::new();
-        for edge in 0..3 {
-            let (u, v, t) = (
-                triangle[edge],
-                triangle[(edge + 1) % 3],
-                triangle[(edge + 2) % 3],
-            );
-            let inside = orient3d(u, v, off, t);
-            match side([u, v, off], &point)? {
-                Ordering::Equal => on.push(edge),
-                found if found != inside => return Ok(None),
-                _ => (),
-            }
+        match locate(*triangle, off, &point)? {
+            Some(found) => located[index] = found,
+            None => return Ok(None),
         }
-        located[index] = match on[..] {
-            [] => Located::Face,
-            [edge] => Located::Edge(edge),
-            [0, 1] => Located::Vertex(1),
-            [1, 2] => Located::Vertex(2),
-            [0, 2] => Located::Vertex(0),
-            _ => return Err("a point is on all three edges of a triangle"),
-        };
     }
     Ok(Some((located, point.position()?)))
+}
+
+/// Where a point in the plane of a triangle is on it, if it is on it, given a point `off` that is
+/// not in that plane, so that the plane through each edge and `off` cuts the plane of the triangle
+/// along that edge.
+fn locate(
+    triangle: [&Coordinate<3>; 3],
+    off: &Coordinate<3>,
+    point: &Derived,
+) -> Result<Option<Located>, &'static str> {
+    let mut on = Vec::new();
+    for edge in 0..3 {
+        let (u, v, t) = (
+            triangle[edge],
+            triangle[(edge + 1) % 3],
+            triangle[(edge + 2) % 3],
+        );
+        let inside = orient3d(u, v, off, t);
+        match side([u, v, off], point)? {
+            Ordering::Equal => on.push(edge),
+            found if found != inside => return Ok(None),
+            _ => (),
+        }
+    }
+    Ok(Some(match on[..] {
+        [] => Located::Face,
+        [edge] => Located::Edge(edge),
+        [0, 1] => Located::Vertex(1),
+        [1, 2] => Located::Vertex(2),
+        [0, 2] => Located::Vertex(0),
+        _ => return Err("a point is on all three edges of a triangle"),
+    }))
+}
+
+/// The junctions at an edge of one of two triangles in one plane, where it meets a triangle that
+/// crosses both, given for each pair of solids the pairs of their triangles that lie in one plane
+/// and that cross each other.
+///
+/// The three planes do not meet in a point there, but the edge meets the plane of the third.
+pub(super) fn edge_junctions<'a>(
+    coplanar: &BTreeMap<[usize; 2], Vec<[usize; 2]>>,
+    pairs: &BTreeMap<[usize; 2], HashSet<[usize; 2]>>,
+    solids: usize,
+    corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3],
+) -> Result<Vec<Junction>, &'static str> {
+    let mut crossing = HashMap::<(usize, usize, usize), Vec<usize>>::new();
+    for (&[x, y], set) in pairs {
+        for &[tx, ty] in set {
+            crossing.entry((y, x, ty)).or_default().push(tx);
+            crossing.entry((x, y, tx)).or_default().push(ty);
+        }
+    }
+    let mut found = Vec::new();
+    for (&[j, k], list) in coplanar {
+        for &[b, c] in list {
+            for i in (0..solids).filter(|&i| i != j && i != k) {
+                let with_c: HashSet<usize> = crossing
+                    .get(&(k, i, c))
+                    .into_iter()
+                    .flatten()
+                    .copied()
+                    .collect();
+                let mut across: Vec<usize> = crossing
+                    .get(&(j, i, b))
+                    .into_iter()
+                    .flatten()
+                    .copied()
+                    .filter(|a| with_c.contains(a))
+                    .collect();
+                across.sort_unstable();
+                for a in across {
+                    let (plane, first, second) = (corners(i, a), corners(j, b), corners(k, c));
+                    for (owner, other, solid, triangle, partner) in
+                        [(first, second, j, b, (k, c)), (second, first, k, c, (j, b))]
+                    {
+                        for edge in 0..3 {
+                            let Some(([on_a, on_owner, on_other], position)) =
+                                edge_meeting(plane, owner, edge, other)?
+                            else {
+                                continue;
+                            };
+                            let mut places = [
+                                (i, a, on_a),
+                                (solid, triangle, on_owner),
+                                (partner.0, partner.1, on_other),
+                            ];
+                            places.sort_unstable_by_key(|&(solid, ..)| solid);
+                            found.push(Junction {
+                                triangles: places.map(|(solid, triangle, _)| (solid, triangle)),
+                                located: places.map(|(.., located)| located),
+                                position,
+                                how: How::Edge {
+                                    solid,
+                                    triangle,
+                                    edge,
+                                    plane: (i, a),
+                                },
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(found)
+}
+
+/// Where an edge of a triangle meets the plane of another, if that is inside or on the other
+/// triangle, and the triangle in the plane of the first: where it is on each of the three.
+fn edge_meeting(
+    plane: [&Coordinate<3>; 3],
+    owner: [&Coordinate<3>; 3],
+    edge: usize,
+    other: [&Coordinate<3>; 3],
+) -> Result<Option<([Located; 3], Coordinate<3>)>, &'static str> {
+    let (start, end) = (owner[edge], owner[(edge + 1) % 3]);
+    let sides = [start, end].map(|corner| orient3d(plane[0], plane[1], plane[2], corner));
+    if sides[0] == sides[1] {
+        return Ok(None);
+    }
+    let point = Derived::Lpi {
+        line: [start, end],
+        plane,
+    };
+    let off = if sides[0] != Ordering::Equal {
+        start
+    } else {
+        end
+    };
+    let Some(on_plane) = locate(plane, off, &point)? else {
+        return Ok(None);
+    };
+    let along = plane
+        .iter()
+        .find(|corner| orient3d(owner[0], owner[1], owner[2], corner) != Ordering::Equal)
+        .ok_or("two triangles that cross are in one plane")?;
+    let Some(on_other) = locate(other, along, &point)? else {
+        return Ok(None);
+    };
+    let on_owner = match sides {
+        [Ordering::Equal, _] => Located::Vertex(edge),
+        [_, Ordering::Equal] => Located::Vertex((edge + 1) % 3),
+        _ => Located::Edge(edge),
+    };
+    Ok(Some(([on_plane, on_owner, on_other], point.position()?)))
 }
 
 /// Where three or more surfaces meet, however many junctions of three of them are the one point.
@@ -150,24 +347,20 @@ pub(super) struct Ends {
     pub features: [[Feature; 2]; 2],
 }
 
-/// The points on a curve: the one at its start and the one at its end, if any, and those between,
-/// in order.
-#[derive(Default)]
-pub(super) struct Chain {
-    pub start: Option<usize>,
-    pub middle: Vec<usize>,
-    pub end: Option<usize>,
-}
+/// A point at the end of a curve, and the features that name the end.
+pub(super) type Link = (usize, [Feature; 2]);
 
-type Arranged = (Vec<Point>, HashMap<Curve, Chain>);
+type Arranged = (Vec<Point>, HashMap<Curve, Vec<usize>>, Vec<Link>);
 
-/// The points, and the points on every curve that has any, where `curves` gives the ends of every
-/// curve and `feature` the feature of a solid that a place on one of its triangles is.
+/// The points, and the points strictly between the ends of every curve that has any, in order from
+/// its start, where `curves` gives the ends of every curve and `feature` the feature of a solid
+/// that a place on one of its triangles is.
 ///
-/// A point is at the end of a curve when it is on the same features as the end is. Junctions that
-/// are the same point, because a fourth surface meets the same three there, are one point. Fails
-/// where points on a curve cannot be put in order, which is where one is too near an end of the
-/// curve for its rounded position to say which side of the other surface it is on.
+/// A point is at the end of a curve when it is on the same features as the end is, and is left out
+/// of those between, but is linked to the end, which is named by only those features. Junctions that are the same point, because a
+/// fourth surface meets the same three there, are one point. Fails where points on a curve cannot
+/// be put in order, which is where one is too near an end of the curve for its rounded position to
+/// say which side of the other surface it is on.
 pub(super) fn arrange<'a>(
     junctions: &[Junction],
     curves: &HashMap<Curve, Ends>,
@@ -178,10 +371,10 @@ pub(super) fn arrange<'a>(
     for (index, junction) in junctions.iter().enumerate() {
         for (n, &(first, a)) in junction.triangles.iter().enumerate() {
             for &(second, b) in &junction.triangles[n + 1..] {
-                through
-                    .entry(([first, second], a, b))
-                    .or_default()
-                    .push(index);
+                let curve = ([first, second], a, b);
+                if curves.contains_key(&curve) {
+                    through.entry(curve).or_default().push(index);
+                }
             }
         }
     }
@@ -198,6 +391,22 @@ pub(super) fn arrange<'a>(
         (0..2).find(|&end| curves[curve].features[end] == mine)
     };
     let mut same = Groups::<usize>::default();
+    // The same lowest feature of every solid is the same point, however it was found.
+    let mut named = HashMap::<Vec<Feature>, usize>::new();
+    for (index, junction) in junctions.iter().enumerate() {
+        let features: Vec<Feature> = junction
+            .triangles
+            .iter()
+            .zip(&junction.located)
+            .map(|(&(solid, triangle), &located)| feature(solid, triangle, located))
+            .collect();
+        match named.get(&features) {
+            Some(&first) => same.join(&first, &index),
+            None => {
+                named.insert(features, index);
+            }
+        }
+    }
     for (curve, found) in &through {
         for (n, &x) in found.iter().enumerate() {
             for &y in &found[n + 1..] {
@@ -238,17 +447,21 @@ pub(super) fn arrange<'a>(
         .iter_mut()
         .for_each(|p| p.places.sort_unstable_by_key(|&(s, ..)| s));
     let mut arranged = HashMap::new();
+    let mut links = Vec::new();
     for (curve, found) in through {
-        let mut chain = Chain::default();
-        let mut roots = Vec::new();
         for &x in &found {
-            let point = numbered[&same.find(&x)];
-            match end_of(&curve, x) {
-                Some(0) => chain.start = Some(point),
-                Some(_) => chain.end = Some(point),
-                None => roots.push(same.find(&x)),
+            if let Some(end) = end_of(&curve, x) {
+                links.push((
+                    numbered[&same.find(&x)],
+                    curves[&curve].features[end].clone(),
+                ));
             }
         }
+        let mut roots: Vec<usize> = found
+            .iter()
+            .filter(|&&x| end_of(&curve, x).is_none())
+            .map(|x| same.find(x))
+            .collect();
         roots.sort_unstable();
         roots.dedup();
         for i in 1..roots.len() {
@@ -263,10 +476,9 @@ pub(super) fn arrange<'a>(
                 j -= 1;
             }
         }
-        chain.middle = roots.iter().map(|root| numbered[root]).collect();
-        arranged.insert(curve, chain);
+        arranged.insert(curve, roots.iter().map(|root| numbered[root]).collect());
     }
-    Ok((points, arranged))
+    Ok((points, arranged, links))
 }
 
 /// Whether the junction `x` is before, after or the same point as `y` along a curve from its start
@@ -280,19 +492,10 @@ fn order<'a>(
     curve: &Curve,
     ends: &[Coordinate<3>; 2],
     [x, y]: [usize; 2],
-    corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3],
+    corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3] + Copy,
 ) -> Result<Ordering, &'static str> {
-    let (pair, ..) = curve;
-    let &(solid, triangle) = junctions[x]
-        .triangles
-        .iter()
-        .find(|(solid, _)| !pair.contains(solid))
-        .ok_or("a triple point has no third surface")?;
-    let plane = corners(solid, triangle);
-    let planes = junctions[y]
-        .triangles
-        .map(|(solid, triangle)| corners(solid, triangle));
-    let found = side(plane, &Derived::Tpi(planes))?;
+    let plane = junctions[x].across(&curve.0, corners)?;
+    let found = side(plane, &junctions[y].derived(corners))?;
     if found == Ordering::Equal {
         return Ok(Ordering::Equal);
     }

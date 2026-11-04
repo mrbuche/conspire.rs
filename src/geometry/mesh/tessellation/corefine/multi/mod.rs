@@ -6,13 +6,13 @@ mod names;
 mod test;
 
 use self::{
-    junction::{Chain, Ends, Located, arrange, junctions},
+    junction::{Ends, Located, arrange, edge_junctions, junctions},
     names::{Groups, Name, Offsets, Spot, solid_of, viewed},
 };
 use super::{
     Contacts, Feature, Key, Region, Side,
     classify::{coplanar, patches, relate},
-    frame::coincident,
+    frame::{coincident, cut_order},
     split::{Piece, refine, share},
 };
 use crate::{
@@ -23,7 +23,10 @@ use crate::{
     },
     math::Tensor,
 };
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+};
 
 /// The surfaces that separate any number of solids, each triangle labelled with the solid on
 /// either side of it.
@@ -121,14 +124,16 @@ fn unify<'a>(
     faces: &[Vec<[usize; 3]>],
     coordinates: &[Coordinate<3>],
     offsets: &[Offsets],
+    links: &[[Name; 2]],
     cutter: impl Fn(&Feature) -> Cutter<'a>,
 ) -> Result<(), &'static str> {
-    for _ in 0..4 {
+    for round in 0..4 {
         pieces
             .iter_mut()
             .enumerate()
             .for_each(|(volume, map)| share(&faces[volume], map, |spot| &spot.own));
         let mut groups = Groups::<Name>::default();
+        links.iter().for_each(|[a, b]| groups.join(a, b));
         let mut found = false;
         for (volume, map) in pieces.iter().enumerate() {
             for (&triangle, piece) in map {
@@ -146,7 +151,7 @@ fn unify<'a>(
                 }
             }
         }
-        if !found {
+        if !found && (round > 0 || links.is_empty()) {
             return Ok(());
         }
         let mut merged = HashMap::<Name, BTreeSet<Feature>>::new();
@@ -228,7 +233,19 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
     let corners = |solid: usize, triangle: usize| {
         triangles[offsets[solid].triangle + triangle].map(|node| &coordinates[node])
     };
-    let junctions = junctions(&pairs, solids.len(), corners)?;
+    let cutter = |feature: &Feature| match feature {
+        Feature::Face(triangle) => {
+            Cutter::Face(triangles[*triangle].map(|node| &coordinates[node]))
+        }
+        Feature::Edge([a, b]) => Cutter::Edge([&coordinates[*a], &coordinates[*b]]),
+        Feature::Vertex(node) => Cutter::Vertex(&coordinates[*node]),
+    };
+    let flat: BTreeMap<[usize; 2], Vec<[usize; 2]>> = contacts
+        .iter()
+        .map(|(&pair, contacts)| (pair, contacts.coplanar.clone()))
+        .collect();
+    let mut junctions = junctions(&pairs, solids.len(), corners)?;
+    junctions.extend(edge_junctions(&flat, &pairs, solids.len(), corners)?);
     let curves: HashMap<_, _> = contacts
         .iter()
         .flat_map(|(&[i, j], contacts)| {
@@ -257,7 +274,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             Located::Vertex(corner) => Feature::Vertex(nodes[corner]),
         }
     };
-    let (points, through) = arrange(&junctions, &curves, feature, corners)?;
+    let (points, through, ends) = arrange(&junctions, &curves, feature, corners)?;
     let features: Vec<Vec<Feature>> = points
         .iter()
         .map(|point| {
@@ -268,6 +285,99 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
                 .collect()
         })
         .collect();
+    let links: Vec<[Name; 2]> = ends
+        .iter()
+        .map(|(point, ends)| {
+            [
+                Name::new(ends.iter().cloned()),
+                Name::new(features[*point].iter().cloned()),
+            ]
+        })
+        .collect();
+    let mut by_edge = HashMap::<Feature, Vec<usize>>::new();
+    for (point, found) in features.iter().enumerate() {
+        for feature in found.iter().filter(|f| matches!(f, Feature::Edge(_))) {
+            by_edge.entry(feature.clone()).or_default().push(point);
+        }
+    }
+    // The points inside a triangle that are on an edge of the other solid, in the plane of the
+    // triangle, that a segment of the edge crosses the triangle along, from its start to its end.
+    let on_constraint = |constraint: &crate::geometry::mesh::Constraint, sides: [&Offsets; 2]| {
+        let (volume, cut, cutter_side) = match constraint.side {
+            Side::First => (0, 0, 1),
+            Side::Second => (1, 1, 0),
+        };
+        let ends = constraint.keys.each_ref().map(|key| {
+            let key = viewed(key, true, sides);
+            [key.first, key.second]
+        });
+        let cutter_features = ends.each_ref().map(|end| &end[cutter_side]);
+        let edge = cutter_features
+            .iter()
+            .find(|feature| matches!(feature, Feature::Edge(_)))
+            .map(|feature| (*feature).clone())
+            .or_else(|| match cutter_features {
+                [Feature::Vertex(a), Feature::Vertex(b)] => {
+                    Some(Feature::Edge([*a.min(b), *a.max(b)]))
+                }
+                _ => None,
+            });
+        let Some(edge @ Feature::Edge([n0, n1])) = edge else {
+            return Ok(Vec::new());
+        };
+        let _ = (volume, cut);
+        let triangle = Feature::Face(sides[volume].triangle + constraint.triangle);
+        let mut found: Vec<usize> = by_edge
+            .get(&edge)
+            .into_iter()
+            .flatten()
+            .copied()
+            .filter(|&point| features[point].contains(&triangle))
+            .collect();
+        if found.is_empty() {
+            return Ok(found);
+        }
+        let (p, q) = (&coordinates[n0], &coordinates[n1]);
+        let cutters = |features: Vec<&Feature>| -> Vec<Cutter> {
+            features
+                .into_iter()
+                .filter(|feature| **feature != edge && **feature != triangle)
+                .map(&cutter)
+                .collect()
+        };
+        let [start, finish] = ends.each_ref().map(|end| cutters(end.iter().collect()));
+        let forward = cut_order(p, q, &start, &finish)?;
+        let at = |point: usize| cutters(features[point].iter().collect());
+        let mut between = Vec::new();
+        for point in found.drain(..) {
+            let here = at(point);
+            let before = cut_order(p, q, &start, &here)?;
+            let after = cut_order(p, q, &here, &finish)?;
+            if before == forward && after == forward {
+                between.push(point);
+            }
+        }
+        for i in 1..between.len() {
+            let mut j = i;
+            while j > 0 {
+                match cut_order(p, q, &at(between[j - 1]), &at(between[j]))? {
+                    o if o == forward => break,
+                    Ordering::Equal => {
+                        eprintln!(
+                            "SAMEPTS {edge:?} {:?} {:?} {:?}",
+                            features[between[j - 1]],
+                            features[between[j]],
+                            triangle
+                        );
+                        return Err("two triple points are the same point");
+                    }
+                    _ => between.swap(j - 1, j),
+                }
+                j -= 1;
+            }
+        }
+        Ok(between)
+    };
     let spot = |point: usize, volume: usize| {
         let own = points[point]
             .places
@@ -295,7 +405,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
                        triangle: usize,
                        keys: &[Key; 2],
                        segment: &[Coordinate<3>; 2],
-                       split: Option<&Chain>| {
+                       split: &[usize]| {
             let (volume, from_first) = match side {
                 Side::First => (i, true),
                 Side::Second => (j, false),
@@ -306,22 +416,12 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             let piece = pieces[volume].entry(triangle).or_default();
             let mut keys = vec![start];
             let mut positions = vec![segment[0].clone()];
-            if let Some(chain) = split {
-                if let Some(point) = chain.start {
-                    keys[0] = spot(point, volume);
-                    positions[0] = points[point].position.clone();
-                }
-                for &point in &chain.middle {
-                    keys.push(spot(point, volume));
-                    positions.push(points[point].position.clone());
-                }
+            for &point in split {
+                keys.push(spot(point, volume));
+                positions.push(points[point].position.clone());
             }
             keys.push(end);
             positions.push(segment[1].clone());
-            if let Some(point) = split.and_then(|chain| chain.end) {
-                *keys.last_mut().expect("there is an end") = spot(point, volume);
-                *positions.last_mut().expect("there is an end") = points[point].position.clone();
-            }
             for (keys, ends) in keys.windows(2).zip(positions.windows(2)) {
                 piece.add(
                     &[keys[0].clone(), keys[1].clone()],
@@ -330,7 +430,9 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             }
         };
         for crossing in &contacts.crossings {
-            let split = through.get(&([i, j], crossing.first, crossing.second));
+            let split = through
+                .get(&([i, j], crossing.first, crossing.second))
+                .map_or(&[][..], |found| found.as_slice());
             add(
                 Side::First,
                 crossing.first,
@@ -347,12 +449,13 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             );
         }
         for constraint in &contacts.constraints {
+            let split = on_constraint(constraint, sides)?;
             add(
                 constraint.side,
                 constraint.triangle,
                 &constraint.keys,
                 &constraint.segment,
-                None,
+                &split,
             );
         }
         let keys = contacts
@@ -367,14 +470,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             }
         }
     }
-    let cutter = |feature: &Feature| match feature {
-        Feature::Face(triangle) => {
-            Cutter::Face(triangles[*triangle].map(|node| &coordinates[node]))
-        }
-        Feature::Edge([a, b]) => Cutter::Edge([&coordinates[*a], &coordinates[*b]]),
-        Feature::Vertex(node) => Cutter::Vertex(&coordinates[*node]),
-    };
-    unify(&mut pieces, &faces, &coordinates, &offsets, cutter)?;
+    unify(&mut pieces, &faces, &coordinates, &offsets, &links, cutter)?;
     let mut vertices = coordinates.clone();
     let mut named = HashMap::<Name, usize>::new();
     let mut refined = Vec::new();

@@ -1,4 +1,4 @@
-use super::{Curve, Ends, Feature, Located, arrange, junctions, meeting};
+use super::{Curve, Ends, Feature, Located, arrange, edge_junctions, junctions, meeting};
 use crate::{
     geometry::Coordinate,
     math::{Tensor, assert::Assert},
@@ -17,8 +17,13 @@ fn away(points: [Coordinate<3>; 2]) -> Ends {
     }
 }
 
-fn named(solid: usize, triangle: usize, _: Located) -> Feature {
-    Feature::Face(1000 * solid + triangle)
+fn named(solid: usize, triangle: usize, located: Located) -> Feature {
+    let triangle = 1000 * solid + triangle;
+    match located {
+        Located::Face => Feature::Face(triangle),
+        Located::Edge(edge) => Feature::Edge([triangle, edge]),
+        Located::Vertex(corner) => Feature::Vertex(10 * triangle + corner),
+    }
 }
 
 fn triangle(corners: [[f64; 3]; 3]) -> Triangle {
@@ -156,10 +161,9 @@ fn points_on_a_curve_are_put_in_order_from_its_start() {
             (([1, 2], 0, 1), away(ends.clone())),
         ]
         .into();
-        let (points, arranged) = arrange(&found, &curves, named, corners).unwrap();
+        let (points, arranged, _) = arrange(&found, &curves, named, corners).unwrap();
         assert_eq!(points.len(), 2);
         let heights: Vec<f64> = arranged[&([0, 1], 0, 0)]
-            .middle
             .iter()
             .map(|&index| points[index].position[1].value())
             .collect();
@@ -195,10 +199,106 @@ fn four_surfaces_through_one_point_are_one_point() {
             ((pair, 0, 0), away(ends))
         })
         .collect();
-    let (points, arranged) = arrange(&found, &curves, named, corners).unwrap();
+    let (points, arranged, _) = arrange(&found, &curves, named, corners).unwrap();
     assert_eq!(points.len(), 1);
     let solids: Vec<usize> = points[0].places.iter().map(|&(solid, ..)| solid).collect();
     assert_eq!(solids, [0, 1, 2, 3]);
     assert_eq!(arranged.len(), 6);
-    assert!(arranged.values().all(|chain| chain.middle == [0]));
+    assert!(arranged.values().all(|on| on == &[0]));
+}
+
+fn across_coplanar() -> [Triangle; 3] {
+    [
+        triangle([[0.5, -2.0, -1.0], [0.5, 5.0, -1.0], [0.5, -2.0, 2.0]]),
+        triangle([[-4.0, -4.0, 0.0], [8.0, -4.0, 0.0], [-4.0, 8.0, 0.0]]),
+        triangle([[-1.0, -1.0, 0.0], [3.0, -1.0, 0.0], [-1.0, 3.0, 0.0]]),
+    ]
+}
+
+#[test]
+fn the_edges_of_a_triangle_in_the_plane_of_another_meet_a_third_where_it_crosses_them() {
+    let triangles = across_coplanar();
+    let corners = |solid: usize, _: usize| {
+        let triangle = &triangles[solid];
+        [&triangle[0], &triangle[1], &triangle[2]]
+    };
+    let mut pairs = BTreeMap::new();
+    pairs.insert([0, 1], HashSet::from([[0, 0]]));
+    pairs.insert([0, 2], HashSet::from([[0, 0]]));
+    let coplanar = BTreeMap::from([([1, 2], vec![[0, 0]])]);
+    assert!(junctions(&pairs, 3, corners).unwrap().is_empty());
+    let found = edge_junctions(&coplanar, &pairs, 3, corners).unwrap();
+    assert_eq!(found.len(), 2);
+    let mut heights: Vec<(f64, Vec<Located>)> = found
+        .iter()
+        .map(|junction| (junction.position[1].value(), junction.located.to_vec()))
+        .collect();
+    heights.sort_by(|a, b| a.0.total_cmp(&b.0));
+    assert!((heights[0].0 + 1.0).abs() < 1e-12 && (heights[1].0 - 1.5).abs() < 1e-12);
+    // The bottom edge and the long edge of the small triangle, each inside the other two.
+    assert_eq!(
+        heights[0].1,
+        [Located::Face, Located::Face, Located::Edge(0)]
+    );
+    assert_eq!(
+        heights[1].1,
+        [Located::Face, Located::Face, Located::Edge(1)]
+    );
+}
+
+#[test]
+fn an_edge_that_meets_the_plane_outside_the_other_triangle_is_not_a_junction() {
+    let mut triangles = across_coplanar();
+    triangles[0] = triangle([[0.5, 2.0, -1.0], [0.5, 5.0, -1.0], [0.5, 2.0, 2.0]]);
+    let corners = |solid: usize, _: usize| {
+        let triangle = &triangles[solid];
+        [&triangle[0], &triangle[1], &triangle[2]]
+    };
+    let mut pairs = BTreeMap::new();
+    pairs.insert([0, 1], HashSet::from([[0, 0]]));
+    pairs.insert([0, 2], HashSet::from([[0, 0]]));
+    let coplanar = BTreeMap::from([([1, 2], vec![[0, 0]])]);
+    assert!(
+        edge_junctions(&coplanar, &pairs, 3, corners)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn points_defined_by_edges_are_put_in_order_along_a_curve() {
+    let triangles = across_coplanar();
+    let corners = |solid: usize, _: usize| {
+        let triangle = &triangles[solid];
+        [&triangle[0], &triangle[1], &triangle[2]]
+    };
+    let mut pairs = BTreeMap::new();
+    pairs.insert([0, 1], HashSet::from([[0, 0]]));
+    pairs.insert([0, 2], HashSet::from([[0, 0]]));
+    let coplanar = BTreeMap::from([([1, 2], vec![[0, 0]])]);
+    let found = edge_junctions(&coplanar, &pairs, 3, corners).unwrap();
+    for reversed in [false, true] {
+        let ends = [
+            Coordinate::from([0.5, -2.0, 0.0]),
+            Coordinate::from([0.5, 8.0 / 3.0, 0.0]),
+        ];
+        let ends = if reversed {
+            [ends[1].clone(), ends[0].clone()]
+        } else {
+            ends
+        };
+        let curves: HashMap<Curve, Ends> = [
+            (([0, 1], 0, 0), away(ends.clone())),
+            (([0, 2], 0, 0), away(ends)),
+        ]
+        .into();
+        let (points, arranged, _) = arrange(&found, &curves, named, corners).unwrap();
+        assert_eq!(points.len(), 2);
+        let heights: Vec<f64> = arranged[&([0, 1], 0, 0)]
+            .iter()
+            .map(|&index| points[index].position[1].value())
+            .collect();
+        assert_eq!(heights.len(), 2);
+        assert_eq!(heights[0] < heights[1], !reversed, "{heights:?}");
+    }
 }

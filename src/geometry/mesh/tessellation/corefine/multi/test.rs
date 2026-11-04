@@ -131,6 +131,36 @@ fn the_same_solids_in_the_other_order_swap_the_notch() -> Result<(), AssertionEr
 }
 
 #[test]
+fn a_surface_across_coplanar_faces_cuts_them_along_the_edges_of_each() -> Result<(), AssertionError>
+{
+    for boxes in [
+        [
+            ([3, 5, 2], [8, 8, 4]),
+            ([1, 7, 1], [6, 10, 3]),
+            ([4, 7, 3], [8, 10, 7]),
+        ],
+        [
+            ([2, 5, 5], [7, 7, 7]),
+            ([3, 6, 5], [5, 9, 8]),
+            ([1, 4, 6], [5, 9, 7]),
+        ],
+        [
+            ([3, 5, 2], [4, 8, 5]),
+            ([0, 7, 4], [4, 11, 9]),
+            ([1, 7, 5], [5, 12, 10]),
+        ],
+        [
+            ([3, 3, 6], [4, 5, 9]),
+            ([2, 1, 2], [5, 6, 6]),
+            ([3, 4, 2], [6, 5, 7]),
+        ],
+    ] {
+        assert_materials(&boxes, true)?;
+    }
+    Ok(())
+}
+
+#[test]
 fn three_surfaces_meeting_on_the_diagonals_of_their_faces() -> Result<(), AssertionError> {
     assert_materials(
         &[
@@ -144,7 +174,7 @@ fn three_surfaces_meeting_on_the_diagonals_of_their_faces() -> Result<(), Assert
 
 const TRIPLE_POINT: [&str; 3] = [
     "two segments cross",
-    "a point lies on another point",
+    "two triple points are the same point",
     "a triple point is too near the end of a curve to be put in order",
 ];
 
@@ -174,7 +204,7 @@ fn random_boxes_on_a_coarse_grid_give_closed_materials_or_an_error() -> Result<(
             Err(message) => assert!(TRIPLE_POINT.contains(&message), "{message}"),
         }
     }
-    assert!(done > 200, "{done}");
+    assert!(done > 292, "{done}");
     Ok(())
 }
 

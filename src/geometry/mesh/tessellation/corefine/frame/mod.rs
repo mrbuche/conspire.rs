@@ -152,7 +152,7 @@ pub(super) fn frame<'a, K: Ord + Clone>(
 }
 
 /// Which of two points on an edge from `p` to `q` is first, from what cuts the edge at each.
-fn cut_order(
+pub(super) fn cut_order(
     p: &Coordinate<3>,
     q: &Coordinate<3>,
     first: &[Cutter],
