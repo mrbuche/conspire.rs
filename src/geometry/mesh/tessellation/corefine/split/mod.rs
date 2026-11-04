@@ -6,7 +6,7 @@ mod test;
 use super::{
     Contacts, Feature, Key, Side,
     frame::{frame, own as own_feature},
-    triangulate::triangulate,
+    triangulate::triangulate_constrained,
 };
 use crate::{
     geometry::{
@@ -16,7 +16,7 @@ use crate::{
     },
     math::Tensor,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// What meets one triangle: points, each with a rounded position, and the segments between them.
 #[derive(Default)]
@@ -47,18 +47,27 @@ impl Tessellation {
     pub fn corefine(&self, other: &Tessellation) -> Result<[Tessellation; 2], &'static str> {
         let contacts = self.contacts(other)?;
         Ok([
-            split(self, other, Side::First, &contacts)?,
-            split(other, self, Side::Second, &contacts)?,
+            split(self, other, Side::First, &contacts)?.tessellation,
+            split(other, self, Side::Second, &contacts)?.tessellation,
         ])
     }
 }
 
-fn split(
+/// A tessellation split along where another meets it.
+pub(super) struct Split {
+    pub tessellation: Tessellation,
+    /// The triangle of the tessellation that was split, for each triangle of the result.
+    pub parents: Vec<usize>,
+    /// The edges, as pairs of vertices with the smaller first, along which the other meets it.
+    pub curves: HashSet<[usize; 2]>,
+}
+
+pub(super) fn split(
     own: &Tessellation,
     other: &Tessellation,
     side: Side,
     contacts: &Contacts,
-) -> Result<Tessellation, &'static str> {
+) -> Result<Split, &'static str> {
     let mut pieces: BTreeMap<usize, Piece> = BTreeMap::new();
     for crossing in &contacts.crossings {
         let triangle = match side {
@@ -123,11 +132,14 @@ fn split(
         Feature::Vertex(node) => Cutter::Vertex(&other_coordinates[*node]),
     };
     let mut named = HashMap::<Key, usize>::new();
-    let mut faces: Vec<[usize; 3]> = Vec::new();
+    let mut faces = Vec::<[usize; 3]>::new();
+    let mut parents = Vec::<usize>::new();
+    let mut curves = HashSet::<[usize; 2]>::new();
     for (index, nodes) in own.mesh().connectivities().iter().flatten().enumerate() {
         let nodes = [nodes[0], nodes[1], nodes[2]];
         let Some(piece) = pieces.get(&index) else {
             faces.push(nodes);
+            parents.push(index);
             continue;
         };
         let framed = frame(
@@ -160,15 +172,25 @@ fn split(
                 ids[point - 3]
             }
         };
+        let (triangles, constrained) = triangulate_constrained(&framed.input)?;
+        parents.extend(triangles.iter().map(|_| index));
         faces.extend(
-            triangulate(&framed.input)?
+            triangles
                 .into_iter()
                 .map(|[a, b, c]| [node(a), node(b), node(c)]),
         );
+        curves.extend(constrained.into_iter().map(|[a, b]| {
+            let (a, b) = (node(a), node(b));
+            [a.min(b), a.max(b)]
+        }));
     }
-    Ok(Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        vertices.into(),
-    ))
-    .into())
+    Ok(Split {
+        tessellation: Mesh::from((
+            vec![Connectivity::Triangular(faces.into())],
+            vertices.into(),
+        ))
+        .into(),
+        parents,
+        curves,
+    })
 }

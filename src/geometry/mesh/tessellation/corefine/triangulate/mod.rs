@@ -50,8 +50,20 @@ impl Input {
 }
 
 /// The triangles, counterclockwise, each starting at its smallest index, in order.
+#[cfg(test)]
 pub(super) fn triangulate(input: &Input) -> Result<Vec<[usize; 3]>, &'static str> {
     Ok(build(input, [0, 1, 2], &input.interior())?.triangles())
+}
+
+type Constrained = (Vec<[usize; 3]>, Vec<[usize; 2]>);
+
+/// The triangles as for `triangulate`, and the edges that the segments became, each with its
+/// smaller index first, in order.
+pub(super) fn triangulate_constrained(input: &Input) -> Result<Constrained, &'static str> {
+    let triangulation = build(input, [0, 1, 2], &input.interior())?;
+    let mut constrained: Vec<[usize; 2]> = triangulation.fixed.iter().copied().collect();
+    constrained.sort_unstable();
+    Ok((triangulation.triangles(), constrained))
 }
 
 /// The triangulation, inserting the points of the edges in the given order of edges, then the
