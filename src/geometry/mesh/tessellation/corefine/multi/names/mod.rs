@@ -1,7 +1,10 @@
 //! Naming the points where surfaces meet, by the numbers of all the solids together.
 
+#[cfg(test)]
+mod test;
+
 use super::super::{Feature, Key};
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 /// Where a solid's numbers start in those of all the solids together.
 pub(super) struct Offsets {
@@ -34,26 +37,73 @@ pub(super) fn viewed(key: &Key, from_first: bool, offsets: [&Offsets; 2]) -> Key
     }
 }
 
-/// The same point seen from the other surface is the same point.
-pub(super) fn canonical(key: &Key) -> Key {
-    if key.first <= key.second {
-        key.clone()
-    } else {
-        Key {
-            first: key.second.clone(),
-            second: key.first.clone(),
+/// The name of a point: the lowest feature of every solid whose surface it is on, in order.
+///
+/// However many surfaces meet at the point, and in whichever order they were compared, the same
+/// point has the same name.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub(super) struct Name(Vec<Feature>);
+
+impl Name {
+    pub fn new(features: impl IntoIterator<Item = Feature>) -> Self {
+        let mut features: Vec<Feature> = features.into_iter().collect();
+        features.sort_unstable();
+        features.dedup();
+        Self(features)
+    }
+}
+
+impl From<&Key> for Name {
+    fn from(key: &Key) -> Self {
+        Self::new([key.first.clone(), key.second.clone()])
+    }
+}
+
+/// Groups of items known to be the same, each with the smallest of them as its root.
+pub(super) struct Groups<T> {
+    parents: HashMap<T, T>,
+}
+
+impl<T> Default for Groups<T> {
+    fn default() -> Self {
+        Self {
+            parents: HashMap::new(),
         }
     }
 }
 
-/// The root of the group of identical nodes that this one is in, joining it to itself if new.
-pub(super) fn find(parents: &mut HashMap<usize, usize>, node: usize) -> usize {
-    let parent = *parents.entry(node).or_insert(node);
-    if parent == node {
-        node
-    } else {
-        let root = find(parents, parent);
-        parents.insert(node, root);
+impl<T: Clone + Eq + Hash + Ord> Groups<T> {
+    /// The root of the group that this item is in, which is itself if it is in none.
+    pub fn find(&mut self, item: &T) -> T {
+        let parent = self
+            .parents
+            .get(item)
+            .cloned()
+            .unwrap_or_else(|| item.clone());
+        if &parent == item {
+            return parent;
+        }
+        let root = self.find(&parent);
+        self.parents.insert(item.clone(), root.clone());
         root
+    }
+    /// Says that two items are the same, joining their groups.
+    pub fn join(&mut self, a: &T, b: &T) {
+        let (a, b) = (self.find(a), self.find(b));
+        if a != b {
+            let (low, high) = if a < b { (a, b) } else { (b, a) };
+            self.parents.insert(high, low);
+        }
+    }
+    /// The root of the group of every item that is in a group of more than itself.
+    pub fn roots(&mut self) -> HashMap<T, T> {
+        let items: Vec<T> = self.parents.keys().cloned().collect();
+        items
+            .into_iter()
+            .map(|item| {
+                let root = self.find(&item);
+                (item, root)
+            })
+            .collect()
     }
 }

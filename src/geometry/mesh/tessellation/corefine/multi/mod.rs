@@ -4,7 +4,7 @@ mod names;
 #[cfg(test)]
 mod test;
 
-use self::names::{Offsets, canonical, find, viewed};
+use self::names::{Groups, Name, Offsets, viewed};
 use super::{
     Contacts, Feature, Key, Region, Side,
     classify::{coplanar, patches, relate},
@@ -87,8 +87,8 @@ impl Interfaces {
 
 /// A surface of the faces that use the `positions`, without the positions nothing uses.
 fn surface(faces: Vec<[usize; 3]>, positions: &[&Coordinate<3>]) -> Tessellation {
-    let mut renumbered: HashMap<usize, usize> = HashMap::new();
-    let mut vertices: Vec<Coordinate<3>> = Vec::new();
+    let mut renumbered = HashMap::<usize, usize>::new();
+    let mut vertices = Vec::<Coordinate<3>>::new();
     let faces: Vec<[usize; 3]> = faces
         .into_iter()
         .map(|face| {
@@ -105,10 +105,10 @@ fn surface(faces: Vec<[usize; 3]>, positions: &[&Coordinate<3>]) -> Tessellation
 
 fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
     let tessellations: Vec<&Tessellation> = solids.iter().map(Watertight::tessellation).collect();
-    let mut offsets: Vec<Offsets> = Vec::new();
-    let mut coordinates: Vec<Coordinate<3>> = Vec::new();
-    let mut triangles: Vec<[usize; 3]> = Vec::new();
-    let mut faces: Vec<Vec<[usize; 3]>> = Vec::new();
+    let mut offsets = Vec::<Offsets>::new();
+    let mut coordinates = Vec::<Coordinate<3>>::new();
+    let mut triangles = Vec::<[usize; 3]>::new();
+    let mut faces = Vec::<Vec<[usize; 3]>>::new();
     for tessellation in &tessellations {
         let node = coordinates.len();
         offsets.push(Offsets {
@@ -134,7 +134,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
     }
     let mut pieces: Vec<BTreeMap<usize, Piece<Key>>> =
         solids.iter().map(|_| BTreeMap::new()).collect();
-    let mut identical: HashMap<usize, usize> = HashMap::new();
+    let mut identical = Groups::<usize>::default();
     for (&[i, j], contacts) in &contacts {
         let sides = [&offsets[i], &offsets[j]];
         let mut add =
@@ -179,8 +179,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
         for key in keys {
             if let (Feature::Vertex(a), Feature::Vertex(b)) = (&key.first, &key.second) {
                 let (a, b) = (a + sides[0].node, b + sides[1].node);
-                let (a, b) = (find(&mut identical, a), find(&mut identical, b));
-                identical.insert(a.max(b), a.min(b));
+                identical.join(&a, &b);
             }
         }
     }
@@ -192,7 +191,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
         Feature::Vertex(node) => Cutter::Vertex(&coordinates[*node]),
     };
     let mut vertices = coordinates.clone();
-    let mut named: HashMap<Key, usize> = HashMap::new();
+    let mut named = HashMap::<Name, usize>::new();
     let mut refined = Vec::new();
     for (volume, own) in faces.iter().enumerate() {
         refined.push(refine(
@@ -203,17 +202,14 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             |key| vec![cutter(&key.second)],
             |key, position| match &key.second {
                 Feature::Vertex(node) => *node,
-                _ => *named.entry(canonical(key)).or_insert_with(|| {
+                _ => *named.entry(Name::from(key)).or_insert_with(|| {
                     vertices.push(position.clone());
                     vertices.len() - 1
                 }),
             },
         )?);
     }
-    let mut representative = HashMap::new();
-    for &node in identical.clone().keys() {
-        representative.insert(node, find(&mut identical, node));
-    }
+    let representative = identical.roots();
     let renumber = |node: usize| representative.get(&node).copied().unwrap_or(node);
     for cut in &mut refined {
         cut.faces
