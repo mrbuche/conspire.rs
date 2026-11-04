@@ -1,6 +1,9 @@
-use super::{Cutter, along};
-use crate::geometry::{Coordinate, predicates::test::Lcg};
-use std::array::from_fn;
+use super::{Cutter, along, decide};
+use crate::geometry::{
+    Coordinate,
+    predicates::{arithmetic::Estimate, expansion::Expansion, test::Lcg},
+};
+use std::{array::from_fn, cmp::Ordering};
 
 type Vector = [i64; 3];
 
@@ -191,4 +194,59 @@ fn a_cutter_the_line_is_parallel_to_is_an_error() {
         assert!(fails(&good, bad));
     });
     assert!(along(&p, &p, &good.cutter(), &good.cutter()).is_err());
+}
+
+impl Owned {
+    fn nudged(&self, random: &mut Lcg) -> Owned {
+        let mut nudge = |point: &Coordinate<3>| -> Coordinate<3> {
+            from_fn(|axis| {
+                let x = point[axis].value();
+                let ulps = random.integer(2) as f64;
+                x + ulps * x.abs().max(1.0) * f64::EPSILON
+            })
+            .into()
+        };
+        match self {
+            Owned::Face([a, b, c]) => Owned::Face([nudge(a), nudge(b), nudge(c)]),
+            Owned::Edge([r, s]) => Owned::Edge([nudge(r), nudge(s)]),
+            Owned::Vertex(v) => Owned::Vertex(nudge(v)),
+        }
+    }
+}
+
+#[test]
+fn the_filter_is_never_certain_of_a_wrong_order() {
+    let mut random = Lcg(6);
+    let (mut decided, mut cases) = (0, 0);
+    for _ in 0..20000 {
+        let edge = Edge::new(&mut random);
+        let span = edge.length - 1;
+        let i = 1 + (random.bits() as i64).rem_euclid(span);
+        let j = if random.bits().is_multiple_of(2) {
+            i
+        } else {
+            1 + (random.bits() as i64).rem_euclid(span)
+        };
+        let [p, q] = edge.ends();
+        let (kind_x, kind_y) = ((random.bits() % 3) as usize, (random.bits() % 3) as usize);
+        let x = through(&mut random, kind_x, edge.at(i), edge.line).nudged(&mut random);
+        let y = through(&mut random, kind_y, edge.at(j), edge.line).nudged(&mut random);
+        let filtered = decide::<Estimate>(&p, &q, &x.cutter(), &y.cutter());
+        let exact = decide::<Expansion>(&p, &q, &x.cutter(), &y.cutter());
+        cases += 1;
+        if let (Ok(Some(filtered)), Ok(Some(exact))) = (&filtered, &exact) {
+            decided += 1;
+            assert_eq!(filtered, exact, "{kind_x} {kind_y} at {i} and {j}");
+        }
+        if matches!(exact, Ok(Some(Ordering::Equal)) | Err(_)) {
+            assert!(
+                !matches!(filtered, Ok(Some(_))),
+                "{kind_x} {kind_y} at {i} and {j}"
+            );
+        }
+    }
+    assert!(
+        decided > cases / 5 && decided < cases * 9 / 10,
+        "{decided} of {cases}"
+    );
 }

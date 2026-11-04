@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{HALF_EPSILON, expansion::Expansion};
+use super::{HALF_EPSILON, arithmetic::Arithmetic, expansion::Expansion};
 use crate::geometry::Coordinate;
 use std::{array::from_fn, cmp::Ordering};
 
@@ -83,24 +83,14 @@ fn filtered(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Option<Orderi
 
 /// The sign from expansion arithmetic, which is exact.
 fn exact(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Ordering {
-    value(a, b, c, d).sign()
+    value::<Expansion>(a, b, c, d).sign()
 }
 
-/// The determinant exactly, as an expansion.
-pub(super) fn determinant(
-    a: &Coordinate<3>,
-    b: &Coordinate<3>,
-    c: &Coordinate<3>,
-    d: &Coordinate<3>,
-) -> Expansion {
-    let [a, b, c, d] = [a, b, c, d].map(|point| from_fn(|axis| point[axis].value()));
-    value(a, b, c, d)
-}
-
-fn value(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Expansion {
-    let [adx, ady, adz] = from_fn(|axis| Expansion::difference(a[axis], d[axis]));
-    let [bdx, bdy, bdz] = from_fn(|axis| Expansion::difference(b[axis], d[axis]));
-    let [cdx, cdy, cdz] = from_fn(|axis| Expansion::difference(c[axis], d[axis]));
+/// The determinant in any arithmetic: exactly as an expansion, or as an estimate with its error.
+pub(super) fn value<A: Arithmetic>(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> A {
+    let [adx, ady, adz] = from_fn(|axis| A::difference(a[axis], d[axis]));
+    let [bdx, bdy, bdz] = from_fn(|axis| A::difference(b[axis], d[axis]));
+    let [cdx, cdy, cdz] = from_fn(|axis| A::difference(c[axis], d[axis]));
     let cross_z = bdx.times(&cdy).minus(cdx.times(&bdy));
     let cross_x = cdx.times(&ady).minus(adx.times(&cdy));
     let cross_y = adx.times(&bdy).minus(bdx.times(&ady));

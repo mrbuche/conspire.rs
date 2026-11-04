@@ -4,12 +4,15 @@
 mod test;
 
 mod along;
+mod arithmetic;
+mod derived;
 mod expansion;
 mod incircle;
 mod orient2d;
 mod orient3d;
 
 pub use along::{Cutter, along};
+pub use derived::{Derived, side};
 pub use incircle::incircle;
 pub use orient2d::{orient2d, orient2d_estimate};
 pub use orient3d::{collinear, orient3d, orient3d_estimate};
