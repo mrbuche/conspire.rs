@@ -165,9 +165,9 @@ fn verify(case: &Case, triangles: &[[usize; 3]]) {
         .filter(|&(u, v)| !third.contains_key(&(v, u)))
         .collect();
     let mut expected = HashSet::new();
-    for edge in 0..3 {
+    for (edge, side) in case.input.sides.iter().enumerate() {
         let mut chain = vec![edge];
-        chain.extend(&case.input.sides[edge]);
+        chain.extend(side);
         chain.push((edge + 1) % 3);
         chain.windows(2).for_each(|w| {
             expected.insert((w[0], w[1]));
