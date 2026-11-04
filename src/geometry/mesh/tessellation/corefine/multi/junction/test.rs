@@ -1,4 +1,6 @@
-use super::{Curve, Ends, Feature, Located, arrange, edge_junctions, junctions, meeting};
+use super::{
+    Curve, Ends, Feature, Located, arrange, edge_junctions, junctions, meeting, planar_junctions,
+};
 use crate::{
     geometry::Coordinate,
     math::{Tensor, assert::Assert},
@@ -235,7 +237,6 @@ fn the_edges_of_a_triangle_in_the_plane_of_another_meet_a_third_where_it_crosses
         .collect();
     heights.sort_by(|a, b| a.0.total_cmp(&b.0));
     assert!((heights[0].0 + 1.0).abs() < 1e-12 && (heights[1].0 - 1.5).abs() < 1e-12);
-    // The bottom edge and the long edge of the small triangle, each inside the other two.
     assert_eq!(
         heights[0].1,
         [Located::Face, Located::Face, Located::Edge(0)]
@@ -301,4 +302,72 @@ fn points_defined_by_edges_are_put_in_order_along_a_curve() {
         assert_eq!(heights.len(), 2);
         assert_eq!(heights[0] < heights[1], !reversed, "{heights:?}");
     }
+}
+
+fn in_one_plane() -> [Triangle; 4] {
+    [
+        triangle([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [0.0, 4.0, 0.0]]),
+        triangle([[1.0, 2.0, 0.0], [5.0, 2.0, 0.0], [3.0, 5.0, 0.0]]),
+        triangle([[-6.0, -6.0, 0.0], [12.0, -6.0, 0.0], [-6.0, 12.0, 0.0]]),
+        triangle([[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [0.0, 1.0, 1.0]]),
+    ]
+}
+
+#[test]
+fn edges_that_cross_in_a_plane_three_triangles_share_make_junctions() {
+    let triangles = in_one_plane();
+    let list = [vec![0, 3], vec![1], vec![2]];
+    let corners = |solid: usize, index: usize| {
+        let triangle = &triangles[list[solid][index]];
+        [&triangle[0], &triangle[1], &triangle[2]]
+    };
+    let coplanar = BTreeMap::from([
+        ([0, 1], vec![[0, 0]]),
+        ([0, 2], vec![[0, 0]]),
+        ([1, 2], vec![[0, 0]]),
+    ]);
+    let found = planar_junctions(&coplanar, &[2, 1, 1], corners).unwrap();
+    let mut places: Vec<(f64, f64, Vec<Located>)> = found
+        .iter()
+        .map(|junction| {
+            (
+                junction.position[0].value(),
+                junction.position[1].value(),
+                junction.located.to_vec(),
+            )
+        })
+        .collect();
+    places.sort_by(|a, b| a.0.total_cmp(&b.0));
+    assert_eq!(places.len(), 2);
+    assert!((places[0].0 - 1.4).abs() < 1e-12 && (places[0].1 - 2.6).abs() < 1e-12);
+    assert!((places[1].0 - 2.0).abs() < 1e-12 && (places[1].1 - 2.0).abs() < 1e-12);
+    assert_eq!(
+        places[0].2,
+        [Located::Edge(1), Located::Edge(2), Located::Face]
+    );
+    assert_eq!(
+        places[1].2,
+        [Located::Edge(1), Located::Edge(0), Located::Face]
+    );
+}
+
+#[test]
+fn edges_that_cross_outside_the_third_triangle_make_no_junction() {
+    let mut triangles = in_one_plane();
+    triangles[2] = triangle([[-6.0, -6.0, 0.0], [1.0, -6.0, 0.0], [-6.0, 1.0, 0.0]]);
+    let list = [vec![0, 3], vec![1], vec![2]];
+    let corners = |solid: usize, index: usize| {
+        let triangle = &triangles[list[solid][index]];
+        [&triangle[0], &triangle[1], &triangle[2]]
+    };
+    let coplanar = BTreeMap::from([
+        ([0, 1], vec![[0, 0]]),
+        ([0, 2], vec![[0, 0]]),
+        ([1, 2], vec![[0, 0]]),
+    ]);
+    assert!(
+        planar_junctions(&coplanar, &[2, 1, 1], corners)
+            .unwrap()
+            .is_empty()
+    );
 }

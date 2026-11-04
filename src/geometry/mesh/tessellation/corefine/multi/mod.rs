@@ -6,7 +6,7 @@ mod names;
 mod test;
 
 use self::{
-    junction::{Ends, Located, arrange, edge_junctions, junctions},
+    junction::{Ends, Located, arrange, edge_junctions, junctions, planar_junctions},
     names::{Groups, Name, Offsets, Spot, solid_of, viewed},
 };
 use super::{
@@ -246,6 +246,8 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
         .collect();
     let mut junctions = junctions(&pairs, solids.len(), corners)?;
     junctions.extend(edge_junctions(&flat, &pairs, solids.len(), corners)?);
+    let counts: Vec<usize> = faces.iter().map(Vec::len).collect();
+    junctions.extend(planar_junctions(&flat, &counts, corners)?);
     let curves: HashMap<_, _> = contacts
         .iter()
         .flat_map(|(&[i, j], contacts)| {

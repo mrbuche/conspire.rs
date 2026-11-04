@@ -154,6 +154,21 @@ fn a_surface_across_coplanar_faces_cuts_them_along_the_edges_of_each() -> Result
             ([2, 1, 2], [5, 6, 6]),
             ([3, 4, 2], [6, 5, 7]),
         ],
+        [
+            ([6, 6, 7], [11, 10, 10]),
+            ([6, 7, 5], [11, 8, 9]),
+            ([6, 6, 4], [10, 10, 9]),
+        ],
+        [
+            ([3, 0, 3], [4, 3, 8]),
+            ([1, 0, 1], [5, 2, 6]),
+            ([3, 0, 3], [7, 2, 7]),
+        ],
+        [
+            ([2, 5, 1], [6, 8, 6]),
+            ([6, 2, 1], [11, 6, 4]),
+            ([2, 2, 1], [6, 6, 6]),
+        ],
     ] {
         assert_materials(&boxes, true)?;
     }
@@ -201,10 +216,10 @@ fn random_boxes_on_a_coarse_grid_give_closed_materials_or_an_error() -> Result<(
                 assert_materials(&boxes, true)?;
                 done += 1;
             }
-            Err(message) => assert!(TRIPLE_POINT.contains(&message), "{message}"),
+            Err(message) => panic!("{message} {boxes:?}"),
         }
     }
-    assert!(done > 292, "{done}");
+    assert_eq!(done, 300);
     Ok(())
 }
 
