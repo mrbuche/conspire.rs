@@ -1,10 +1,14 @@
 //! The surfaces between any number of solids, cut along each other at once.
 
+mod junction;
 mod names;
 #[cfg(test)]
 mod test;
 
-use self::names::{Groups, Name, Offsets, viewed};
+use self::{
+    junction::junctions,
+    names::{Groups, Name, Offsets, Spot, viewed},
+};
 use super::{
     Contacts, Feature, Key, Region, Side,
     classify::{coplanar, patches, relate},
@@ -40,8 +44,10 @@ impl Interfaces {
     /// The surfaces between the solids, in the order they are drawn.
     ///
     /// The surfaces are cut along each other at once, from the original triangles, so triangles of
-    /// different solids meet at shared vertices. It fails where three surfaces meet at a point,
-    /// which it cannot yet cut at, and wherever the surfaces of two solids cannot be cut.
+    /// different solids meet at shared vertices. Three surfaces may meet at a point inside a
+    /// triangle of each. It fails where they meet on an edge or a vertex, or where several such
+    /// points are on one curve, which it cannot yet cut at, and wherever the surfaces of two
+    /// solids cannot be cut.
     pub fn new(solids: &[Watertight]) -> Result<Self, &'static str> {
         build(solids)
     }
@@ -132,35 +138,85 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             contacts.insert([i, j], tessellations[i].contacts(tessellations[j])?);
         }
     }
-    let mut pieces: Vec<BTreeMap<usize, Piece<Key>>> =
+    let pairs: BTreeMap<[usize; 2], HashSet<[usize; 2]>> = contacts
+        .iter()
+        .map(|(&pair, contacts)| {
+            let crossing = contacts.crossings.iter();
+            (pair, crossing.map(|c| [c.first, c.second]).collect())
+        })
+        .collect();
+    let junctions = junctions(&pairs, solids.len(), |solid, triangle| {
+        triangles[offsets[solid].triangle + triangle].map(|node| &coordinates[node])
+    })?;
+    let mut through = HashMap::<([usize; 2], usize, usize), Vec<usize>>::new();
+    for (index, junction) in junctions.iter().enumerate() {
+        for (n, &(first, a)) in junction.triangles.iter().enumerate() {
+            for &(second, b) in &junction.triangles[n + 1..] {
+                through
+                    .entry(([first, second], a, b))
+                    .or_default()
+                    .push(index);
+            }
+        }
+    }
+    let mut pieces: Vec<BTreeMap<usize, Piece<Spot>>> =
         solids.iter().map(|_| BTreeMap::new()).collect();
     let mut identical = Groups::<usize>::default();
     for (&[i, j], contacts) in &contacts {
         let sides = [&offsets[i], &offsets[j]];
-        let mut add =
-            |side: Side, triangle: usize, keys: &[Key; 2], segment: &[Coordinate<3>; 2]| {
-                let (volume, from_first) = match side {
-                    Side::First => (i, true),
-                    Side::Second => (j, false),
-                };
-                let viewed = keys.each_ref().map(|key| viewed(key, from_first, sides));
-                pieces[volume]
-                    .entry(triangle)
-                    .or_default()
-                    .add(&viewed, segment);
+        let mut add = |side: Side,
+                       triangle: usize,
+                       keys: &[Key; 2],
+                       segment: &[Coordinate<3>; 2],
+                       split: Option<usize>| {
+            let (volume, from_first) = match side {
+                Side::First => (i, true),
+                Side::Second => (j, false),
             };
+            let [start, end] = keys
+                .each_ref()
+                .map(|key| Spot::from(viewed(key, from_first, sides)));
+            let piece = pieces[volume].entry(triangle).or_default();
+            let Some(junction) = split.map(|index| &junctions[index]) else {
+                piece.add(&[start, end], segment);
+                return;
+            };
+            let others: Vec<Feature> = junction
+                .triangles
+                .iter()
+                .filter(|&&(solid, _)| solid != volume)
+                .map(|&(solid, triangle)| Feature::Face(triangle + offsets[solid].triangle))
+                .collect();
+            let middle = Spot {
+                own: Feature::Face(triangle + offsets[volume].triangle),
+                others,
+            };
+            let position = &junction.position;
+            piece.add(
+                &[start, middle.clone()],
+                &[segment[0].clone(), position.clone()],
+            );
+            piece.add(&[middle, end], &[position.clone(), segment[1].clone()]);
+        };
         for crossing in &contacts.crossings {
+            let split = match through.get(&([i, j], crossing.first, crossing.second)) {
+                None => None,
+                Some(found) if found.len() == 1 => Some(found[0]),
+                Some(_) => return Err("several triple points on one curve"),
+            };
             add(
                 Side::First,
                 crossing.first,
                 &crossing.keys,
                 &crossing.segment,
+                split,
             );
             add(
                 Side::Second,
                 crossing.second,
                 &crossing.keys,
                 &crossing.segment,
+                split,
             );
         }
         for constraint in &contacts.constraints {
@@ -169,6 +225,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
                 constraint.triangle,
                 &constraint.keys,
                 &constraint.segment,
+                None,
             );
         }
         let keys = contacts
@@ -198,11 +255,11 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             own,
             |node| &coordinates[node],
             std::mem::take(&mut pieces[volume]),
-            |key| &key.first,
-            |key| vec![cutter(&key.second)],
-            |key, position| match &key.second {
-                Feature::Vertex(node) => *node,
-                _ => *named.entry(Name::from(key)).or_insert_with(|| {
+            |spot| &spot.own,
+            |spot| spot.others.iter().map(cutter).collect(),
+            |spot, position| match spot.others[..] {
+                [Feature::Vertex(node)] => node,
+                _ => *named.entry(Name::from(spot)).or_insert_with(|| {
                     vertices.push(position.clone());
                     vertices.len() - 1
                 }),

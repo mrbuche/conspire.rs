@@ -4,7 +4,7 @@
 mod test;
 
 use super::super::{Feature, Key};
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, iter::once};
 
 /// Where a solid's numbers start in those of all the solids together.
 pub(super) struct Offsets {
@@ -37,6 +37,24 @@ pub(super) fn viewed(key: &Key, from_first: bool, offsets: [&Offsets; 2]) -> Key
     }
 }
 
+/// A point as seen from one surface it is on: the lowest feature of that surface it is on, and the
+/// lowest feature of every other surface it is on, in order, all by the numbers of all the solids
+/// together.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub(super) struct Spot {
+    pub own: Feature,
+    pub others: Vec<Feature>,
+}
+
+impl From<Key> for Spot {
+    fn from(key: Key) -> Self {
+        Self {
+            own: key.first,
+            others: vec![key.second],
+        }
+    }
+}
+
 /// The name of a point: the lowest feature of every solid whose surface it is on, in order.
 ///
 /// However many surfaces meet at the point, and in whichever order they were compared, the same
@@ -50,6 +68,12 @@ impl Name {
         features.sort_unstable();
         features.dedup();
         Self(features)
+    }
+}
+
+impl From<&Spot> for Name {
+    fn from(spot: &Spot) -> Self {
+        Self::new(once(spot.own.clone()).chain(spot.others.iter().cloned()))
     }
 }
 

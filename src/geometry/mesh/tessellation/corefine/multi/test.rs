@@ -1,10 +1,18 @@
 use crate::{
-    geometry::mesh::{Interfaces, Watertight, test::solid},
+    geometry::{
+        Coordinate,
+        mesh::{
+            Interfaces, Watertight,
+            test::{cuboid, solid},
+        },
+        solid::SolidOracle,
+    },
     math::{
-        Quantity,
+        Quantity, Tensor,
         assert::{Assert, AssertionError},
     },
 };
+use std::array::from_fn;
 
 type Box3 = ([i64; 3], [i64; 3]);
 
@@ -132,9 +140,11 @@ fn three_surfaces_meeting_at_a_point_are_an_error() {
     assert!(TRIPLE_POINT.contains(&message), "{message}");
 }
 
-const TRIPLE_POINT: [&str; 2] = [
+const TRIPLE_POINT: [&str; 4] = [
     "two segments cross",
     "two points on an edge are the same point",
+    "three surfaces meet on the edge of a triangle",
+    "several triple points on one curve",
 ];
 
 #[test]
@@ -165,4 +175,115 @@ fn random_boxes_on_a_coarse_grid_give_closed_materials_or_an_error() -> Result<(
     }
     assert!(done > 200, "{done}");
     Ok(())
+}
+
+fn tilted(low: [f64; 3], high: [f64; 3], angles: [f64; 3]) -> Watertight {
+    let cube = cuboid(low, high);
+    let rotate = |point: [f64; 3]| {
+        let mut point = point;
+        for (axis, angle) in angles.iter().enumerate() {
+            let (sin, cos) = angle.sin_cos();
+            let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
+            (point[u], point[v]) = (
+                cos * point[u] - sin * point[v],
+                sin * point[u] + cos * point[v],
+            );
+        }
+        point
+    };
+    let vertices: Vec<Coordinate<3>> = cube
+        .mesh()
+        .coordinates()
+        .iter()
+        .map(|p| rotate(from_fn(|axis| p[axis].value())).into())
+        .collect();
+    let faces: Vec<[usize; 3]> = cube
+        .mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|nodes| [nodes[0], nodes[1], nodes[2]])
+        .collect();
+    Watertight::new((faces, vertices).into()).unwrap()
+}
+
+fn assert_sampled(solids: &[Watertight], samples: usize) {
+    let interfaces = Interfaces::new(solids).unwrap();
+    let boundaries: Vec<Option<Watertight>> = (0..solids.len())
+        .map(|material| {
+            interfaces
+                .boundary(material)
+                .ok()
+                .map(|boundary| Watertight::new(boundary).unwrap())
+        })
+        .collect();
+    let mut state = 5u64;
+    let mut next = || {
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (state >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let mut checked = 0;
+    for _ in 0..samples {
+        let point = from_fn(|_| -1.0 + 9.0 * next()).into();
+        let distances: Vec<f64> = solids
+            .iter()
+            .map(|solid| solid.signed_distance(&point).value())
+            .collect();
+        if distances.iter().any(|d| d.abs() < 1e-6) {
+            continue;
+        }
+        let owner = distances.iter().rposition(|&d| d < 0.0);
+        for (material, boundary) in boundaries.iter().enumerate() {
+            let inside = boundary
+                .as_ref()
+                .is_some_and(|boundary| boundary.signed_distance(&point).value() < 0.0);
+            assert_eq!(inside, owner == Some(material), "{point:?} {material}");
+        }
+        checked += 1;
+    }
+    assert!(checked > 3 * samples / 4);
+}
+
+#[test]
+fn three_tilted_solids_meeting_at_points_give_the_materials_they_should() {
+    let solids = [
+        tilted([0.0; 3], [4.0; 3], [0.0, 0.0, 0.1]),
+        tilted([2.0, 2.0, 0.0], [6.0, 6.0, 4.0], [0.13, 0.0, 0.0]),
+        tilted([2.0, 0.0, 2.0], [6.0, 4.0, 6.0], [0.0, 0.17, 0.0]),
+    ];
+    assert_sampled(&solids, 4000);
+}
+
+#[test]
+fn random_tilted_triples_give_the_materials_they_should_or_an_error() {
+    let mut state = 29u64;
+    let mut next = |scale: f64| {
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        scale * ((state >> 11) as f64 / (1u64 << 53) as f64)
+    };
+    let (mut done, mut failed) = (0, 0);
+    for _ in 0..40 {
+        let solids: Vec<Watertight> = (0..3)
+            .map(|_| {
+                let low: [f64; 3] = from_fn(|_| next(3.0));
+                let high = from_fn(|axis| low[axis] + 1.5 + next(3.0));
+                tilted(low, high, from_fn(|_| next(0.6) - 0.3))
+            })
+            .collect();
+        match Interfaces::new(&solids) {
+            Ok(_) => {
+                assert_sampled(&solids, 600);
+                done += 1;
+            }
+            Err(message) => {
+                assert!(TRIPLE_POINT.contains(&message), "{message}");
+                failed += 1;
+            }
+        }
+    }
+    assert!(done > 25, "{done} {failed}");
 }
