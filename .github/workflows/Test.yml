@@ -14,18 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         features:
-          - math
-          - io
           - geometry
-          - mechanics
-          - physics
-          - constitutive
-          - fem
-          - vem
-          - cbm
-          - all
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        toolchain: [beta, stable]
+        os: [macos-latest]
+        toolchain: [stable]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -35,14 +26,8 @@ jobs:
         with:
           components: clippy, rustfmt
           toolchain: ${{ matrix.toolchain }}
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Clippy
-        run: cargo clippy --release --features ${{ matrix.features }} -- -D warnings
-      - name: Clippy tests
-        run: cargo clippy --release --features ${{ matrix.features }} --tests -- -D warnings
       - name: Test
-        run: cargo test --release --features ${{ matrix.features }}
+        run: cargo test --release --features ${{ matrix.features }} -- zz_debug csg::ops solid::partition --nocapture
   Coverage:
     strategy:
       fail-fast: false

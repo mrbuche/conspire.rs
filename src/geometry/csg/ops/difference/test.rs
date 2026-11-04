@@ -75,3 +75,40 @@ fn an_inexact_operand_makes_the_difference_inexact() {
         assert!(!difference.project(point).unwrap().exact);
     })
 }
+
+#[test]
+fn zz_debug_nested() {
+    use crate::geometry::csg::ops::test::grid;
+    let (outer, inner) = (solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3]));
+    let oracle = Difference::new(solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3]));
+    let coordinates = |p: &Coordinate<3>| [p[0].value(), p[1].value(), p[2].value()];
+    let mut missing = 0;
+    let mut log = String::new();
+    for point in grid().iter() {
+        if oracle.project(point).is_some() {
+            continue;
+        }
+        missing += 1;
+        if missing > 6 {
+            continue;
+        }
+        let outer_projection = outer.project(point).map(|q| q.point);
+        let inner_projection = inner.project(point).map(|q| q.point);
+        let describe = |q: &Option<Coordinate<3>>| {
+            q.as_ref().map(|q| {
+                (
+                    coordinates(q),
+                    outer.signed_distance(q).value(),
+                    inner.signed_distance(q).value(),
+                )
+            })
+        };
+        log += &format!(
+            "point {:?}\n  outer {:?}\n  inner {:?}\n",
+            coordinates(point),
+            describe(&outer_projection),
+            describe(&inner_projection)
+        );
+    }
+    panic!("missing {missing}\n{log}");
+}
