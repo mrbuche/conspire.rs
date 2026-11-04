@@ -5,7 +5,7 @@ use crate::math::assert::FiniteDifference;
 use crate::units::Dimensionless;
 
 use crate::math::{
-    ContractWith, Erase, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution,
+    ContractWith, Erase, FlatView, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution,
     SquareMatrix, Tensor, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, TensorVector,
     write_tensor_rank_0,
 };
@@ -241,6 +241,15 @@ impl Solution for Vector {
     }
     fn set_flat_entry(&mut self, index: usize, value: Scalar) {
         self[index] = value
+    }
+}
+
+impl FlatView for Vector {
+    fn as_flat(&self) -> &[Scalar] {
+        self.as_slice()
+    }
+    fn as_flat_mut(&mut self) -> &mut [Scalar] {
+        self.as_mut_slice()
     }
 }
 

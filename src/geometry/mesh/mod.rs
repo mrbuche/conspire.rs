@@ -5,6 +5,7 @@ mod base;
 mod buffer;
 mod connectivity;
 pub(crate) mod differential;
+mod error;
 mod fit;
 mod from;
 mod into;
@@ -27,6 +28,7 @@ pub use self::{
         primitive::PrimitiveConnectivity,
     },
     differential::laplace::Weighting,
+    error::MeshError,
     fit::{Fitting, Freedom},
     partition::{Bisection, Partition, PartitionQuality},
     quality::metrics::Verdict,
