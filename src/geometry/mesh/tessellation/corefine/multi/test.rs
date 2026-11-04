@@ -1,14 +1,15 @@
+use crate::geometry::mesh::tessellation::NORMALIZED_DIRECTIONS;
 use crate::{
     geometry::{
         Coordinate,
         mesh::{
-            Interfaces, Watertight,
+            Interfaces, Tessellation, Watertight,
             test::{cuboid, solid},
         },
         solid::SolidOracle,
     },
     math::{
-        Quantity, Tensor,
+        CrossProduct, Quantity, Tensor,
         assert::{Assert, AssertionError},
     },
 };
@@ -144,7 +145,7 @@ const TRIPLE_POINT: [&str; 4] = [
     "two segments cross",
     "two points on an edge are the same point",
     "three surfaces meet on the edge of a triangle",
-    "several triple points on one curve",
+    "a triple point is too near the end of a curve to be put in order",
 ];
 
 #[test]
@@ -209,14 +210,29 @@ fn tilted(low: [f64; 3], high: [f64; 3], angles: [f64; 3]) -> Watertight {
 
 fn assert_sampled(solids: &[Watertight], samples: usize) {
     let interfaces = Interfaces::new(solids).unwrap();
-    let boundaries: Vec<Option<Watertight>> = (0..solids.len())
+    let boundaries: Vec<Option<Tessellation>> = (0..solids.len())
         .map(|material| {
-            interfaces
-                .boundary(material)
-                .ok()
-                .map(|boundary| Watertight::new(boundary).unwrap())
+            interfaces.boundary(material).ok().inspect(|boundary| {
+                let defects = boundary.defects();
+                assert!(defects.boundary_edges.is_empty(), "{defects:?}");
+                assert!(defects.non_manifold_edges.is_empty(), "{defects:?}");
+                assert!(defects.inconsistent_edges.is_empty(), "{defects:?}");
+                assert!(defects.self_intersections.is_empty() && !defects.inward);
+            })
         })
         .collect();
+    let encloses = |boundary: &Tessellation, point: &Coordinate<3>| {
+        let mesh = boundary.mesh();
+        let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
+        let normals = boundary.normals().iter().flatten().collect();
+        boundary.encloses(
+            point,
+            mesh.coordinates(),
+            &elements,
+            &normals,
+            &NORMALIZED_DIRECTIONS,
+        )
+    };
     let mut state = 5u64;
     let mut next = || {
         state = state
@@ -238,7 +254,7 @@ fn assert_sampled(solids: &[Watertight], samples: usize) {
         for (material, boundary) in boundaries.iter().enumerate() {
             let inside = boundary
                 .as_ref()
-                .is_some_and(|boundary| boundary.signed_distance(&point).value() < 0.0);
+                .is_some_and(|boundary| encloses(boundary, &point));
             assert_eq!(inside, owner == Some(material), "{point:?} {material}");
         }
         checked += 1;
@@ -286,4 +302,53 @@ fn random_tilted_triples_give_the_materials_they_should_or_an_error() {
         }
     }
     assert!(done > 25, "{done} {failed}");
+}
+
+fn tetrahedron(corners: [[f64; 3]; 4]) -> Watertight {
+    let [a, b, c, d] = corners.map(Coordinate::from);
+    let handed = ((&b - &a).cross(&(&c - &a)) * &(&d - &a)).value();
+    let (b, c) = if handed > 0.0 { (b, c) } else { (c, b) };
+    let faces = vec![[0, 2, 1], [0, 1, 3], [0, 3, 2], [1, 2, 3]];
+    Watertight::new((faces, vec![a, b, c, d]).into()).unwrap()
+}
+
+#[test]
+fn a_slab_across_the_curve_of_two_solids_makes_two_points_on_it() {
+    let solids = [
+        tilted([0.0; 3], [4.0; 3], [0.0, 0.0, 0.03]),
+        tilted([1.5, 1.0, 0.0], [5.5, 5.0, 4.0], [0.04, 0.0, 0.0]),
+        tilted([3.0, 0.0, 2.7], [6.0, 3.0, 3.7], [0.0, 0.03, 0.05]),
+    ];
+    assert_sampled(&solids, 2000);
+}
+
+#[test]
+fn four_solids_with_a_face_through_one_point_meet_there() {
+    let solids = [
+        tetrahedron([
+            [-1.0, -1.0, 0.0],
+            [3.0, -1.0, 0.0],
+            [-1.0, 3.0, 0.0],
+            [0.513, 0.487, 2.071],
+        ]),
+        tetrahedron([
+            [0.0, -1.0, -1.0],
+            [0.0, 3.0, -1.0],
+            [0.0, -1.0, 3.0],
+            [-2.063, 0.519, 0.481],
+        ]),
+        tetrahedron([
+            [-1.0, 0.0, -1.0],
+            [-1.0, 0.0, 3.0],
+            [3.0, 0.0, -1.0],
+            [0.472, -2.041, 0.557],
+        ]),
+        tetrahedron([
+            [-1.0, -1.0, 2.0],
+            [2.0, -1.0, -1.0],
+            [-1.0, 2.0, -1.0],
+            [1.517, 1.463, 1.529],
+        ]),
+    ];
+    assert_sampled(&solids, 3000);
 }
