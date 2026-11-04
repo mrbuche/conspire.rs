@@ -12,6 +12,7 @@ pub mod ops;
 mod primitive;
 mod sphere;
 mod torus;
+mod volume;
 
 pub use cone::Cone;
 pub use cuboid::Cuboid;
@@ -20,3 +21,4 @@ pub use ellipsoid::Ellipsoid;
 pub use primitive::Primitive;
 pub use sphere::Sphere;
 pub use torus::Torus;
+pub use volume::Volume;
