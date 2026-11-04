@@ -1,0 +1,123 @@
+//! What every solid known through its signed distance must satisfy, as checks over many points.
+
+use crate::{
+    geometry::{Coordinate, solid::SolidOracle},
+    math::{Quantity, Tensor},
+    units::Length,
+};
+
+/// Points on a grid across a box, with a margin around it so that points inside, outside and near
+/// the surface are all there.
+pub fn grid(low: [f64; 3], high: [f64; 3], count: usize) -> Vec<Coordinate<3>> {
+    let spacing = |axis: usize| (high[axis] - low[axis]) / (count - 1) as f64;
+    let at = |axis: usize, index: usize| {
+        let margin = 0.35 * (high[axis] - low[axis]);
+        low[axis] - margin
+            + (high[axis] - low[axis] + 2.0 * margin) * index as f64 / (count - 1) as f64
+            + 0.013 * spacing(axis)
+    };
+    let mut points = Vec::new();
+    for i in 0..count {
+        for j in 0..count {
+            for k in 0..count {
+                points.push([at(0, i), at(1, j), at(2, k)].into());
+            }
+        }
+    }
+    points
+}
+
+fn length(value: f64) -> Quantity<Length> {
+    Quantity::new(value)
+}
+
+/// The projection lies on the surface at the distance the signed distance says, with a unit
+/// normal that points away from the solid, and the sign of the signed distance is `inside`'s.
+///
+/// `scale` is a length that the solid is measured in, which the tolerances are relative to.
+pub fn assert_contract(
+    solid: &impl SolidOracle,
+    points: &[Coordinate<3>],
+    scale: f64,
+    inside: impl Fn(&Coordinate<3>) -> bool,
+) {
+    let tolerance = length(1e-9 * scale);
+    for point in points {
+        let distance = solid.signed_distance(point);
+        let projection = solid.project(point).unwrap();
+        let reach = (&projection.point - point).norm();
+        assert!(
+            (reach - distance.abs()).abs() < tolerance,
+            "{point:?}: {reach} away, but the signed distance is {distance}"
+        );
+        assert!(
+            solid.signed_distance(&projection.point).abs() < tolerance,
+            "{point:?}: the projection is not on the surface"
+        );
+        assert!(
+            (projection.normal.norm() - 1.0).abs() < 1e-9,
+            "{point:?}: the normal is not a unit vector"
+        );
+        let along = &(point - &projection.point) * &projection.normal;
+        if distance > tolerance {
+            assert!(
+                along.value() > -1e-9 * scale,
+                "{point:?}: normal points inward"
+            );
+        }
+        if distance < -tolerance {
+            assert!(
+                along.value() < 1e-9 * scale,
+                "{point:?}: normal points inward"
+            );
+        }
+        if distance.abs() > tolerance {
+            assert_eq!(distance < Quantity::default(), inside(point), "{point:?}");
+        }
+        assert!(projection.exact);
+    }
+}
+
+/// A distance field cannot change faster than the distance moved.
+pub fn assert_lipschitz(solid: &impl SolidOracle, points: &[Coordinate<3>], scale: f64) {
+    let distances: Vec<Quantity<Length>> = points
+        .iter()
+        .map(|point| solid.signed_distance(point))
+        .collect();
+    let slack = length(1e-9 * scale);
+    for (i, a) in points.iter().enumerate() {
+        for (j, b) in points.iter().enumerate().skip(i + 1).step_by(7) {
+            assert!(
+                (distances[i] - distances[j]).abs() <= (a - b).norm() + slack,
+                "{a:?} and {b:?}: the distance changes faster than the points move"
+            );
+        }
+    }
+}
+
+/// The signed distance is the distance to the surface, which `samples` of it, `spacing` apart at
+/// most, bound from above, and from below to within a spacing.
+pub fn assert_against_samples(
+    solid: &impl SolidOracle,
+    points: &[Coordinate<3>],
+    samples: &[Coordinate<3>],
+    spacing: f64,
+) {
+    let slack = length(1e-9 * spacing);
+    for point in points {
+        let distance = solid.signed_distance(point).abs();
+        let nearest = samples
+            .iter()
+            .map(|sample| (sample - point).norm())
+            .min_by(|a, b| a.total_cmp(b))
+            .unwrap();
+        assert!(
+            distance <= nearest + slack,
+            "{point:?}: {distance} from the surface, but a sample is {nearest} away"
+        );
+        assert!(
+            nearest <= distance + length(spacing),
+            "{point:?}: {distance} from the surface, but the nearest sample is {nearest} away"
+        );
+    }
+}
