@@ -5,12 +5,32 @@ use super::{HALF_EPSILON, expansion::Expansion, project};
 use crate::geometry::Coordinate;
 use std::{array::from_fn, cmp::Ordering};
 
-/// A bound on the relative rounding error of the floating-point `incircle` determinant.
+/// A bound on the relative rounding error of the floating-point `incircle` determinant, as a
+/// multiple of its permanent: the sum of the magnitudes of its terms.
 ///
-/// Shewchuk's bound for the Euclidean determinant is `(10 + 96ε)ε`.[^1] Here each lift is a
-/// quadratic form with an extra factor in every term, which adds about two roundings to the lift
-/// relative to its magnitude, so a margin of four is added. A bound that is too large only sends
-/// more cases to the exact path; one that is too small would be wrong.
+/// This is derived, not tested: random tests reach nowhere near the worst case, so they cannot
+/// tell a sufficient bound from an insufficient one. Take every floating-point operation to be
+/// correctly rounded with relative error at most `ε`, with no overflow or underflow, and count in
+/// units of `ε`, to first order.
+/// - A difference of coordinates has error 1.
+/// - A term of a lift, such as `g₀·x·x`, uses its difference twice and is then multiplied twice,
+///   so it has error `2 + 2 = 4`; and the cross term `2·g₁·x·y` is the same, since doubling is
+///   exact. The two sums that combine the three terms add 2 more, so a lift has error 6 relative
+///   to the sum of the magnitudes of its terms.
+/// - A minor `p·q − r·s` uses four differences once each and one product each, so each product has
+///   error `2 + 1 = 3`, and the subtraction adds 1, giving 4 relative to `|pq| + |rs|`.
+/// - A lift times a minor has error `6 + 4` from its factors, since the error of a product is the
+///   sum of the relative errors of its factors, plus 1 for its own rounding: 11.
+/// - The two sums that combine the three products add 2, giving 13.
+///
+/// So the error is at most `13ε` times the permanent, plus terms of order `ε²`. The constant `14`
+/// leaves a margin of `ε`, which exceeds the second-order terms, about `170ε²`, by a factor of
+/// about `10¹⁴`; it also covers the rounding of the permanent itself.
+///
+/// Shewchuk's bound for the Euclidean determinant is `(10 + 96ε)ε`,[^1] from a finer analysis than
+/// this count, which would give 11 for the Euclidean lift `x² + y²`. This one is not tight. A bound
+/// that is too large only sends more cases to the exact path; one that is too small would be
+/// wrong.
 ///
 /// [^1]: J. R. Shewchuk, [Discrete Comput. Geom. **18**, 305 (1997)](https://doi.org/10.1007/PL00009321).
 const ERROR_BOUND: f64 = (14.0 + 128.0 * HALF_EPSILON) * HALF_EPSILON;
