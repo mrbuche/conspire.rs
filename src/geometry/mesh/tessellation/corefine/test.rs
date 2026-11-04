@@ -1,5 +1,5 @@
 use super::{
-    Triangle,
+    Feature, Key, Triangle,
     pierce::{Meeting, crossing as crossing_ends},
 };
 use crate::{
@@ -189,4 +189,19 @@ fn disjoint_cubes_have_no_crossings() {
     let first = cuboid([0.0; 3], [1.0; 3]);
     let second = cuboid([3.0; 3], [4.0; 3]);
     assert!(first.crossings(&second).unwrap().is_empty());
+}
+
+#[test]
+fn features_and_keys_have_a_fixed_order() {
+    assert!(Feature::Vertex(9) < Feature::Edge([0, 1]));
+    assert!(Feature::Edge([5, 6]) < Feature::Face(0));
+    assert!(Feature::Edge([1, 2]) < Feature::Edge([1, 3]));
+    let key = |first, second| Key { first, second };
+    assert!(
+        key(Feature::Vertex(1), Feature::Face(9)) < key(Feature::Vertex(2), Feature::Vertex(0))
+    );
+    assert!(
+        key(Feature::Vertex(1), Feature::Vertex(3))
+            < key(Feature::Vertex(1), Feature::Edge([0, 1]))
+    );
 }

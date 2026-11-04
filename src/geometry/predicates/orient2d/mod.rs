@@ -54,7 +54,22 @@ fn filtered(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> Option<Ordering> {
 
 /// The sign from expansion arithmetic, which is exact.
 fn exact(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> Ordering {
+    value(a, b, c).sign()
+}
+
+/// The determinant exactly, as an expansion.
+pub(super) fn determinant(
+    a: &Coordinate<3>,
+    b: &Coordinate<3>,
+    c: &Coordinate<3>,
+    axis: usize,
+) -> Expansion {
+    let [a, b, c] = project([a, b, c], axis);
+    value(a, b, c)
+}
+
+fn value(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> Expansion {
     let [acx, acy] = from_fn(|index| Expansion::difference(a[index], c[index]));
     let [bcx, bcy] = from_fn(|index| Expansion::difference(b[index], c[index]));
-    acx.times(&bcy).minus(acy.times(&bcx)).sign()
+    acx.times(&bcy).minus(acy.times(&bcx))
 }

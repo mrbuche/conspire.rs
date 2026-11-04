@@ -17,7 +17,7 @@ use pierce::{Local, Meeting, crossing};
 type Triangle<'a> = [&'a Coordinate<3>; 3];
 
 /// A vertex, edge or triangle of one tessellation.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(super) enum Feature {
     Vertex(usize),
     Edge([usize; 2]),
@@ -26,7 +26,7 @@ pub(super) enum Feature {
 
 /// The lowest-dimensional feature of each tessellation that a point lies on. Two ends with the
 /// same key are the same point, however many triangles share it and however it was rounded.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(super) struct Key {
     first: Feature,
     second: Feature,

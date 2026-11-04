@@ -83,6 +83,21 @@ fn filtered(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Option<Orderi
 
 /// The sign from expansion arithmetic, which is exact.
 fn exact(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Ordering {
+    value(a, b, c, d).sign()
+}
+
+/// The determinant exactly, as an expansion.
+pub(super) fn determinant(
+    a: &Coordinate<3>,
+    b: &Coordinate<3>,
+    c: &Coordinate<3>,
+    d: &Coordinate<3>,
+) -> Expansion {
+    let [a, b, c, d] = [a, b, c, d].map(|point| from_fn(|axis| point[axis].value()));
+    value(a, b, c, d)
+}
+
+fn value(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Expansion {
     let [adx, ady, adz] = from_fn(|axis| Expansion::difference(a[axis], d[axis]));
     let [bdx, bdy, bdz] = from_fn(|axis| Expansion::difference(b[axis], d[axis]));
     let [cdx, cdy, cdz] = from_fn(|axis| Expansion::difference(c[axis], d[axis]));
@@ -92,5 +107,4 @@ fn exact(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> Ordering {
     adz.times(&cross_z)
         .sum(bdz.times(&cross_x))
         .sum(cdz.times(&cross_y))
-        .sign()
 }
