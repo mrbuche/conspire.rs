@@ -4,7 +4,7 @@ use crate::{
         NodalState, NodalVelocities, NodalVelocitiesHistory,
         block::element::Elements,
         boundary::{ConstrainAt, LoadAt, LoadStiffnessAt},
-        solid::{NodalDampingsSolid, NodalForcesSolid},
+        solid::{NodalDampingsSolid, NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
         Quantity, Tensor,
@@ -34,20 +34,41 @@ where
         self.nodal_forces_into(nodal_coordinates, nodal_velocities, &mut nodal_forces)?;
         Ok(nodal_forces)
     }
+    /// Adds the derivatives of the nodal forces with respect to the nodal coordinates,
+    /// at the given velocities.
     fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError>;
+    /// Computes the derivatives of the nodal forces with respect to the nodal coordinates,
+    /// at the given velocities.
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalDampingsSolid<D>, ElementModelError> {
-        let mut nodal_stiffnesses = NodalDampingsSolid::zero(nodal_coordinates.len());
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
+        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         self.nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, &mut nodal_stiffnesses)?;
         Ok(nodal_stiffnesses)
+    }
+    /// Adds the derivatives of the nodal forces with respect to the nodal velocities.
+    fn nodal_dampings_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_dampings: &mut NodalDampingsSolid<D>,
+    ) -> Result<(), ElementModelError>;
+    /// Computes the derivatives of the nodal forces with respect to the nodal velocities.
+    fn nodal_dampings(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+    ) -> Result<NodalDampingsSolid<D>, ElementModelError> {
+        let mut nodal_dampings = NodalDampingsSolid::zero(nodal_coordinates.len());
+        self.nodal_dampings_into(nodal_coordinates, nodal_velocities, &mut nodal_dampings)?;
+        Ok(nodal_dampings)
     }
 }
 
@@ -68,10 +89,19 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError> {
         self.blocks
             .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
+    }
+    fn nodal_dampings_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_dampings: &mut NodalDampingsSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.blocks
+            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_dampings)
     }
 }
 
@@ -95,12 +125,23 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError> {
         self.0
             .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)?;
         self.1
             .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
+    }
+    fn nodal_dampings_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_dampings: &mut NodalDampingsSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_dampings)?;
+        self.1
+            .nodal_dampings_into(nodal_coordinates, nodal_velocities, nodal_dampings)
     }
 }
 
@@ -158,7 +199,7 @@ where
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
                 let mut nodal_dampings =
-                    self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?;
+                    self.nodal_dampings(nodal_coordinates, nodal_velocities)?;
                 applied_loads.add_stiffness_at(time, nodal_coordinates, &mut nodal_dampings)?;
                 Ok(nodal_dampings)
             },

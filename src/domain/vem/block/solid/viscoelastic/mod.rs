@@ -6,7 +6,7 @@ use crate::{
         block::{
             Block,
             element::{VirtualElementError, solid::viscoelastic::ViscoelasticVirtualElement},
-            solid::{NodalDampingsSolid, NodalForcesSolid},
+            solid::{NodalDampingsSolid, NodalForcesSolid, NodalStiffnessesSolid},
         },
     },
 };
@@ -43,7 +43,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates,
         nodal_velocities: &NodalVelocities,
-        nodal_stiffnesses: &mut NodalDampingsSolid,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid,
     ) -> Result<(), ElementModelError> {
         self.elements()
             .iter()
@@ -63,6 +63,36 @@ where
                             .zip(nodes)
                             .for_each(|(nodal_stiffness, &node_b)| {
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
+                            })
+                    });
+                Ok::<(), VirtualElementError>(())
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    fn nodal_dampings_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        nodal_velocities: &NodalVelocities,
+        nodal_dampings: &mut NodalDampingsSolid,
+    ) -> Result<(), ElementModelError> {
+        self.elements()
+            .iter()
+            .zip(self.elements_nodes())
+            .try_for_each(|(element, nodes)| {
+                element
+                    .nodal_dampings(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        &Self::element_coordinates(nodal_velocities, nodes),
+                    )?
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(object, &node_a)| {
+                        object
+                            .into_iter()
+                            .zip(nodes)
+                            .for_each(|(nodal_stiffness, &node_b)| {
+                                nodal_dampings[node_a][node_b] += nodal_stiffness
                             })
                     });
                 Ok::<(), VirtualElementError>(())

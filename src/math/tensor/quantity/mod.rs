@@ -574,6 +574,9 @@ impl<U> Tensor for Quantity<U> {
     ) -> Option<usize> {
         self.0.error_count(&other.0, tol_abs, tol_rel)
     }
+    fn axpy(&mut self, factor: TensorRank0, other: &Self) {
+        self.0 += factor * other.0
+    }
     fn full_contraction(&self, quantity: &Self) -> TensorRank0 {
         self.0 * quantity.0
     }

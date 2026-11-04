@@ -1,6 +1,8 @@
 mod krylov;
+mod lanczos;
 
 pub use krylov::{Krylov, KrylovError, KrylovMethod};
+pub use lanczos::{Eigenpairs, Lanczos, LanczosError};
 
 /// The built-in direct linear solver.
 ///

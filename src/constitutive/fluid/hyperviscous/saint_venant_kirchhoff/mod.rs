@@ -12,7 +12,7 @@ use crate::{
     math::{ContractWith, IDENTITY_00, Quantity, Rank2, TensorRank4},
     mechanics::{
         DeformationGradient, DeformationGradientRate, SecondPiolaKirchhoffRateTangentStiffness,
-        SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
     units::{Dissipation, Viscosity},
 };
@@ -59,6 +59,25 @@ impl Viscous for SaintVenantKirchhoff {
                 + TensorRank4::dyad_ij_kl(
                     &(IDENTITY_00 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
                     deformation_gradient,
+                ),
+        )
+    }
+    fn viscous_second_piola_kirchhoff_tangent_stiffness(
+        &self,
+        _: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
+        let scaled_deformation_gradient_rate_transpose =
+            deformation_gradient_rate.transpose() * self.shear_viscosity();
+        Ok(
+            TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_rate_transpose, &IDENTITY_00)
+                + TensorRank4::dyad_il_jk(
+                    &IDENTITY_00,
+                    &scaled_deformation_gradient_rate_transpose,
+                )
+                + TensorRank4::dyad_ij_kl(
+                    &(IDENTITY_00 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
+                    deformation_gradient_rate,
                 ),
         )
     }

@@ -10,9 +10,11 @@ use crate::{
     },
     math::Quantity,
     mechanics::{
-        CauchyRateTangentStiffness, CauchyStress, DeformationGradient, DeformationGradientRate,
-        FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffStress,
+        CauchyRateTangentStiffness, CauchyStress, CauchyTangentStiffness, DeformationGradient,
+        DeformationGradientRate, FirstPiolaKirchhoffRateTangentStiffness,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
         SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness,
     },
     units::{Dissipation, Viscosity},
 };
@@ -81,6 +83,34 @@ where
                 deformation_gradient_rate,
             )
     }
+    fn viscous_cauchy_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
+        self.1
+            .viscous_cauchy_tangent_stiffness(deformation_gradient, deformation_gradient_rate)
+    }
+    fn viscous_first_piola_kirchhoff_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
+        self.1.viscous_first_piola_kirchhoff_tangent_stiffness(
+            deformation_gradient,
+            deformation_gradient_rate,
+        )
+    }
+    fn viscous_second_piola_kirchhoff_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
+        self.1.viscous_second_piola_kirchhoff_tangent_stiffness(
+            deformation_gradient,
+            deformation_gradient_rate,
+        )
+    }
 }
 
 impl<C1, C2> Viscoelastic for Canonical<C1, C2>
@@ -105,6 +135,86 @@ where
     ) -> Result<CauchyRateTangentStiffness, ConstitutiveError> {
         self.1
             .viscous_cauchy_rate_tangent_stiffness(deformation_gradient, deformation_gradient_rate)
+    }
+    fn cauchy_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
+        Ok(self.0.cauchy_tangent_stiffness(deformation_gradient)?
+            + self.1.viscous_cauchy_tangent_stiffness(
+                deformation_gradient,
+                deformation_gradient_rate,
+            )?)
+    }
+    fn first_piola_kirchhoff_stress(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
+        Ok(self.0.first_piola_kirchhoff_stress(deformation_gradient)?
+            + self.1.viscous_first_piola_kirchhoff_stress(
+                deformation_gradient,
+                deformation_gradient_rate,
+            )?)
+    }
+    fn first_piola_kirchhoff_rate_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<FirstPiolaKirchhoffRateTangentStiffness, ConstitutiveError> {
+        self.1.viscous_first_piola_kirchhoff_rate_tangent_stiffness(
+            deformation_gradient,
+            deformation_gradient_rate,
+        )
+    }
+    fn first_piola_kirchhoff_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
+        Ok(self
+            .0
+            .first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?
+            + self.1.viscous_first_piola_kirchhoff_tangent_stiffness(
+                deformation_gradient,
+                deformation_gradient_rate,
+            )?)
+    }
+    fn second_piola_kirchhoff_stress(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
+        Ok(self.0.second_piola_kirchhoff_stress(deformation_gradient)?
+            + self.1.viscous_second_piola_kirchhoff_stress(
+                deformation_gradient,
+                deformation_gradient_rate,
+            )?)
+    }
+    fn second_piola_kirchhoff_rate_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<SecondPiolaKirchhoffRateTangentStiffness, ConstitutiveError> {
+        self.1
+            .viscous_second_piola_kirchhoff_rate_tangent_stiffness(
+                deformation_gradient,
+                deformation_gradient_rate,
+            )
+    }
+    fn second_piola_kirchhoff_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
+        Ok(self
+            .0
+            .second_piola_kirchhoff_tangent_stiffness(deformation_gradient)?
+            + self.1.viscous_second_piola_kirchhoff_tangent_stiffness(
+                deformation_gradient,
+                deformation_gradient_rate,
+            )?)
     }
 }
 

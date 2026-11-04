@@ -105,6 +105,9 @@ impl ContractWith<TensorRank0> for TensorRank0 {
 impl Tensor for TensorRank0 {
     type Item = TensorRank0;
     type Unit = Dimensionless;
+    fn axpy(&mut self, factor: TensorRank0, other: &Self) {
+        *self += factor * other
+    }
     fn error_count_zero(&self, tol_abs: TensorRank0, tol_rel: TensorRank0) -> Option<usize> {
         if (self.sub_abs(&0.0) < tol_abs || self.sub_rel(&0.0) < tol_rel) && !self.is_nan() {
             None
