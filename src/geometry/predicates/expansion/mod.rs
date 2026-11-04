@@ -28,7 +28,6 @@ fn two_product(a: f64, b: f64) -> (f64, f64) {
 }
 
 impl Expansion {
-    #[cfg(test)]
     pub fn new(value: f64) -> Self {
         Self(if value == 0.0 {
             Vec::new()

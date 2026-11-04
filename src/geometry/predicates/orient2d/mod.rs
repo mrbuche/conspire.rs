@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{HALF_EPSILON, expansion::Expansion};
+use super::{HALF_EPSILON, expansion::Expansion, project};
 use crate::geometry::Coordinate;
 use std::{array::from_fn, cmp::Ordering};
 
@@ -31,12 +31,6 @@ pub fn orient2d_estimate(
 ) -> f64 {
     let [a, b, c] = project([a, b, c], axis);
     estimate(a, b, c).0
-}
-
-/// The coordinates left after dropping `axis`, in cyclic order.
-fn project(points: [&Coordinate<3>; 3], axis: usize) -> [[f64; 2]; 3] {
-    let (first, second) = ((axis + 1) % 3, (axis + 2) % 3);
-    points.map(|point| [point[first].value(), point[second].value()])
 }
 
 /// The determinant, and the sum of the magnitudes of its terms, which bounds its rounding error.
