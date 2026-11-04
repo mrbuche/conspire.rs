@@ -5,6 +5,9 @@ mod chain;
 mod clip;
 mod overlap;
 mod pierce;
+// Nothing calls the triangulation until the pieces of the triangles are gathered and handed to it.
+#[allow(dead_code)]
+mod triangulate;
 
 pub use chain::Polyline;
 pub use overlap::{Constraint, Side};

@@ -21,6 +21,14 @@ pub fn orient2d(a: &Coordinate<3>, b: &Coordinate<3>, c: &Coordinate<3>, axis: u
     filtered(a, b, c).unwrap_or_else(|| exact(a, b, c))
 }
 
+/// The sign of the orientation of `a`, `b` and `c` in a plane given by two coordinates, exactly.
+///
+/// This is positive when they run counterclockwise, negative when clockwise and zero when they
+/// are collinear: [`orient2d`] for points that are already flat.
+pub(crate) fn orient2d_planar(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> Ordering {
+    filtered(a, b, c).unwrap_or_else(|| exact(a, b, c))
+}
+
 /// The floating-point determinant behind [`orient2d`], with rounding error: it can place a point
 /// on a line but never decide a sign.
 pub fn orient2d_estimate(

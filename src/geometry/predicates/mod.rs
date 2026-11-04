@@ -13,6 +13,7 @@ pub use along::{Cutter, along};
 pub use incircle::incircle;
 pub use orient2d::{orient2d, orient2d_estimate};
 pub use orient3d::{collinear, orient3d, orient3d_estimate};
+pub(crate) use {incircle::incircle_metric, orient2d::orient2d_planar};
 
 use crate::geometry::Coordinate;
 
