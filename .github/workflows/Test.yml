@@ -11,7 +11,7 @@ permissions: {}
 jobs:
   Checks:
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         features:
           - math
@@ -45,7 +45,7 @@ jobs:
         run: cargo test --release --features ${{ matrix.features }}
   Coverage:
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         features:
           - math
@@ -76,7 +76,7 @@ jobs:
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
   Nightly:
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
