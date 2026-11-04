@@ -1,10 +1,11 @@
 //! What every solid known through its signed distance must satisfy, as checks over many points.
 
 use crate::{
-    geometry::{Coordinate, solid::SolidOracle},
-    math::{Quantity, Tensor},
+    geometry::{Coordinate, Direction, solid::SolidOracle},
+    math::{CrossProduct, Quantity, Tensor},
     units::Length,
 };
+use std::{array::from_fn, f64::consts::TAU};
 
 /// Points on a grid across a box, with a margin around it so that points inside, outside and near
 /// the surface are all there.
@@ -22,6 +23,61 @@ pub fn grid(low: [f64; 3], high: [f64; 3], count: usize) -> Vec<Coordinate<3>> {
             for k in 0..count {
                 points.push([at(0, i), at(1, j), at(2, k)].into());
             }
+        }
+    }
+    points
+}
+
+/// Points along a polyline of `[distance from the axis, distance along it]` corners, `count` to a
+/// segment.
+pub fn along_polyline(
+    corners: &[[Quantity<Length>; 2]],
+    count: usize,
+) -> Vec<[Quantity<Length>; 2]> {
+    let mut points = Vec::new();
+    for pair in corners.windows(2) {
+        for i in 0..count {
+            let t = i as f64 / count as f64;
+            points.push(from_fn(|k| pair[0][k] + (pair[1][k] - pair[0][k]) * t));
+        }
+    }
+    points.push(*corners.last().unwrap());
+    points
+}
+
+/// How far along a unit `axis` through `origin` a point is, and how far from it.
+pub fn local(
+    origin: &Coordinate<3>,
+    axis: &Direction<3>,
+    point: &Coordinate<3>,
+) -> (Quantity<Length>, Quantity<Length>) {
+    let offset = point - origin;
+    let along = &offset * axis;
+    let across = (&offset - &(axis * along)).norm();
+    (along, across)
+}
+
+/// The points of a profile turned `count` times about the axis through `origin` along the unit
+/// vector `axis`.
+pub fn revolved(
+    origin: &Coordinate<3>,
+    axis: &Direction<3>,
+    profile: &[[Quantity<Length>; 2]],
+    count: usize,
+) -> Vec<Coordinate<3>> {
+    let seed = if axis[0].abs() < 0.9 {
+        Direction::const_from([1.0, 0.0, 0.0])
+    } else {
+        Direction::const_from([0.0, 1.0, 0.0])
+    };
+    let first = axis.cross(&seed).normalized();
+    let second = axis.cross(&first);
+    let mut points = Vec::new();
+    for &[distance, along] in profile {
+        for i in 0..count {
+            let angle = TAU * i as f64 / count as f64;
+            let outward = &(&first * angle.cos()) + &(&second * angle.sin());
+            points.push(&(origin + &(axis * along)) + &(&outward * distance));
         }
     }
     points
