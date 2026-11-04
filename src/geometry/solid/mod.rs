@@ -28,23 +28,34 @@ pub trait SolidOracle {
 
 pub(crate) type Candidate = Option<(Projection, bool)>;
 
+/// The nearest candidate that survives, which is exact when the operands are and no candidate that
+/// does not survive is nearer.
+///
+/// The distance of each candidate is found once and compared as found, so that the nearest of them
+/// is never judged farther than itself by a distance that rounds another way.
 pub(crate) fn nearest_surviving(
     query: &Coordinate<3>,
     candidates: impl IntoIterator<Item = Candidate>,
 ) -> Option<Projection> {
-    let candidates: Vec<(Projection, bool)> = candidates.into_iter().flatten().collect();
-    let distance = |projection: &Projection| (&projection.point - query).norm();
+    let candidates: Vec<(Projection, bool, Quantity<Length>)> = candidates
+        .into_iter()
+        .flatten()
+        .map(|(projection, survives)| {
+            let distance = (&projection.point - query).norm();
+            (projection, survives, distance)
+        })
+        .collect();
     let nearest = candidates
         .iter()
-        .map(|(projection, _)| distance(projection))
+        .map(|(.., distance)| *distance)
         .min_by(|a, b| a.total_cmp(b))?;
-    let operands_exact = candidates.iter().all(|(projection, _)| projection.exact);
+    let operands_exact = candidates.iter().all(|(projection, ..)| projection.exact);
     candidates
         .into_iter()
-        .filter(|(_, survives)| *survives)
-        .min_by(|(a, _), (b, _)| distance(a).total_cmp(&distance(b)))
-        .map(|(projection, _)| Projection {
-            exact: operands_exact && distance(&projection) <= nearest,
+        .filter(|(_, survives, _)| *survives)
+        .min_by(|(.., a), (.., b)| a.total_cmp(b))
+        .map(|(projection, _, distance)| Projection {
+            exact: operands_exact && distance <= nearest,
             ..projection
         })
 }
