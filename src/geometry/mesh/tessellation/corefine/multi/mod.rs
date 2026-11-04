@@ -6,13 +6,14 @@ mod names;
 mod test;
 
 use self::{
-    junction::{arrange, junctions},
-    names::{Groups, Name, Offsets, Spot, viewed},
+    junction::{Chain, Ends, Located, arrange, junctions},
+    names::{Groups, Name, Offsets, Spot, solid_of, viewed},
 };
 use super::{
     Contacts, Feature, Key, Region, Side,
     classify::{coplanar, patches, relate},
-    split::{Piece, refine},
+    frame::coincident,
+    split::{Piece, refine, share},
 };
 use crate::{
     geometry::{
@@ -22,7 +23,7 @@ use crate::{
     },
     math::Tensor,
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 /// The surfaces that separate any number of solids, each triangle labelled with the solid on
 /// either side of it.
@@ -109,6 +110,85 @@ fn surface(faces: Vec<[usize; 3]>, positions: &[&Coordinate<3>]) -> Tessellation
     (faces, vertices).into()
 }
 
+/// Names the points that are the same point by the same name.
+///
+/// Two points on an edge that what cuts the edge puts at one place are one point, though the
+/// surfaces that meet there were compared two at a time, so each is named by only two of them. The
+/// name of both is then the lowest feature of every surface the two are on, which is also what the
+/// names of the same point in the triangles of the other solids become.
+fn unify<'a>(
+    pieces: &mut [BTreeMap<usize, Piece<Spot>>],
+    faces: &[Vec<[usize; 3]>],
+    coordinates: &[Coordinate<3>],
+    offsets: &[Offsets],
+    cutter: impl Fn(&Feature) -> Cutter<'a>,
+) -> Result<(), &'static str> {
+    for _ in 0..4 {
+        pieces
+            .iter_mut()
+            .enumerate()
+            .for_each(|(volume, map)| share(&faces[volume], map, |spot| &spot.own));
+        let mut groups = Groups::<Name>::default();
+        let mut found = false;
+        for (volume, map) in pieces.iter().enumerate() {
+            for (&triangle, piece) in map {
+                let nodes = faces[volume][triangle];
+                let same = coincident(
+                    nodes.map(|node| &coordinates[node]),
+                    nodes,
+                    &piece.points,
+                    |spot| &spot.own,
+                    |spot| spot.others.iter().map(&cutter).collect(),
+                )?;
+                for [a, b] in same {
+                    groups.join(&Name::from(&a), &Name::from(&b));
+                    found = true;
+                }
+            }
+        }
+        if !found {
+            return Ok(());
+        }
+        let mut merged = HashMap::<Name, BTreeSet<Feature>>::new();
+        for piece in pieces.iter().flat_map(|map| map.values()) {
+            for (spot, _) in &piece.points {
+                let name = Name::from(spot);
+                let root = groups.find(&name);
+                merged
+                    .entry(root)
+                    .or_default()
+                    .extend(name.features().iter().cloned());
+            }
+        }
+        let mut renamed = |spot: &Spot, volume: usize| {
+            let features = &merged[&groups.find(&Name::from(spot))];
+            let mut lowest = BTreeMap::<usize, Feature>::new();
+            for feature in features {
+                let entry = lowest
+                    .entry(solid_of(feature, offsets))
+                    .or_insert_with(|| feature.clone());
+                *entry = (*entry).clone().min(feature.clone());
+            }
+            let own = lowest.remove(&volume).unwrap_or_else(|| spot.own.clone());
+            let mut others: Vec<Feature> = lowest.into_values().collect();
+            others.sort_unstable();
+            Spot { own, others }
+        };
+        for (volume, map) in pieces.iter_mut().enumerate() {
+            for piece in map.values_mut() {
+                for (spot, _) in &mut piece.points {
+                    *spot = renamed(spot, volume);
+                }
+                for segment in &mut piece.segments {
+                    *segment = [renamed(&segment[0], volume), renamed(&segment[1], volume)];
+                }
+                piece.segments.retain(|[a, b]| a != b);
+            }
+        }
+    }
+    Err("the points where surfaces meet cannot be named")
+}
+
 fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
     let tessellations: Vec<&Tessellation> = solids.iter().map(Watertight::tessellation).collect();
     let mut offsets = Vec::<Offsets>::new();
@@ -149,16 +229,63 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
         triangles[offsets[solid].triangle + triangle].map(|node| &coordinates[node])
     };
     let junctions = junctions(&pairs, solids.len(), corners)?;
-    let ends: HashMap<_, _> = contacts
+    let curves: HashMap<_, _> = contacts
         .iter()
-        .flat_map(|(&pair, contacts)| {
-            contacts
-                .crossings
-                .iter()
-                .map(move |c| ((pair, c.first, c.second), c.segment.clone()))
+        .flat_map(|(&[i, j], contacts)| {
+            let sides = [&offsets[i], &offsets[j]];
+            contacts.crossings.iter().map(move |c| {
+                let features = c.keys.each_ref().map(|key| {
+                    let key = viewed(key, true, sides);
+                    [key.first, key.second]
+                });
+                let ends = Ends {
+                    points: c.segment.clone(),
+                    features,
+                };
+                (([i, j], c.first, c.second), ends)
+            })
         })
         .collect();
-    let (points, through) = arrange(&junctions, &ends, corners)?;
+    let feature = |solid: usize, triangle: usize, located: Located| {
+        let nodes = triangles[offsets[solid].triangle + triangle];
+        match located {
+            Located::Face => Feature::Face(offsets[solid].triangle + triangle),
+            Located::Edge(edge) => {
+                let (a, b) = (nodes[edge], nodes[(edge + 1) % 3]);
+                Feature::Edge([a.min(b), a.max(b)])
+            }
+            Located::Vertex(corner) => Feature::Vertex(nodes[corner]),
+        }
+    };
+    let (points, through) = arrange(&junctions, &curves, feature, corners)?;
+    let features: Vec<Vec<Feature>> = points
+        .iter()
+        .map(|point| {
+            point
+                .places
+                .iter()
+                .map(|&(solid, triangle, located)| feature(solid, triangle, located))
+                .collect()
+        })
+        .collect();
+    let spot = |point: usize, volume: usize| {
+        let own = points[point]
+            .places
+            .iter()
+            .position(|&(solid, ..)| solid == volume)
+            .expect("a point is on a curve of a solid it is not in");
+        let mut others: Vec<Feature> = features[point]
+            .iter()
+            .enumerate()
+            .filter(|&(n, _)| n != own)
+            .map(|(_, feature)| feature.clone())
+            .collect();
+        others.sort_unstable();
+        Spot {
+            own: features[point][own].clone(),
+            others,
+        }
+    };
     let mut pieces: Vec<BTreeMap<usize, Piece<Spot>>> =
         solids.iter().map(|_| BTreeMap::new()).collect();
     let mut identical = Groups::<usize>::default();
@@ -168,7 +295,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
                        triangle: usize,
                        keys: &[Key; 2],
                        segment: &[Coordinate<3>; 2],
-                       split: &[usize]| {
+                       split: Option<&Chain>| {
             let (volume, from_first) = match side {
                 Side::First => (i, true),
                 Side::Second => (j, false),
@@ -179,22 +306,22 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             let piece = pieces[volume].entry(triangle).or_default();
             let mut keys = vec![start];
             let mut positions = vec![segment[0].clone()];
-            for &index in split {
-                let point = &points[index];
-                let others: Vec<Feature> = point
-                    .triangles
-                    .iter()
-                    .filter(|&&(solid, _)| solid != volume)
-                    .map(|&(solid, triangle)| Feature::Face(triangle + offsets[solid].triangle))
-                    .collect();
-                keys.push(Spot {
-                    own: Feature::Face(triangle + offsets[volume].triangle),
-                    others,
-                });
-                positions.push(point.position.clone());
+            if let Some(chain) = split {
+                if let Some(point) = chain.start {
+                    keys[0] = spot(point, volume);
+                    positions[0] = points[point].position.clone();
+                }
+                for &point in &chain.middle {
+                    keys.push(spot(point, volume));
+                    positions.push(points[point].position.clone());
+                }
             }
             keys.push(end);
             positions.push(segment[1].clone());
+            if let Some(point) = split.and_then(|chain| chain.end) {
+                *keys.last_mut().expect("there is an end") = spot(point, volume);
+                *positions.last_mut().expect("there is an end") = points[point].position.clone();
+            }
             for (keys, ends) in keys.windows(2).zip(positions.windows(2)) {
                 piece.add(
                     &[keys[0].clone(), keys[1].clone()],
@@ -203,9 +330,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             }
         };
         for crossing in &contacts.crossings {
-            let split = through
-                .get(&([i, j], crossing.first, crossing.second))
-                .map_or(&[][..], |found| found.as_slice());
+            let split = through.get(&([i, j], crossing.first, crossing.second));
             add(
                 Side::First,
                 crossing.first,
@@ -227,7 +352,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
                 constraint.triangle,
                 &constraint.keys,
                 &constraint.segment,
-                &[],
+                None,
             );
         }
         let keys = contacts
@@ -249,6 +374,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
         Feature::Edge([a, b]) => Cutter::Edge([&coordinates[*a], &coordinates[*b]]),
         Feature::Vertex(node) => Cutter::Vertex(&coordinates[*node]),
     };
+    unify(&mut pieces, &faces, &coordinates, &offsets, cutter)?;
     let mut vertices = coordinates.clone();
     let mut named = HashMap::<Name, usize>::new();
     let mut refined = Vec::new();
@@ -259,12 +385,25 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             std::mem::take(&mut pieces[volume]),
             |spot| &spot.own,
             |spot| spot.others.iter().map(cutter).collect(),
-            |spot, position| match spot.others[..] {
-                [Feature::Vertex(node)] => node,
-                _ => *named.entry(Name::from(spot)).or_insert_with(|| {
-                    vertices.push(position.clone());
-                    vertices.len() - 1
-                }),
+            |spot, position| {
+                let nodes: Vec<usize> = spot
+                    .others
+                    .iter()
+                    .filter_map(|feature| match feature {
+                        Feature::Vertex(node) => Some(*node),
+                        _ => None,
+                    })
+                    .collect();
+                match nodes[..] {
+                    [first, ..] => {
+                        nodes.iter().for_each(|node| identical.join(&first, node));
+                        first
+                    }
+                    [] => *named.entry(Name::from(spot)).or_insert_with(|| {
+                        vertices.push(position.clone());
+                        vertices.len() - 1
+                    }),
+                }
             },
         )?);
     }

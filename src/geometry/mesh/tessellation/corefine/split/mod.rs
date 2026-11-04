@@ -157,36 +157,7 @@ pub(super) fn refine<'c, 'a, K: Ord + Clone>(
     cutters: impl Fn(&K) -> Vec<Cutter<'a>>,
     mut name: impl FnMut(&K, &Coordinate<3>) -> usize,
 ) -> Result<Refined, &'static str> {
-    let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
-    for (index, nodes) in faces.iter().enumerate() {
-        (0..3).for_each(|edge| {
-            let (a, b) = (nodes[edge], nodes[(edge + 1) % 3]);
-            around.entry([a.min(b), a.max(b)]).or_default().push(index);
-        })
-    }
-    let shared: Vec<(usize, K, Coordinate<3>)> = pieces
-        .iter()
-        .flat_map(|(&triangle, piece)| {
-            let (around, feature) = (&around, &feature);
-            piece.points.iter().flat_map(move |(key, point)| {
-                let neighbours = match feature(key) {
-                    Feature::Edge(edge) => around[edge].as_slice(),
-                    _ => &[],
-                };
-                neighbours
-                    .iter()
-                    .filter(move |&&neighbour| neighbour != triangle)
-                    .map(move |&neighbour| (neighbour, key.clone(), point.clone()))
-            })
-        })
-        .collect();
-    for (triangle, key, point) in shared {
-        pieces
-            .entry(triangle)
-            .or_default()
-            .points
-            .push((key, point));
-    }
+    share(faces, &mut pieces, &feature);
     let mut refined = Refined {
         faces: Vec::new(),
         parents: Vec::new(),
@@ -236,4 +207,42 @@ pub(super) fn refine<'c, 'a, K: Ord + Clone>(
         }));
     }
     Ok(refined)
+}
+
+/// Gives every triangle around an edge the points on it, so that triangles agree on how an edge is
+/// divided. Doing it again changes nothing.
+pub(super) fn share<K: Ord + Clone>(
+    faces: &[[usize; 3]],
+    pieces: &mut BTreeMap<usize, Piece<K>>,
+    feature: impl Fn(&K) -> &Feature,
+) {
+    let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
+    for (index, nodes) in faces.iter().enumerate() {
+        (0..3).for_each(|edge| {
+            let (a, b) = (nodes[edge], nodes[(edge + 1) % 3]);
+            around.entry([a.min(b), a.max(b)]).or_default().push(index);
+        })
+    }
+    let shared: Vec<(usize, K, Coordinate<3>)> = pieces
+        .iter()
+        .flat_map(|(&triangle, piece)| {
+            let (around, feature) = (&around, &feature);
+            piece.points.iter().flat_map(move |(key, point)| {
+                let neighbours = match feature(key) {
+                    Feature::Edge(edge) => around[edge].as_slice(),
+                    _ => &[],
+                };
+                neighbours
+                    .iter()
+                    .filter(move |&&neighbour| neighbour != triangle)
+                    .map(move |&neighbour| (neighbour, key.clone(), point.clone()))
+            })
+        })
+        .collect();
+    for (triangle, key, point) in shared {
+        let piece = pieces.entry(triangle).or_default();
+        if !piece.points.iter().any(|(known, _)| known == &key) {
+            piece.points.push((key, point));
+        }
+    }
 }

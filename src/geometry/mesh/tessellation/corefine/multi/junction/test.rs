@@ -1,11 +1,25 @@
-use super::{Curve, arrange, junctions, meeting};
+use super::{Curve, Ends, Feature, Located, arrange, junctions, meeting};
 use crate::{
     geometry::Coordinate,
     math::{Tensor, assert::Assert},
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+    array::from_fn,
+    collections::{BTreeMap, HashMap, HashSet},
+};
 
 type Triangle = [Coordinate<3>; 3];
+
+fn away(points: [Coordinate<3>; 2]) -> Ends {
+    Ends {
+        points,
+        features: from_fn(|_| from_fn(|_| Feature::Vertex(usize::MAX))),
+    }
+}
+
+fn named(solid: usize, triangle: usize, _: Located) -> Feature {
+    Feature::Face(1000 * solid + triangle)
+}
 
 fn triangle(corners: [[f64; 3]; 3]) -> Triangle {
     corners.map(Coordinate::from)
@@ -39,7 +53,8 @@ fn borrowed(triangles: &[Triangle; 3]) -> [[&Coordinate<3>; 3]; 3] {
 #[test]
 fn three_triangles_meet_at_a_point_inside_all_of_them() {
     let triangles = around([0.1, 0.2, 0.3]);
-    let found = meeting(borrowed(&triangles)).unwrap().unwrap();
+    let (located, found) = meeting(borrowed(&triangles)).unwrap().unwrap();
+    assert_eq!(located, [Located::Face; 3]);
     let expected = Coordinate::from([0.1, 0.2, 0.3]);
     Assert::default()
         .zero_within_tols(&(&found - &expected).norm())
@@ -54,10 +69,19 @@ fn a_point_outside_one_triangle_is_not_a_junction() {
 }
 
 #[test]
-fn a_point_on_the_edge_of_a_triangle_is_an_error() {
+fn a_point_on_the_edge_of_a_triangle_is_found_there() {
     let mut triangles = around([0.1, 0.2, 0.3]);
     triangles[1] = triangle([[0.0, 0.2, -1.0], [0.0, 2.0, -1.0], [0.0, 0.2, 2.0]]);
-    assert!(meeting(borrowed(&triangles)).is_err());
+    let (located, _) = meeting(borrowed(&triangles)).unwrap().unwrap();
+    assert_eq!(located, [Located::Face, Located::Edge(2), Located::Face]);
+}
+
+#[test]
+fn a_point_on_the_corner_of_a_triangle_is_found_there() {
+    let mut triangles = around([0.1, 0.2, 0.3]);
+    triangles[1] = triangle([[0.0, 0.2, 0.3], [0.0, 2.0, -1.0], [0.0, -1.0, 2.0]]);
+    let (located, _) = meeting(borrowed(&triangles)).unwrap().unwrap();
+    assert_eq!(located, [Located::Face, Located::Vertex(0), Located::Face]);
 }
 
 #[test]
@@ -124,17 +148,18 @@ fn points_on_a_curve_are_put_in_order_from_its_start() {
         } else {
             [low.clone(), high.clone()]
         };
-        let curves: HashMap<Curve, [Coordinate<3>; 2]> = [
-            (([0, 1], 0, 0), ends.clone()),
-            (([0, 2], 0, 0), ends.clone()),
-            (([0, 2], 0, 1), ends.clone()),
-            (([1, 2], 0, 0), ends.clone()),
-            (([1, 2], 0, 1), ends.clone()),
+        let curves: HashMap<Curve, Ends> = [
+            (([0, 1], 0, 0), away(ends.clone())),
+            (([0, 2], 0, 0), away(ends.clone())),
+            (([0, 2], 0, 1), away(ends.clone())),
+            (([1, 2], 0, 0), away(ends.clone())),
+            (([1, 2], 0, 1), away(ends.clone())),
         ]
         .into();
-        let (points, arranged) = arrange(&found, &curves, corners).unwrap();
+        let (points, arranged) = arrange(&found, &curves, named, corners).unwrap();
         assert_eq!(points.len(), 2);
         let heights: Vec<f64> = arranged[&([0, 1], 0, 0)]
+            .middle
             .iter()
             .map(|&index| points[index].position[1].value())
             .collect();
@@ -163,18 +188,17 @@ fn four_surfaces_through_one_point_are_one_point() {
     }
     let found = junctions(&pairs, 4, corners).unwrap();
     assert_eq!(found.len(), 4);
-    let curves: HashMap<Curve, [Coordinate<3>; 2]> = pairs
+    let curves: HashMap<Curve, Ends> = pairs
         .keys()
         .map(|&pair| {
-            (
-                (pair, 0, 0),
-                [Coordinate::from([0.0; 3]), Coordinate::from([1.0; 3])],
-            )
+            let ends = [Coordinate::from([0.0; 3]), Coordinate::from([1.0; 3])];
+            ((pair, 0, 0), away(ends))
         })
         .collect();
-    let (points, arranged) = arrange(&found, &curves, corners).unwrap();
+    let (points, arranged) = arrange(&found, &curves, named, corners).unwrap();
     assert_eq!(points.len(), 1);
-    assert_eq!(points[0].triangles, [(0, 0), (1, 0), (2, 0), (3, 0)]);
+    let solids: Vec<usize> = points[0].places.iter().map(|&(solid, ..)| solid).collect();
+    assert_eq!(solids, [0, 1, 2, 3]);
     assert_eq!(arranged.len(), 6);
-    assert!(arranged.values().all(|on| on == &[0]));
+    assert!(arranged.values().all(|chain| chain.middle == [0]));
 }

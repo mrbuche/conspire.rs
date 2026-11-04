@@ -131,20 +131,20 @@ fn the_same_solids_in_the_other_order_swap_the_notch() -> Result<(), AssertionEr
 }
 
 #[test]
-fn three_surfaces_meeting_at_a_point_are_an_error() {
-    let solids = make(&[
-        ([0, 0, 0], [4, 4, 4]),
-        ([2, 2, 0], [6, 6, 4]),
-        ([2, 0, 2], [6, 4, 6]),
-    ]);
-    let message = Interfaces::new(&solids).err().unwrap();
-    assert!(TRIPLE_POINT.contains(&message), "{message}");
+fn three_surfaces_meeting_on_the_diagonals_of_their_faces() -> Result<(), AssertionError> {
+    assert_materials(
+        &[
+            ([0, 0, 0], [4, 4, 4]),
+            ([2, 2, 0], [6, 6, 4]),
+            ([2, 0, 2], [6, 4, 6]),
+        ],
+        true,
+    )
 }
 
-const TRIPLE_POINT: [&str; 4] = [
+const TRIPLE_POINT: [&str; 3] = [
     "two segments cross",
-    "two points on an edge are the same point",
-    "three surfaces meet on the edge of a triangle",
+    "a point lies on another point",
     "a triple point is too near the end of a curve to be put in order",
 ];
 

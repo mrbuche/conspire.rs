@@ -71,6 +71,26 @@ impl Name {
     }
 }
 
+impl Name {
+    pub fn features(&self) -> &[Feature] {
+        &self.0
+    }
+}
+
+/// The solid that a feature is of, by the numbers of all the solids together.
+pub(super) fn solid_of(feature: &Feature, offsets: &[Offsets]) -> usize {
+    let (node, triangle) = match feature {
+        Feature::Vertex(node) | Feature::Edge([node, _]) => (Some(*node), None),
+        Feature::Face(triangle) => (None, Some(*triangle)),
+    };
+    offsets
+        .iter()
+        .rposition(|offset| {
+            node.is_some_and(|n| offset.node <= n) || triangle.is_some_and(|t| offset.triangle <= t)
+        })
+        .unwrap_or(0)
+}
+
 impl From<&Spot> for Name {
     fn from(spot: &Spot) -> Self {
         Self::new(once(spot.own.clone()).chain(spot.others.iter().cloned()))
