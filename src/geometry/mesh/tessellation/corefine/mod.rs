@@ -40,6 +40,23 @@ pub(super) struct Key {
     second: Feature,
 }
 
+impl Key {
+    /// The feature of the key on the tessellation of `side`.
+    pub(super) fn on(&self, side: Side) -> &Feature {
+        match side {
+            Side::First => &self.first,
+            Side::Second => &self.second,
+        }
+    }
+    /// The feature of the key on the other tessellation, which cuts the first there.
+    pub(super) fn across(&self, side: Side) -> &Feature {
+        match side {
+            Side::First => &self.second,
+            Side::Second => &self.first,
+        }
+    }
+}
+
 /// A segment along which a triangle of one tessellation crosses a triangle of another.
 pub struct Crossing {
     pub first: usize,

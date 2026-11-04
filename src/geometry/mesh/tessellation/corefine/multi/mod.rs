@@ -184,7 +184,8 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             contacts.insert([i, j], tessellations[i].contacts(tessellations[j])?);
         }
     }
-    let mut pieces: Vec<BTreeMap<usize, Piece>> = solids.iter().map(|_| BTreeMap::new()).collect();
+    let mut pieces: Vec<BTreeMap<usize, Piece<Key>>> =
+        solids.iter().map(|_| BTreeMap::new()).collect();
     let mut identical: HashMap<usize, usize> = HashMap::new();
     for (&[i, j], contacts) in &contacts {
         let sides = [&offsets[i], &offsets[j]];
@@ -250,8 +251,8 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             own,
             |node| &coordinates[node],
             std::mem::take(&mut pieces[volume]),
-            Side::First,
-            cutter,
+            |key| &key.first,
+            |key| vec![cutter(&key.second)],
             |key, position| match &key.second {
                 Feature::Vertex(node) => *node,
                 _ => *named.entry(canonical(key)).or_insert_with(|| {

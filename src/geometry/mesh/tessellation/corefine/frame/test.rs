@@ -39,9 +39,13 @@ fn edge_key(edge: usize, plane: usize) -> Key {
     }
 }
 
-fn cutter<'a>(planes: &'a [Plane]) -> impl Fn(&Feature) -> Cutter<'a> + 'a {
-    move |feature| match feature {
-        Feature::Face(i) => Cutter::Face([&planes[*i][0], &planes[*i][1], &planes[*i][2]]),
+fn cutters<'a>(planes: &'a [Plane], side: Side) -> impl Fn(&Key) -> Vec<Cutter<'a>> + 'a {
+    move |key| match key.across(side) {
+        Feature::Face(i) => vec![Cutter::Face([
+            &planes[*i][0],
+            &planes[*i][1],
+            &planes[*i][2],
+        ])],
         _ => panic!("only planes cut"),
     }
 }
@@ -51,18 +55,18 @@ fn run(
     points: &[(Key, Coordinate<3>)],
     segments: &[[Key; 2]],
     planes: &[Plane],
-) -> Result<Frame, &'static str> {
+) -> Result<Frame<Key>, &'static str> {
     frame(
         [&triangle[0], &triangle[1], &triangle[2]],
         NODES,
-        Side::First,
         points,
         segments,
-        cutter(planes),
+        |key| key.on(Side::First),
+        cutters(planes, Side::First),
     )
 }
 
-fn planes_along(found: &Frame, edge: usize) -> Vec<usize> {
+fn planes_along(found: &Frame<Key>, edge: usize) -> Vec<usize> {
     found.input.sides[edge]
         .iter()
         .map(|&index| match found.keys[index - 3].second {
@@ -349,7 +353,6 @@ fn triangles_sharing_an_edge_subdivide_it_the_same_way() {
     let b = frame(
         [&second[0], &second[1], &second[2]],
         [11, 10, 13],
-        Side::Second,
         &points
             .iter()
             .map(|(key, position)| {
@@ -361,10 +364,11 @@ fn triangles_sharing_an_edge_subdivide_it_the_same_way() {
             })
             .collect::<Vec<_>>(),
         &[],
-        cutter(&planes),
+        |key| key.on(Side::Second),
+        cutters(&planes, Side::Second),
     )
     .unwrap();
-    let order = |found: &Frame, side: Side| -> Vec<usize> {
+    let order = |found: &Frame<Key>, side: Side| -> Vec<usize> {
         found.input.sides[0]
             .iter()
             .map(|&index| {

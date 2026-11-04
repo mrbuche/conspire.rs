@@ -3,11 +3,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    Contacts, Feature, Key, Side,
-    frame::{frame, own as own_feature},
-    triangulate::triangulate_constrained,
-};
+use super::{Contacts, Feature, Key, Side, frame::frame, triangulate::triangulate_constrained};
 use crate::{
     geometry::{Coordinate, mesh::Tessellation, predicates::Cutter},
     math::Tensor,
@@ -15,14 +11,22 @@ use crate::{
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// What meets one triangle: points, each with a rounded position, and the segments between them.
-#[derive(Default)]
-pub(super) struct Piece {
-    pub points: Vec<(Key, Coordinate<3>)>,
-    pub segments: Vec<[Key; 2]>,
+pub(super) struct Piece<K> {
+    pub points: Vec<(K, Coordinate<3>)>,
+    pub segments: Vec<[K; 2]>,
 }
 
-impl Piece {
-    pub fn add(&mut self, keys: &[Key; 2], segment: &[Coordinate<3>; 2]) {
+impl<K> Default for Piece<K> {
+    fn default() -> Self {
+        Self {
+            points: Vec::new(),
+            segments: Vec::new(),
+        }
+    }
+}
+
+impl<K: Clone + PartialEq> Piece<K> {
+    pub fn add(&mut self, keys: &[K; 2], segment: &[Coordinate<3>; 2]) {
         keys.iter()
             .zip(segment)
             .for_each(|(key, end)| self.points.push((key.clone(), end.clone())));
@@ -66,7 +70,7 @@ pub(super) fn split(
     side: Side,
     contacts: &Contacts,
 ) -> Result<Split, &'static str> {
-    let mut pieces: BTreeMap<usize, Piece> = BTreeMap::new();
+    let mut pieces = BTreeMap::<usize, Piece<Key>>::new();
     for crossing in &contacts.crossings {
         let triangle = match side {
             Side::First => crossing.first,
@@ -111,8 +115,8 @@ pub(super) fn split(
         &faces,
         |node| &coordinates[node],
         pieces,
-        side,
-        cutter,
+        |key| key.on(side),
+        |key| vec![cutter(key.across(side))],
         |key, position| {
             *named.entry(key.clone()).or_insert_with(|| {
                 vertices.push(position.clone());
@@ -139,18 +143,19 @@ pub(super) struct Refined {
 
 /// Split triangles of one surface into the pieces that what meets them cuts them into.
 ///
-/// The triangles name their corners by `faces`, which are also what the keys of `pieces` name,
-/// and `position` gives where a corner is. A point that is not a corner is named by `name`, from
-/// its key and where it is rounded to, with the vertex it makes. A point on an edge is given to
-/// every triangle around the edge, including those that nothing else meets, so that triangles
-/// agree on how an edge is divided.
-pub(super) fn refine<'c, 'a>(
+/// The triangles name their corners by `faces`, which are also what the features of the keys of
+/// `pieces` name, and `position` gives where a corner is. Each key has a `feature`, the lowest
+/// feature of the surface that its point is on, and `cutters`, which cut an edge at the point. A
+/// point that is not a corner is named by `name`, from its key and where it is rounded to, with
+/// the vertex it makes. A point on an edge is given to every triangle around the edge, including
+/// those that nothing else meets, so that triangles agree on how an edge is divided.
+pub(super) fn refine<'c, 'a, K: Ord + Clone>(
     faces: &[[usize; 3]],
     position: impl Fn(usize) -> &'c Coordinate<3>,
-    mut pieces: BTreeMap<usize, Piece>,
-    side: Side,
-    cutter: impl Fn(&Feature) -> Cutter<'a>,
-    mut name: impl FnMut(&Key, &Coordinate<3>) -> usize,
+    mut pieces: BTreeMap<usize, Piece<K>>,
+    feature: impl Fn(&K) -> &Feature,
+    cutters: impl Fn(&K) -> Vec<Cutter<'a>>,
+    mut name: impl FnMut(&K, &Coordinate<3>) -> usize,
 ) -> Result<Refined, &'static str> {
     let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
     for (index, nodes) in faces.iter().enumerate() {
@@ -159,12 +164,12 @@ pub(super) fn refine<'c, 'a>(
             around.entry([a.min(b), a.max(b)]).or_default().push(index);
         })
     }
-    let shared: Vec<(usize, Key, Coordinate<3>)> = pieces
+    let shared: Vec<(usize, K, Coordinate<3>)> = pieces
         .iter()
         .flat_map(|(&triangle, piece)| {
-            let around = &around;
+            let (around, feature) = (&around, &feature);
             piece.points.iter().flat_map(move |(key, point)| {
-                let neighbours = match own_feature(key, side) {
+                let neighbours = match feature(key) {
                     Feature::Edge(edge) => around[edge].as_slice(),
                     _ => &[],
                 };
@@ -196,12 +201,12 @@ pub(super) fn refine<'c, 'a>(
         let framed = frame(
             nodes.map(&position),
             nodes,
-            side,
             &piece.points,
             &piece.segments,
-            &cutter,
+            &feature,
+            &cutters,
         )?;
-        let positions: HashMap<&Key, &Coordinate<3>> = piece
+        let positions: BTreeMap<&K, &Coordinate<3>> = piece
             .points
             .iter()
             .map(|(key, point)| (key, point))

@@ -10,7 +10,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{Feature, Key, Side, triangulate::Input};
+use super::{Feature, triangulate::Input};
 use crate::{
     geometry::{
         Coordinate,
@@ -29,10 +29,10 @@ const GRID: f64 = (1u64 << 52) as f64;
 const NUDGES: usize = 11;
 
 /// A triangle in its frame, with the name of every point that is not a corner.
-pub(super) struct Frame {
+pub(super) struct Frame<K> {
     pub input: Input,
     /// The key of each point after the three corners, in the order of the points.
-    pub keys: Vec<Key>,
+    pub keys: Vec<K>,
 }
 
 enum Place {
@@ -41,20 +41,22 @@ enum Place {
     Inside,
 }
 
-/// The frame of a triangle of `side`, with corners `triangle` named by `nodes`, for the points
-/// that lie on it and the segments between them.
+/// The frame of a triangle with corners `triangle`, named by `nodes`, for the points that lie on it
+/// and the segments between them.
 ///
-/// Every point has a key, whose feature on this tessellation says where it is on the triangle and
-/// whose other feature says what cuts it, as a [`Cutter`] from `cutter`. A point on a corner
-/// need not be listed. The ranks of the points are the order of their keys.
-pub(super) fn frame<'a>(
+/// Every point has a key. Its `feature` is the lowest-dimension feature of the triangle's
+/// tessellation that it lies on, which says where it is on the triangle, and its `cutters` are
+/// what cut an edge at it, any one of which is enough to order the points of an edge, the first
+/// that is not parallel to the edge being used. A point on a corner need not be listed. The ranks
+/// of the points are the order of their keys.
+pub(super) fn frame<'a, K: Ord + Clone>(
     triangle: [&Coordinate<3>; 3],
     nodes: [usize; 3],
-    side: Side,
-    points: &[(Key, Coordinate<3>)],
-    segments: &[[Key; 2]],
-    cutter: impl Fn(&Feature) -> Cutter<'a>,
-) -> Result<Frame, &'static str> {
+    points: &[(K, Coordinate<3>)],
+    segments: &[[K; 2]],
+    feature: impl Fn(&K) -> &Feature,
+    cutters: impl Fn(&K) -> Vec<Cutter<'a>>,
+) -> Result<Frame<K>, &'static str> {
     let first = triangle[1] - triangle[0];
     let second = triangle[2] - triangle[0];
     let gram = [&first * &first, &first * &second, &second * &second];
@@ -64,14 +66,14 @@ pub(super) fn frame<'a>(
     {
         return Err("the triangle is degenerate");
     }
-    let place = |key: &Key| place(own(key, side), &nodes);
-    let mut found: BTreeMap<&Key, &Coordinate<3>> = BTreeMap::new();
+    let place = |key: &K| place(feature(key), &nodes);
+    let mut found = BTreeMap::<&K, &Coordinate<3>>::new();
     for (key, position) in points {
         if !matches!(place(key)?, Place::Corner(_)) {
             found.insert(key, position);
         }
     }
-    let keys: Vec<Key> = found.keys().map(|&key| key.clone()).collect();
+    let keys: Vec<K> = found.keys().map(|&key| key.clone()).collect();
     let mut sides: [Vec<usize>; 3] = Default::default();
     for (index, key) in keys.iter().enumerate() {
         if let Place::Edge(edge) = place(key)? {
@@ -94,8 +96,18 @@ pub(super) fn frame<'a>(
     for (edge, indices) in sides.iter_mut().enumerate() {
         let (p, q) = (triangle[edge], triangle[(edge + 1) % 3]);
         order(indices, |&a, &b| {
-            let cutter_of = |index: usize| cutter(other(&keys[index - 3], side));
-            along(p, q, &cutter_of(a), &cutter_of(b))
+            let (first, second) = (cutters(&keys[a - 3]), cutters(&keys[b - 3]));
+            let mut found = Err("a point on an edge has nothing to cut the edge");
+            for (x, y) in first
+                .iter()
+                .flat_map(|x| second.iter().map(move |y| (x, y)))
+            {
+                found = along(p, q, x, y);
+                if found.is_ok() {
+                    break;
+                }
+            }
+            found
         })?;
         let length = q - p;
         let approximate: Vec<f64> = indices
@@ -123,7 +135,7 @@ pub(super) fn frame<'a>(
             };
         }
     }
-    let locate = |key: &Key| -> Result<usize, &'static str> {
+    let locate = |key: &K| -> Result<usize, &'static str> {
         match place(key)? {
             Place::Corner(corner) => Ok(corner),
             _ => keys
@@ -172,22 +184,6 @@ fn within(point: [f64; 2]) -> Result<[f64; 2], &'static str> {
         })
         .find(|&candidate| strictly(candidate))
         .ok_or("a point inside the triangle is rounded out of it")
-}
-
-/// The feature of a key on the tessellation of a triangle.
-pub(super) fn own(key: &Key, side: Side) -> &Feature {
-    match side {
-        Side::First => &key.first,
-        Side::Second => &key.second,
-    }
-}
-
-/// The feature of a key on the other tessellation, which cuts the triangle there.
-fn other(key: &Key, side: Side) -> &Feature {
-    match side {
-        Side::First => &key.second,
-        Side::Second => &key.first,
-    }
 }
 
 fn place(feature: &Feature, nodes: &[usize; 3]) -> Result<Place, &'static str> {
