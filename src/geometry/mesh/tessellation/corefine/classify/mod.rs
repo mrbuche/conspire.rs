@@ -4,7 +4,7 @@
 mod test;
 
 use super::{
-    Contacts, Side,
+    Contacts, Feature, Key, Side,
     split::{Split, split},
 };
 use crate::{
@@ -17,7 +17,10 @@ use crate::{
     math::{CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1},
     units::{Area, Length},
 };
-use std::{cmp::Ordering, collections::HashMap};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeSet, HashMap},
+};
 
 /// How far a point can be from a surface, as a fraction of `reach`, before it cannot be told to be
 /// off it. It is a few thousand times the rounding of the coordinates it is found from.
@@ -43,6 +46,9 @@ pub struct Corefined {
     pub first_regions: Vec<Region>,
     /// The region of each triangle of `second`, relative to the first solid.
     pub second_regions: Vec<Region>,
+    /// The vertices of `first` and `second` that are the same point, as pairs, named by the keys
+    /// of where the two surfaces meet.
+    pub(super) shared: Vec<[usize; 2]>,
 }
 
 impl Watertight {
@@ -61,11 +67,26 @@ impl Watertight {
             split(first, second, Side::First, &contacts)?,
             split(second, first, Side::Second, &contacts)?,
         );
+        let keys: BTreeSet<&Key> = contacts
+            .crossings
+            .iter()
+            .flat_map(|crossing| &crossing.keys)
+            .chain(contacts.constraints.iter().flat_map(|c| &c.keys))
+            .collect();
+        let vertex = |feature: &Feature, split: &Split, key: &Key| match feature {
+            Feature::Vertex(node) => Some(*node),
+            _ => split.named.get(key).copied(),
+        };
+        let shared = keys
+            .into_iter()
+            .filter_map(|key| Some([vertex(&key.first, &a, key)?, vertex(&key.second, &b, key)?]))
+            .collect();
         Ok(Corefined {
             first_regions: regions(&a, second, other, &coplanar(&contacts, Side::First))?,
             second_regions: regions(&b, first, self, &coplanar(&contacts, Side::Second))?,
             first: a.tessellation,
             second: b.tessellation,
+            shared,
         })
     }
 }

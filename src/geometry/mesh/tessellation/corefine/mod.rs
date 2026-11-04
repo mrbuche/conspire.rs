@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod boolean;
 mod chain;
 mod classify;
 mod clip;

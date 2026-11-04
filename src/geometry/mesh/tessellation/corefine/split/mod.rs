@@ -60,6 +60,8 @@ pub(super) struct Split {
     pub parents: Vec<usize>,
     /// The edges, as pairs of vertices with the smaller first, along which the other meets it.
     pub curves: HashSet<[usize; 2]>,
+    /// The vertex of the result at each point that was added, by the key that names it.
+    pub named: HashMap<Key, usize>,
 }
 
 pub(super) fn split(
@@ -192,5 +194,6 @@ pub(super) fn split(
         .into(),
         parents,
         curves,
+        named,
     })
 }
