@@ -275,7 +275,7 @@ fn cut_sphere() {
     let mut usage: HashMap<Vec<usize>, usize> = HashMap::new();
     mesh.iter().for_each(|block| match block {
         Connectivity::Hexahedral(_) => block.iter().for_each(|element| {
-            block.local_faces().iter().for_each(|face| {
+            block.local_facets().iter().for_each(|face| {
                 let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
                 key.sort_unstable();
                 *usage.entry(key).or_insert(0) += 1;

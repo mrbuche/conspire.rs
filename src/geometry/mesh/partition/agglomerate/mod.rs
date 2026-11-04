@@ -1,11 +1,16 @@
 #[cfg(test)]
 mod test;
 
+mod blocks;
+
 use super::Partition;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh},
+        mesh::{
+            Boundary, Connectivities, Connectivity, Mesh, PolytopalConnectivity,
+            PrimitiveConnectivity,
+        },
     },
     math::{Tensor, TensorVec},
 };
@@ -13,127 +18,93 @@ use std::collections::HashMap;
 
 impl Partition {
     pub fn agglomerate(&self, mesh: &Mesh<3>) -> Result<Mesh<3>, &'static str> {
-        let elements_faces = outward_faces(mesh)?;
-        let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
-        let mut indices: HashMap<Vec<usize>, usize> = HashMap::new();
-        let mut cells = Vec::new();
-        for part in 0..self.number_of_parts() {
-            let elements = self.part_elements(part);
-            if elements.is_empty() {
-                continue;
-            }
-            let mut roots = (0..elements.len()).collect::<Vec<_>>();
-            let mut tally: HashMap<Vec<usize>, (usize, usize)> = HashMap::new();
-            let mut order: Vec<(&Vec<usize>, Vec<usize>)> = Vec::new();
-            for (position, &element) in elements.iter().enumerate() {
-                for face in &elements_faces[element] {
+        let boundary = Boundary::try_from(mesh)?;
+        let parts = (0..self.number_of_parts())
+            .map(|part| self.part_elements(part))
+            .filter(|elements| !elements.is_empty())
+            .collect::<Vec<_>>();
+        let (blocks, coordinates) = compact(mesh, vec![polyhedra(&boundary, &parts)?]);
+        Ok((Connectivities::from(blocks), coordinates).into())
+    }
+}
+
+fn polyhedra(boundary: &Boundary, parts: &[&[usize]]) -> Result<Connectivity, &'static str> {
+    let mut faces_nodes = Vec::<Vec<usize>>::new();
+    let mut indices = HashMap::<Vec<usize>, usize>::new();
+    let mut cells = Vec::new();
+    for elements in parts {
+        cells.push(
+            boundary
+                .faces(elements)?
+                .into_iter()
+                .map(|face| {
                     let mut key = face.clone();
                     key.sort_unstable();
-                    match tally.get_mut(&key) {
-                        Some((count, first)) => {
-                            *count += 1;
-                            let (a, b) = (find(&mut roots, *first), find(&mut roots, position));
-                            roots[b] = a;
-                        }
-                        None => {
-                            tally.insert(key.clone(), (1, position));
-                            order.push((face, key))
-                        }
-                    }
-                }
-            }
-            let root = find(&mut roots, 0);
-            if (1..elements.len()).any(|position| find(&mut roots, position) != root) {
-                return Err("a part is not connected through shared faces");
-            }
-            cells.push(
-                order
-                    .into_iter()
-                    .filter(|(_, key)| tally[key].0 == 1)
-                    .map(|(face, key)| {
-                        *indices.entry(key).or_insert_with(|| {
-                            faces_nodes.push(face.clone());
-                            faces_nodes.len() - 1
-                        })
+                    *indices.entry(key).or_insert_with(|| {
+                        faces_nodes.push(face);
+                        faces_nodes.len() - 1
                     })
-                    .collect::<Vec<usize>>(),
-            );
-        }
-        let mut remap = vec![usize::MAX; mesh.number_of_nodes()];
-        faces_nodes
+                })
+                .collect::<Vec<usize>>(),
+        )
+    }
+    Ok(Connectivity::Polyhedral((cells, faces_nodes).into()))
+}
+
+fn compact(mesh: &Mesh<3>, blocks: Vec<Connectivity>) -> (Vec<Connectivity>, Coordinates<3>) {
+    let mut remap = vec![usize::MAX; mesh.number_of_nodes()];
+    blocks.iter().for_each(|block| match block {
+        Connectivity::Polyhedral(connectivity) => connectivity
+            .faces_nodes()
             .iter()
             .flatten()
-            .for_each(|&node| remap[node] = 0);
-        let mut coordinates = Coordinates::new();
-        remap.iter_mut().enumerate().for_each(|(node, new)| {
-            if *new == 0 {
-                *new = coordinates.len();
-                coordinates.push(mesh.coordinates()[node].clone())
-            }
-        });
-        faces_nodes
-            .iter_mut()
-            .flatten()
-            .for_each(|node| *node = remap[*node]);
-        Ok((
-            Connectivities::from(vec![Connectivity::Polyhedral((cells, faces_nodes).into())]),
-            coordinates,
-        )
-            .into())
-    }
-}
-
-fn find(roots: &mut [usize], mut node: usize) -> usize {
-    while roots[node] != node {
-        roots[node] = roots[roots[node]];
-        node = roots[node]
-    }
-    node
-}
-
-fn outward_faces(mesh: &Mesh<3>) -> Result<Vec<Vec<Vec<usize>>>, &'static str> {
-    let mut elements_faces = Vec::with_capacity(mesh.number_of_elements());
-    for block in mesh.iter() {
-        match block {
-            Connectivity::Polyhedral(connectivity) => {
-                let mut owner = HashMap::new();
-                connectivity
-                    .elements_faces()
-                    .iter()
-                    .enumerate()
-                    .for_each(|(element, faces)| {
-                        faces.iter().for_each(|&face| {
-                            owner.entry(face).or_insert(element);
-                        })
-                    });
-                connectivity
-                    .elements_faces()
-                    .iter()
-                    .enumerate()
-                    .for_each(|(element, faces)| {
-                        elements_faces.push(
-                            faces
-                                .iter()
-                                .map(|&face| {
-                                    let mut nodes = connectivity.faces_nodes()[face].clone();
-                                    if owner[&face] != element {
-                                        nodes.reverse()
-                                    }
-                                    nodes
-                                })
-                                .collect(),
-                        )
-                    })
-            }
-            Connectivity::Polygonal(_)
-            | Connectivity::Quadrilateral(_)
-            | Connectivity::Triangular(_) => {
-                return Err("agglomeration requires three-dimensional elements");
-            }
-            _ => block
-                .iter()
-                .for_each(|element| elements_faces.push(block.element_faces(element))),
+            .for_each(|&node| remap[node] = 0),
+        _ => block.iter().for_each(|element| {
+            block
+                .element_nodes(element)
+                .into_iter()
+                .for_each(|node| remap[node] = 0)
+        }),
+    });
+    let mut coordinates = Coordinates::new();
+    remap.iter_mut().enumerate().for_each(|(node, new)| {
+        if *new == 0 {
+            *new = coordinates.len();
+            coordinates.push(mesh.coordinates()[node].clone())
         }
+    });
+    (
+        blocks
+            .iter()
+            .map(|block| renumbered(block, &remap))
+            .collect(),
+        coordinates,
+    )
+}
+
+fn renumbered(block: &Connectivity, remap: &[usize]) -> Connectivity {
+    fn map<const N: usize>(
+        connectivity: &PrimitiveConnectivity<3, N>,
+        remap: &[usize],
+    ) -> PrimitiveConnectivity<3, N> {
+        connectivity
+            .iter()
+            .map(|nodes| nodes.map(|node| remap[node]))
+            .collect::<Vec<_>>()
+            .into()
     }
-    Ok(elements_faces)
+    match block {
+        Connectivity::Hexahedral(c) => Connectivity::Hexahedral(map(c, remap)),
+        Connectivity::Pyramidal(c) => Connectivity::Pyramidal(map(c, remap)),
+        Connectivity::Tetrahedral(c) => Connectivity::Tetrahedral(map(c, remap)),
+        Connectivity::Wedge(c) => Connectivity::Wedge(map(c, remap)),
+        Connectivity::Polyhedral(c) => Connectivity::Polyhedral(PolytopalConnectivity::from((
+            c.elements_faces().to_vec(),
+            c.faces_nodes()
+                .iter()
+                .map(|face| face.iter().map(|&node| remap[node]).collect())
+                .collect(),
+        ))),
+        _ => unreachable!("a boundary requires three-dimensional elements"),
+    }
 }
