@@ -5,7 +5,10 @@ mod chain;
 mod clip;
 mod overlap;
 mod pierce;
-// Nothing calls the triangulation until the pieces of the triangles are gathered and handed to it.
+// Nothing calls the frame or the triangulation until the pieces of the triangles are gathered and
+// handed to them.
+#[allow(dead_code)]
+mod frame;
 #[allow(dead_code)]
 mod triangulate;
 
