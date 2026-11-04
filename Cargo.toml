@@ -10,7 +10,7 @@ keywords = ["conspire", "mrbuche"]
 license = "GPL-3.0"
 name = "conspire"
 repository = "https://github.com/mrbuche/conspire"
-version = "0.9.0"
+version = "0.9.1"
 
 [features]
 all = ['cbm', 'vem']
@@ -36,11 +36,6 @@ codegen-units = 1
 lto = true
 panic = "abort"
 strip = "symbols"
-
-[profile.release-dev]
-inherits = "release"
-codegen-units = 32
-lto = false
 
 [[example]]
 name = "book"
