@@ -47,12 +47,12 @@ fn exactly_one_owner(
 #[test]
 fn nested_volume_takes_priority() {
     let (core_min, core_max) = ([0.3; 3], [0.7; 3]);
-    let partition = Partition::new(vec![solid(core_min, core_max), solid([0.0; 3], [1.0; 3])]);
+    let partition = Partition::new(vec![solid([0.0; 3], [1.0; 3]), solid(core_min, core_max)]);
     exactly_one_owner(&partition, |point| {
         if inside(point, core_min, core_max) {
-            Some(0)
-        } else if inside(point, [0.0; 3], [1.0; 3]) {
             Some(1)
+        } else if inside(point, [0.0; 3], [1.0; 3]) {
+            Some(0)
         } else {
             None
         }
@@ -60,14 +60,14 @@ fn nested_volume_takes_priority() {
 }
 
 #[test]
-fn overlap_goes_to_the_earlier_volume() {
-    let (first, second) = (([0.0; 3], [0.7; 3]), ([0.3; 3], [1.0; 3]));
-    let partition = Partition::new(vec![solid(first.0, first.1), solid(second.0, second.1)]);
+fn overlap_goes_to_the_later_volume() {
+    let (earlier, later) = (([0.3; 3], [1.0; 3]), ([0.0; 3], [0.7; 3]));
+    let partition = Partition::new(vec![solid(earlier.0, earlier.1), solid(later.0, later.1)]);
     exactly_one_owner(&partition, |point| {
-        if inside(point, first.0, first.1) {
-            Some(0)
-        } else if inside(point, second.0, second.1) {
+        if inside(point, later.0, later.1) {
             Some(1)
+        } else if inside(point, earlier.0, earlier.1) {
+            Some(0)
         } else {
             None
         }
@@ -77,10 +77,10 @@ fn overlap_goes_to_the_earlier_volume() {
 #[test]
 fn priority_order_decides_the_overlap() {
     let core = ([0.3; 3], [0.7; 3]);
-    let partition = Partition::new(vec![solid([0.0; 3], [1.0; 3]), solid(core.0, core.1)]);
+    let partition = Partition::new(vec![solid(core.0, core.1), solid([0.0; 3], [1.0; 3])]);
     let center = [0.5; 3].into();
-    assert_eq!(partition.owner(&center), Some(0));
-    assert!(partition.signed_distance(&center, 1) > Quantity::default());
+    assert_eq!(partition.owner(&center), Some(1));
+    assert!(partition.signed_distance(&center, 0) > Quantity::default());
 }
 
 #[test]
@@ -111,10 +111,10 @@ fn projection_lands_on_the_region_boundary() -> Result<(), AssertionError> {
         ([0.0; 3], [0.7; 3], [0.3; 3], [1.0; 3]),
     ]
     .into_iter()
-    .try_for_each(|(first_min, first_max, second_min, second_max)| {
+    .try_for_each(|(later_min, later_max, earlier_min, earlier_max)| {
         let partition = Partition::new(vec![
-            solid(first_min, first_max),
-            solid(second_min, second_max),
+            solid(earlier_min, earlier_max),
+            solid(later_min, later_max),
         ]);
         (0..2).try_for_each(|index| {
             projected_points(&partition, index)
@@ -131,10 +131,10 @@ fn projection_lands_on_the_region_boundary() -> Result<(), AssertionError> {
 
 #[test]
 fn projection_is_inexact_at_creases() {
-    let partition = Partition::new(vec![solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3])]);
+    let partition = Partition::new(vec![solid([0.3; 3], [1.0; 3]), solid([0.0; 3], [0.7; 3])]);
     let projections: Vec<_> = grid()
         .iter()
-        .map(|point| partition.project(point, 1))
+        .map(|point| partition.project(point, 0))
         .collect();
     assert!(
         projections
@@ -153,21 +153,21 @@ fn projection_is_inexact_at_creases() {
 
 #[test]
 fn projection_distance_is_the_effective_distance_when_nested() -> Result<(), AssertionError> {
-    let partition = Partition::new(vec![solid([0.3; 3], [0.7; 3]), solid([0.0; 3], [1.0; 3])]);
-    let projected = projected_points(&partition, 1);
+    let partition = Partition::new(vec![solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3])]);
+    let projected = projected_points(&partition, 0);
     assert_eq!(projected.len(), grid().len());
-    assert!(hidden_points(&partition).is_empty());
+    assert!(hidden_points(&partition, 0).is_empty());
     projected.iter().try_for_each(|(point, closest)| {
         Assert::default().eq_within_tols(
             (closest - point).norm(),
-            &partition.signed_distance(point, 1).abs(),
+            &partition.signed_distance(point, 0).abs(),
         )
     })
 }
 
 #[test]
 fn projection_is_never_nearer_than_the_effective_distance() {
-    let partition = Partition::new(vec![solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3])]);
+    let partition = Partition::new(vec![solid([0.3; 3], [1.0; 3]), solid([0.0; 3], [0.7; 3])]);
     (0..2).for_each(|index| {
         projected_points(&partition, index)
             .iter()
@@ -182,17 +182,17 @@ fn projection_is_never_nearer_than_the_effective_distance() {
 }
 
 fn crease_partition() -> Partition<Watertight> {
-    Partition::new(vec![solid([0.0; 3], [0.7; 3]), solid([0.3; 3], [1.0; 3])])
+    Partition::new(vec![solid([0.3; 3], [1.0; 3]), solid([0.0; 3], [0.7; 3])])
 }
 
 const CREASE_TOLERANCE: Quantity<Length> = Length::meters(1e-9);
 
-fn hidden_points(partition: &Partition<Watertight>) -> Vec<Coordinate<3>> {
+fn hidden_points(partition: &Partition<Watertight>, index: usize) -> Vec<Coordinate<3>> {
     grid()
         .into_iter()
         .filter(|point| {
             partition
-                .project(point, 1)
+                .project(point, index)
                 .is_none_or(|projection| !projection.exact)
         })
         .collect()
@@ -201,12 +201,12 @@ fn hidden_points(partition: &Partition<Watertight>) -> Vec<Coordinate<3>> {
 #[test]
 fn converged_crease_points_lie_on_both_surfaces() -> Result<(), AssertionError> {
     let partition = crease_partition();
-    let hidden = hidden_points(&partition);
+    let hidden = hidden_points(&partition, 0);
     let converged: Vec<(Coordinate<3>, Coordinate<3>)> = hidden
         .iter()
         .filter_map(|point| {
             partition
-                .project_to_crease(point, 1, CREASE_TOLERANCE, 100)
+                .project_to_crease(point, 0, CREASE_TOLERANCE, 100)
                 .ok()
                 .map(|closest| (point.clone(), closest))
         })
@@ -219,7 +219,7 @@ fn converged_crease_points_lie_on_both_surfaces() -> Result<(), AssertionError> 
             .eq_within_tols(partition.signed_distance(closest, 0), &Length::meters(0.0))?;
         assert!(
             (closest - point).norm() + Length::meters(1e-12)
-                >= partition.signed_distance(point, 1).abs()
+                >= partition.signed_distance(point, 0).abs()
         );
         Ok(())
     })
@@ -230,12 +230,12 @@ fn crease_projection_agrees_with_projection_where_exact() {
     let partition = crease_partition();
     grid().iter().for_each(|point| {
         if let Some(exact) = partition
-            .project(point, 1)
+            .project(point, 0)
             .filter(|projection| projection.exact)
         {
             assert_eq!(
                 partition
-                    .project_to_crease(point, 1, CREASE_TOLERANCE, 100)
+                    .project_to_crease(point, 0, CREASE_TOLERANCE, 100)
                     .unwrap(),
                 exact.point
             )
@@ -246,10 +246,10 @@ fn crease_projection_agrees_with_projection_where_exact() {
 #[test]
 fn crease_projection_reports_non_convergence() {
     let partition = crease_partition();
-    hidden_points(&partition).iter().for_each(|point| {
+    hidden_points(&partition, 0).iter().for_each(|point| {
         assert!(
             partition
-                .project_to_crease(point, 1, CREASE_TOLERANCE, 0)
+                .project_to_crease(point, 0, CREASE_TOLERANCE, 0)
                 .is_err()
         )
     })
@@ -259,7 +259,7 @@ fn bisected(
     partition: &Partition<Watertight>,
     point: &Coordinate<3>,
 ) -> Result<Coordinate<3>, &'static str> {
-    partition.boundary_on_segment(&Coordinate::from([0.9; 3]), point, 1, CREASE_TOLERANCE)
+    partition.boundary_on_segment(&Coordinate::from([0.9; 3]), point, 0, CREASE_TOLERANCE)
 }
 
 #[test]
@@ -267,13 +267,13 @@ fn bisection_lands_within_tolerance_of_the_boundary() {
     let partition = crease_partition();
     let outside: Vec<Coordinate<3>> = grid()
         .iter()
-        .filter(|point| partition.signed_distance(point, 1) > Quantity::default())
+        .filter(|point| partition.signed_distance(point, 0) > Quantity::default())
         .cloned()
         .collect();
     assert!(!outside.is_empty());
     outside.iter().for_each(|point| {
         let found = bisected(&partition, point).unwrap();
-        let distance = partition.signed_distance(&found, 1);
+        let distance = partition.signed_distance(&found, 0);
         assert!(distance <= Quantity::default());
         assert!(distance + CREASE_TOLERANCE > Quantity::default());
     })
@@ -282,11 +282,11 @@ fn bisection_lands_within_tolerance_of_the_boundary() {
 #[test]
 fn bisection_reaches_the_points_the_projections_cannot() {
     let partition = crease_partition();
-    let failed: Vec<Coordinate<3>> = hidden_points(&partition)
+    let failed: Vec<Coordinate<3>> = hidden_points(&partition, 0)
         .into_iter()
         .filter(|point| {
             partition
-                .project_to_crease(point, 1, CREASE_TOLERANCE, 100)
+                .project_to_crease(point, 0, CREASE_TOLERANCE, 100)
                 .is_err()
         })
         .collect();
@@ -302,17 +302,17 @@ fn bisection_requires_the_ends_to_straddle_the_boundary() {
     let (inside, outside) = ([0.9; 3].into(), [-0.5; 3].into());
     assert!(
         partition
-            .boundary_on_segment(&outside, &inside, 1, CREASE_TOLERANCE)
+            .boundary_on_segment(&outside, &inside, 0, CREASE_TOLERANCE)
             .is_err()
     );
     assert!(
         partition
-            .boundary_on_segment(&inside, &inside, 1, CREASE_TOLERANCE)
+            .boundary_on_segment(&inside, &inside, 0, CREASE_TOLERANCE)
             .is_err()
     );
     assert!(
         partition
-            .boundary_on_segment(&inside, &outside, 1, Length::meters(0.0))
+            .boundary_on_segment(&inside, &outside, 0, Length::meters(0.0))
             .is_err()
     );
 }
@@ -324,7 +324,7 @@ fn bisection_terminates_on_a_coincident_interface() {
         .boundary_on_segment(
             &[1.5, 0.5, 0.5].into(),
             &[0.5, 0.5, 0.5].into(),
-            1,
+            0,
             CREASE_TOLERANCE,
         )
         .unwrap();
@@ -333,8 +333,8 @@ fn bisection_terminates_on_a_coincident_interface() {
 
 fn shared_face_partition() -> Partition<Watertight> {
     Partition::new(vec![
-        solid([0.0; 3], [1.0; 3]),
         solid([1.0, 0.0, 0.0], [2.0, 1.0, 1.0]),
+        solid([0.0; 3], [1.0; 3]),
     ])
 }
 
@@ -360,11 +360,11 @@ fn coincident_face_owner_is_consistent_with_the_regions() {
         let x = point[0].value();
         let owner = partition.owner(point).unwrap();
         if x != 1.0 {
-            assert_eq!(owner, if x < 1.0 { 0 } else { 1 });
+            assert_eq!(owner, if x < 1.0 { 1 } else { 0 });
         }
         assert!(partition.signed_distance(point, owner) <= Quantity::default());
-        (0..owner).for_each(|earlier| {
-            assert!(partition.signed_distance(point, earlier) > Quantity::default())
+        (owner + 1..partition.number_of_volumes()).for_each(|later| {
+            assert!(partition.signed_distance(point, later) > Quantity::default())
         })
     })
 }
@@ -404,27 +404,27 @@ fn coincident_face_projects_onto_the_shared_plane() -> Result<(), AssertionError
 }
 
 #[test]
-fn region_normal_is_reversed_on_the_wall_of_an_earlier_volume() -> Result<(), AssertionError> {
-    let partition = Partition::new(vec![solid([0.3; 3], [0.7; 3]), solid([0.0; 3], [1.0; 3])]);
+fn region_normal_is_reversed_on_the_wall_of_a_later_volume() -> Result<(), AssertionError> {
+    let partition = Partition::new(vec![solid([0.0; 3], [1.0; 3]), solid([0.3; 3], [0.7; 3])]);
     let cavity = partition
-        .project(&[0.5, 0.5, 0.25].into(), 1)
+        .project(&[0.5, 0.5, 0.25].into(), 0)
         .unwrap()
         .normal;
     Assert::default().eq_within_tols(&cavity, &[0.0, 0.0, 1.0].into())?;
     let outer = partition
-        .project(&[0.5, 0.5, 0.05].into(), 1)
+        .project(&[0.5, 0.5, 0.05].into(), 0)
         .unwrap()
         .normal;
     Assert::default().eq_within_tols(&outer, &[0.0, 0.0, -1.0].into())
 }
 
 #[test]
-fn unrelated_earlier_volume_does_not_withhold_the_projection() -> Result<(), AssertionError> {
+fn unrelated_later_volume_does_not_withhold_the_projection() -> Result<(), AssertionError> {
     let partition = Partition::new(vec![
-        solid([1.2, 0.4, 0.4], [1.4, 0.6, 0.6]),
         solid([0.0; 3], [1.0; 3]),
+        solid([1.2, 0.4, 0.4], [1.4, 0.6, 0.6]),
     ]);
-    let projection = partition.project(&[1.15, 0.5, 0.5].into(), 1).unwrap();
+    let projection = partition.project(&[1.15, 0.5, 0.5].into(), 0).unwrap();
     assert!(!projection.exact);
     Assert::default().eq_within_tols(&projection.point, &Coordinate::from([1.0, 0.5, 0.5]))?;
     Assert::default().eq_within_tols(&projection.normal, &Direction::from([1.0, 0.0, 0.0]))

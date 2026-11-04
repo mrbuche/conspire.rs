@@ -8,7 +8,7 @@ use crate::{
     units::Length,
 };
 
-/// Volumes in priority order: a point belongs to the first volume containing it.
+/// Volumes in priority order: a point belongs to the last volume containing it.
 pub struct Partition<O> {
     volumes: Vec<O>,
 }
@@ -24,33 +24,34 @@ impl<O: SolidOracle> Partition<O> {
     pub fn owner(&self, point: &Coordinate<3>) -> Option<usize> {
         self.volumes
             .iter()
-            .position(|volume| volume.signed_distance(point) <= Quantity::default())
+            .rposition(|volume| volume.signed_distance(point) <= Quantity::default())
     }
-    /// Signed distance to the region of a volume left after removing every earlier volume.
+    /// Signed distance to the region of a volume left after removing every later volume.
     pub fn signed_distance(&self, point: &Coordinate<3>, index: usize) -> Quantity<Length> {
-        self.volumes[..index].iter().fold(
+        self.volumes[index + 1..].iter().fold(
             self.volumes[index].signed_distance(point),
-            |distance, earlier| distance.max(-earlier.signed_distance(point)),
+            |distance, later| distance.max(-later.signed_distance(point)),
         )
     }
-    /// A boundary point of the region of a volume left after removing every earlier volume.
+    /// A boundary point of the region of a volume left after removing every later volume.
     ///
     /// Each volume offers its own closest boundary point. A candidate lies on the boundary of
-    /// the region only if it is inside the volume and strictly inside no other earlier volume.
+    /// the region only if it is inside the volume and strictly inside no other later volume.
     /// The nearest such candidate is returned, and is exact when it is also the nearest candidate
     /// overall; otherwise a hidden candidate was nearer and the closest point may be on a crease.
     ///
-    /// The normal points out of the region, so it is reversed on the wall of an earlier volume.
+    /// The normal points out of the region, so it is reversed on the wall of a later volume.
     pub fn project(&self, point: &Coordinate<3>, index: usize) -> Option<Projection> {
         nearest_surviving(
             point,
-            self.volumes[..=index]
+            self.volumes[index..]
                 .iter()
                 .enumerate()
-                .map(|(owner, volume)| {
+                .map(|(offset, volume)| {
+                    let owner = index + offset;
                     volume.project(point).map(|projection| {
                         let survives = self.violator(&projection.point, index, &[owner]).is_none();
-                        let normal = if owner < index {
+                        let normal = if owner > index {
                             -projection.normal.clone()
                         } else {
                             projection.normal.clone()
@@ -146,19 +147,19 @@ impl<O: SolidOracle> Partition<O> {
             .ok_or("a volume has no surface to project onto")
     }
     fn nearest(&self, point: &Coordinate<3>, index: usize) -> Option<(usize, Coordinate<3>)> {
-        self.volumes[..=index]
+        self.volumes[index..]
             .iter()
             .enumerate()
-            .filter_map(|(owner, volume)| {
+            .filter_map(|(offset, volume)| {
                 volume
                     .project(point)
-                    .map(|projection| (owner, projection.point))
+                    .map(|projection| (index + offset, projection.point))
             })
             .min_by(|(_, a), (_, b)| (a - point).norm().total_cmp(&(b - point).norm()))
     }
     fn violator(&self, point: &Coordinate<3>, index: usize, skip: &[usize]) -> Option<usize> {
         let zero = Quantity::default();
-        (0..=index)
+        (index..self.volumes.len())
             .filter(|other| !skip.contains(other))
             .find(|&other| {
                 let distance = self.volumes[other].signed_distance(point);
