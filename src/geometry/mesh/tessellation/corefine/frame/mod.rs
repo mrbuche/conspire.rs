@@ -21,6 +21,10 @@ use std::{cmp::Ordering, collections::BTreeMap};
 /// both of their coordinates, which sum to one, are exact.
 const GRID: f64 = (1u64 << 52) as f64;
 
+/// How many times a point rounded onto or past the boundary is nudged inwards, by a fraction of
+/// its distance to the middle that goes from 2⁻⁵² to 2⁻³² of it.
+const NUDGES: usize = 11;
+
 /// A triangle in its frame, with the name of every point that is not a corner.
 pub(super) struct Frame {
     pub input: Input,
@@ -80,15 +84,7 @@ pub(super) fn frame<'a>(
                 (a * gram[2] - b * gram[1]) / determinant,
                 (b * gram[0] - a * gram[1]) / determinant,
             ];
-            let inside = [
-                orient2d_planar([0.0, 0.0], [1.0, 0.0], point),
-                orient2d_planar([1.0, 0.0], [0.0, 1.0], point),
-                orient2d_planar([0.0, 1.0], [0.0, 0.0], point),
-            ];
-            if inside.iter().any(|&sign| sign != Ordering::Greater) {
-                return Err("a point inside the triangle is rounded out of it");
-            }
-            frame_points[index + 3] = point;
+            frame_points[index + 3] = within(point)?;
         }
     }
     for (edge, indices) in sides.iter_mut().enumerate() {
@@ -148,6 +144,33 @@ pub(super) fn frame<'a>(
     })
 }
 
+/// A point strictly inside the frame, nudged towards the middle if rounding left it on the
+/// boundary or just outside. How far it may be nudged is far more than rounding, far less than
+/// the size of the triangle. Beyond that the point is not where it should be, and it fails.
+fn within(point: [f64; 2]) -> Result<[f64; 2], &'static str> {
+    let middle = [1.0 / 3.0; 2];
+    let strictly = |p: [f64; 2]| {
+        [
+            orient2d_planar([0.0, 0.0], [1.0, 0.0], p),
+            orient2d_planar([1.0, 0.0], [0.0, 1.0], p),
+            orient2d_planar([0.0, 1.0], [0.0, 0.0], p),
+        ]
+        .iter()
+        .all(|&sign| sign == Ordering::Greater)
+    };
+    (0..=NUDGES)
+        .map(|step| {
+            let fraction = if step == 0 {
+                0.0
+            } else {
+                f64::powi(2.0, -(52 - 2 * (step as i32 - 1)))
+            };
+            [0, 1].map(|i| point[i] + (middle[i] - point[i]) * fraction)
+        })
+        .find(|&candidate| strictly(candidate))
+        .ok_or("a point inside the triangle is rounded out of it")
+}
+
 fn values(point: &Coordinate<3>) -> [f64; 3] {
     [0, 1, 2].map(|axis| point[axis].value())
 }
@@ -161,7 +184,7 @@ fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
 }
 
 /// The feature of a key on the tessellation of a triangle.
-fn own(key: &Key, side: Side) -> &Feature {
+pub(super) fn own(key: &Key, side: Side) -> &Feature {
     match side {
         Side::First => &key.first,
         Side::Second => &key.second,

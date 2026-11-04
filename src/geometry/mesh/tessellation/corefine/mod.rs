@@ -3,13 +3,10 @@ mod test;
 
 mod chain;
 mod clip;
+mod frame;
 mod overlap;
 mod pierce;
-// Nothing calls the frame or the triangulation until the pieces of the triangles are gathered and
-// handed to them.
-#[allow(dead_code)]
-mod frame;
-#[allow(dead_code)]
+mod split;
 mod triangulate;
 
 pub use chain::Polyline;
