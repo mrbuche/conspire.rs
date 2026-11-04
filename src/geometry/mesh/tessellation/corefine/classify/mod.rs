@@ -19,7 +19,7 @@ use crate::{
 };
 use std::{
     cmp::Ordering,
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap, HashSet},
 };
 
 /// How far a point can be from a surface, as a fraction of `reach`, before it cannot be told to be
@@ -92,7 +92,7 @@ impl Watertight {
 }
 
 /// For each triangle of one tessellation, the triangles of the other in its plane.
-fn coplanar(contacts: &Contacts, side: Side) -> HashMap<usize, Vec<usize>> {
+pub(super) fn coplanar(contacts: &Contacts, side: Side) -> HashMap<usize, Vec<usize>> {
     let mut found = HashMap::<usize, Vec<usize>>::new();
     contacts.coplanar.iter().for_each(|&[first, second]| {
         let (own, other) = match side {
@@ -119,9 +119,19 @@ fn regions(
         .flatten()
         .map(|nodes| [nodes[0], nodes[1], nodes[2]])
         .collect();
-    let corners = |face: usize| faces[face].map(|node| &coordinates[node]);
-    let other_coordinates = other.mesh().coordinates();
-    let other_faces: Vec<&[usize]> = other.mesh().connectivities().iter().flatten().collect();
+    relate(
+        &faces,
+        |node| &coordinates[node],
+        &split.parents,
+        &patches(&faces, &split.curves),
+        other,
+        solid,
+        coplanar,
+    )
+}
+
+/// The groups of triangles that are connected across every edge that is not one of the `curves`.
+pub(super) fn patches(faces: &[[usize; 3]], curves: &HashSet<[usize; 2]>) -> Vec<Vec<usize>> {
     let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
     for (index, nodes) in faces.iter().enumerate() {
         (0..3).for_each(|edge| {
@@ -129,7 +139,7 @@ fn regions(
             around.entry([a.min(b), a.max(b)]).or_default().push(index);
         })
     }
-    let mut regions: Vec<Option<Region>> = vec![None; faces.len()];
+    let mut found = Vec::new();
     let mut seen = vec![false; faces.len()];
     for start in 0..faces.len() {
         if seen[start] {
@@ -144,7 +154,7 @@ fn regions(
             for edge in 0..3 {
                 let (a, b) = (nodes[edge], nodes[(edge + 1) % 3]);
                 let key = [a.min(b), a.max(b)];
-                if split.curves.contains(&key) {
+                if curves.contains(&key) {
                     continue;
                 }
                 for &neighbour in &around[&key] {
@@ -155,18 +165,42 @@ fn regions(
                 }
             }
         }
+        found.push(patch);
+    }
+    found
+}
+
+/// Where each triangle of a surface lies relative to the `solid` of the `other` surface, with the
+/// `patches` of triangles that cannot differ classified once, by the largest triangle of each.
+///
+/// The triangles name their corners by `faces`, which `position` places, and `parents` gives the
+/// triangle of the surface that each was split from, for the triangles of `other` in its plane.
+pub(super) fn relate<'c>(
+    faces: &[[usize; 3]],
+    position: impl Fn(usize) -> &'c Coordinate<3>,
+    parents: &[usize],
+    patches: &[Vec<usize>],
+    other: &Tessellation,
+    solid: &Watertight,
+    coplanar: &HashMap<usize, Vec<usize>>,
+) -> Result<Vec<Region>, &'static str> {
+    let corners = |face: usize| faces[face].map(&position);
+    let other_coordinates = other.mesh().coordinates();
+    let other_faces: Vec<&[usize]> = other.mesh().connectivities().iter().flatten().collect();
+    let mut regions: Vec<Option<Region>> = vec![None; faces.len()];
+    for patch in patches {
         let largest = *patch
             .iter()
             .max_by(|&&a, &&b| {
                 let size = |face| normal(corners(face)).norm().value();
                 size(a).total_cmp(&size(b))
             })
-            .unwrap_or(&start);
+            .ok_or("a patch has no triangle")?;
         let triangle = corners(largest);
         let centre = triangle.into_iter().sum::<Coordinate<3>>() / 3.0;
         let direction = normal(triangle).normalized();
         let on = coplanar
-            .get(&split.parents[largest])
+            .get(&parents[largest])
             .into_iter()
             .flatten()
             .find_map(|&index| {

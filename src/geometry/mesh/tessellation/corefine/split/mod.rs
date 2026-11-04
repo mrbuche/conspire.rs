@@ -1,4 +1,4 @@
-//! Splitting the triangles of two tessellations along where they meet.
+//! Splitting the triangles of tessellations along where they meet.
 
 #[cfg(test)]
 mod test;
@@ -20,13 +20,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// What meets one triangle: points, each with a rounded position, and the segments between them.
 #[derive(Default)]
-struct Piece {
-    points: Vec<(Key, Coordinate<3>)>,
-    segments: Vec<[Key; 2]>,
+pub(super) struct Piece {
+    pub points: Vec<(Key, Coordinate<3>)>,
+    pub segments: Vec<[Key; 2]>,
 }
 
 impl Piece {
-    fn add(&mut self, keys: &[Key; 2], segment: &[Coordinate<3>; 2]) {
+    pub fn add(&mut self, keys: &[Key; 2], segment: &[Coordinate<3>; 2]) {
         keys.iter()
             .zip(segment)
             .for_each(|(key, end)| self.points.push((key.clone(), end.clone())));
@@ -87,36 +87,6 @@ pub(super) fn split(
             .or_default()
             .add(&constraint.keys, &constraint.segment);
     }
-    let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
-    for (index, nodes) in own.mesh().connectivities().iter().flatten().enumerate() {
-        (0..3).for_each(|edge| {
-            let (a, b) = (nodes[edge], nodes[(edge + 1) % 3]);
-            around.entry([a.min(b), a.max(b)]).or_default().push(index);
-        })
-    }
-    let shared: Vec<(usize, Key, Coordinate<3>)> = pieces
-        .iter()
-        .flat_map(|(&triangle, piece)| {
-            let around = &around;
-            piece.points.iter().flat_map(move |(key, position)| {
-                let neighbours = match own_feature(key, side) {
-                    Feature::Edge(edge) => around[edge].as_slice(),
-                    _ => &[],
-                };
-                neighbours
-                    .iter()
-                    .filter(move |&&neighbour| neighbour != triangle)
-                    .map(move |&neighbour| (neighbour, key.clone(), position.clone()))
-            })
-        })
-        .collect();
-    for (triangle, key, position) in shared {
-        pieces
-            .entry(triangle)
-            .or_default()
-            .points
-            .push((key, position));
-    }
     let coordinates = own.mesh().coordinates();
     let mut vertices: Vec<Coordinate<3>> = coordinates.iter().cloned().collect();
     let other_coordinates = other.mesh().coordinates();
@@ -133,39 +103,121 @@ pub(super) fn split(
         Feature::Edge([a, b]) => Cutter::Edge([&other_coordinates[*a], &other_coordinates[*b]]),
         Feature::Vertex(node) => Cutter::Vertex(&other_coordinates[*node]),
     };
+    let faces: Vec<[usize; 3]> = own
+        .mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|nodes| [nodes[0], nodes[1], nodes[2]])
+        .collect();
     let mut named = HashMap::<Key, usize>::new();
-    let mut faces = Vec::<[usize; 3]>::new();
-    let mut parents = Vec::<usize>::new();
-    let mut curves = HashSet::<[usize; 2]>::new();
-    for (index, nodes) in own.mesh().connectivities().iter().flatten().enumerate() {
-        let nodes = [nodes[0], nodes[1], nodes[2]];
+    let refined = refine(
+        &faces,
+        |node| &coordinates[node],
+        pieces,
+        side,
+        cutter,
+        |key, position| {
+            *named.entry(key.clone()).or_insert_with(|| {
+                vertices.push(position.clone());
+                vertices.len() - 1
+            })
+        },
+    )?;
+    Ok(Split {
+        tessellation: Mesh::from((
+            vec![Connectivity::Triangular(refined.faces.into())],
+            vertices.into(),
+        ))
+        .into(),
+        parents: refined.parents,
+        curves: refined.curves,
+        named,
+    })
+}
+
+/// Triangles split along what meets them.
+pub(super) struct Refined {
+    pub faces: Vec<[usize; 3]>,
+    /// The triangle that each was split from.
+    pub parents: Vec<usize>,
+    /// The edges, as pairs of vertices with the smaller first, that the segments became.
+    pub curves: HashSet<[usize; 2]>,
+}
+
+/// Split triangles of one surface into the pieces that what meets them cuts them into.
+///
+/// The triangles name their corners by `faces`, which are also what the keys of `pieces` name,
+/// and `position` gives where a corner is. A point that is not a corner is named by `name`, from
+/// its key and where it is rounded to, with the vertex it makes. A point on an edge is given to
+/// every triangle around the edge, including those that nothing else meets, so that triangles
+/// agree on how an edge is divided.
+pub(super) fn refine<'c, 'a>(
+    faces: &[[usize; 3]],
+    position: impl Fn(usize) -> &'c Coordinate<3>,
+    mut pieces: BTreeMap<usize, Piece>,
+    side: Side,
+    cutter: impl Fn(&Feature) -> Cutter<'a>,
+    mut name: impl FnMut(&Key, &Coordinate<3>) -> usize,
+) -> Result<Refined, &'static str> {
+    let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
+    for (index, nodes) in faces.iter().enumerate() {
+        (0..3).for_each(|edge| {
+            let (a, b) = (nodes[edge], nodes[(edge + 1) % 3]);
+            around.entry([a.min(b), a.max(b)]).or_default().push(index);
+        })
+    }
+    let shared: Vec<(usize, Key, Coordinate<3>)> = pieces
+        .iter()
+        .flat_map(|(&triangle, piece)| {
+            let around = &around;
+            piece.points.iter().flat_map(move |(key, point)| {
+                let neighbours = match own_feature(key, side) {
+                    Feature::Edge(edge) => around[edge].as_slice(),
+                    _ => &[],
+                };
+                neighbours
+                    .iter()
+                    .filter(move |&&neighbour| neighbour != triangle)
+                    .map(move |&neighbour| (neighbour, key.clone(), point.clone()))
+            })
+        })
+        .collect();
+    for (triangle, key, point) in shared {
+        pieces
+            .entry(triangle)
+            .or_default()
+            .points
+            .push((key, point));
+    }
+    let mut refined = Refined {
+        faces: Vec::new(),
+        parents: Vec::new(),
+        curves: HashSet::new(),
+    };
+    for (index, &nodes) in faces.iter().enumerate() {
         let Some(piece) = pieces.get(&index) else {
-            faces.push(nodes);
-            parents.push(index);
+            refined.faces.push(nodes);
+            refined.parents.push(index);
             continue;
         };
         let framed = frame(
-            nodes.map(|node| &coordinates[node]),
+            nodes.map(&position),
             nodes,
             side,
             &piece.points,
             &piece.segments,
-            cutter,
+            &cutter,
         )?;
         let positions: HashMap<&Key, &Coordinate<3>> = piece
             .points
             .iter()
-            .map(|(key, position)| (key, position))
+            .map(|(key, point)| (key, point))
             .collect();
         let ids: Vec<usize> = framed
             .keys
             .iter()
-            .map(|key| {
-                *named.entry(key.clone()).or_insert_with(|| {
-                    vertices.push(positions[key].clone());
-                    vertices.len() - 1
-                })
-            })
+            .map(|key| name(key, positions[key]))
             .collect();
         let node = |point: usize| {
             if point < 3 {
@@ -175,25 +227,16 @@ pub(super) fn split(
             }
         };
         let (triangles, constrained) = triangulate_constrained(&framed.input)?;
-        parents.extend(triangles.iter().map(|_| index));
-        faces.extend(
+        refined.parents.extend(triangles.iter().map(|_| index));
+        refined.faces.extend(
             triangles
                 .into_iter()
                 .map(|[a, b, c]| [node(a), node(b), node(c)]),
         );
-        curves.extend(constrained.into_iter().map(|[a, b]| {
+        refined.curves.extend(constrained.into_iter().map(|[a, b]| {
             let (a, b) = (node(a), node(b));
             [a.min(b), a.max(b)]
         }));
     }
-    Ok(Split {
-        tessellation: Mesh::from((
-            vec![Connectivity::Triangular(faces.into())],
-            vertices.into(),
-        ))
-        .into(),
-        parents,
-        curves,
-        named,
-    })
+    Ok(refined)
 }

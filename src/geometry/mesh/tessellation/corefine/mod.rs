@@ -6,6 +6,7 @@ mod chain;
 mod classify;
 mod clip;
 mod frame;
+mod multi;
 mod overlap;
 mod pierce;
 mod split;
@@ -13,6 +14,7 @@ mod triangulate;
 
 pub use chain::Polyline;
 pub use classify::{Corefined, Region};
+pub use multi::Interfaces;
 pub use overlap::{Constraint, Side};
 
 use super::Tessellation;
