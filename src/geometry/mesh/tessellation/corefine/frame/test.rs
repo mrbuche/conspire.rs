@@ -1,8 +1,11 @@
 use super::{Frame, frame};
-use crate::geometry::{
-    Coordinate,
-    mesh::tessellation::corefine::{Feature, Key, Side, triangulate::triangulate},
-    predicates::Cutter,
+use crate::{
+    geometry::{
+        Coordinate,
+        mesh::tessellation::corefine::{Feature, Key, Side, triangulate::triangulate},
+        predicates::Cutter,
+    },
+    math::assert::{Assert, AssertionError},
 };
 
 type Plane = [Coordinate<3>; 3];
@@ -209,7 +212,8 @@ fn interior_points_rounded_out_of_the_triangle_fail() {
 }
 
 #[test]
-fn interior_points_rounded_onto_or_just_past_the_boundary_are_nudged_inside() {
+fn interior_points_rounded_onto_or_just_past_the_boundary_are_nudged_inside()
+-> Result<(), AssertionError> {
     let triangle = right_triangle();
     let key = |i| Key {
         first: Feature::Face(0),
@@ -227,8 +231,15 @@ fn interior_points_rounded_onto_or_just_past_the_boundary_are_nudged_inside() {
         let [u, v] = found.input.points[3];
         assert!(u > 0.0 && v > 0.0 && u + v < 1.0, "{position:?} {u} {v}");
         let [x, y] = [position[0].value() / 64.0, position[1].value() / 64.0];
-        assert!((u - x).abs() < 1e-9 && (v - y).abs() < 1e-9);
+        let tols = Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Assert::default()
+        };
+        tols.eq_within_tols(u, &x)?;
+        tols.eq_within_tols(v, &y)?;
     }
+    Ok(())
 }
 
 #[test]

@@ -1,11 +1,14 @@
 use super::Sphere;
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, Direction,
         csg::contract::{assert_against_samples, assert_contract, assert_lipschitz, grid},
         solid::SolidOracle,
     },
-    math::{Quantity, Tensor},
+    math::{
+        Quantity, Tensor,
+        assert::{Assert, AssertionError},
+    },
     units::Length,
 };
 use std::f64::consts::PI;
@@ -19,28 +22,30 @@ fn point(entries: [f64; 3]) -> Coordinate<3> {
 }
 
 #[test]
-fn signed_distance_is_radial_and_negative_inside() {
+fn signed_distance_is_radial_and_negative_inside() -> Result<(), AssertionError> {
     let sphere = Sphere::new(point([1.0, 2.0, 3.0]), length(4.0)).unwrap();
     let distance = |entries| sphere.signed_distance(&point(entries));
-    assert!((distance([1.0, 2.0, 3.0]) + length(4.0)).abs() < length(1e-12));
-    assert!((distance([1.0, 2.0, 9.0]) - length(2.0)).abs() < length(1e-12));
-    assert!(distance([5.0, 2.0, 3.0]).abs() < length(1e-12));
+    let assert = Assert::default();
+    assert.eq_within_tols(distance([1.0, 2.0, 3.0]), &length(-4.0))?;
+    assert.eq_within_tols(distance([1.0, 2.0, 9.0]), &length(2.0))?;
+    assert.zero_within_tols(&distance([5.0, 2.0, 3.0]))
 }
 
 #[test]
-fn projects_along_the_radius() {
+fn projects_along_the_radius() -> Result<(), AssertionError> {
     let sphere = Sphere::new(point([0.0; 3]), length(3.0)).unwrap();
     let projection = sphere.project(&point([6.0, 0.0, 0.0])).unwrap();
-    assert!((&projection.point - &point([3.0, 0.0, 0.0])).norm() < length(1e-12));
-    assert!((&projection.normal - &[1.0, 0.0, 0.0].into()).norm() < Quantity::new(1e-12));
+    let assert = Assert::default();
+    assert.eq_within_tols(&projection.point, &point([3.0, 0.0, 0.0]))?;
+    assert.eq_within_tols(&projection.normal, &Direction::from([1.0, 0.0, 0.0]))
 }
 
 #[test]
-fn the_centre_projects_somewhere_on_the_surface() {
+fn the_centre_projects_somewhere_on_the_surface() -> Result<(), AssertionError> {
     let sphere = Sphere::new(point([1.0, 2.0, 3.0]), length(2.0)).unwrap();
     let projection = sphere.project(&point([1.0, 2.0, 3.0])).unwrap();
     let radius = (&projection.point - &point([1.0, 2.0, 3.0])).norm();
-    assert!((radius - length(2.0)).abs() < length(1e-12));
+    Assert::default().eq_within_tols(radius, &length(2.0))
 }
 
 #[test]
@@ -66,7 +71,7 @@ fn surface(center: [f64; 3], radius: f64, count: usize) -> Vec<Coordinate<3>> {
 }
 
 #[test]
-fn satisfies_the_contract_at_any_size_and_place() {
+fn satisfies_the_contract_at_any_size_and_place() -> Result<(), AssertionError> {
     for (center, radius) in [
         ([1.0, -2.0, 0.5], 1.5),
         ([0.0; 3], 1e-9),
@@ -78,17 +83,18 @@ fn satisfies_the_contract_at_any_size_and_place() {
         let high = center.map(|x| x + radius);
         let points = grid(low, high, 7);
         let inside = |p: &Coordinate<3>| (p - &point(center)).norm() < length(radius);
-        assert_contract(&sphere, &points, radius, inside);
-        assert_lipschitz(&sphere, &points, radius);
+        assert_contract(&sphere, &points, radius, inside)?;
+        assert_lipschitz(&sphere, &points, radius)?;
     }
+    Ok(())
 }
 
 #[test]
-fn agrees_with_a_sampling_of_its_surface() {
+fn agrees_with_a_sampling_of_its_surface() -> Result<(), AssertionError> {
     let (center, radius) = ([0.3, -0.2, 0.1], 1.0);
     let sphere = Sphere::new(point(center), length(radius)).unwrap();
     let samples = surface(center, radius, 4000);
     let spacing = (4.0 * PI / 4000.0_f64).sqrt() * 1.3;
     let points = grid(center.map(|x| x - radius), center.map(|x| x + radius), 6);
-    assert_against_samples(&sphere, &points, &samples, spacing);
+    assert_against_samples(&sphere, &points, &samples, spacing)
 }

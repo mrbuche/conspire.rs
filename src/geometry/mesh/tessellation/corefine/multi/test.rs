@@ -1,7 +1,9 @@
 use crate::{
     geometry::mesh::{Interfaces, Watertight, test::solid},
-    math::Quantity,
-    units::Volume,
+    math::{
+        Quantity,
+        assert::{Assert, AssertionError},
+    },
 };
 
 type Box3 = ([i64; 3], [i64; 3]);
@@ -31,14 +33,7 @@ fn owned(boxes: &[Box3], material: usize) -> f64 {
     cells as f64 / 64.0
 }
 
-fn close(found: Quantity<Volume>, expected: f64) {
-    assert!(
-        (found - Quantity::new(expected)).abs() < Quantity::new(1e-12),
-        "{found} != {expected}"
-    );
-}
-
-fn assert_materials(boxes: &[Box3], touching: bool) {
+fn assert_materials(boxes: &[Box3], touching: bool) -> Result<(), AssertionError> {
     let interfaces = Interfaces::new(&make(boxes)).unwrap();
     assert_eq!(interfaces.inside().len(), interfaces.outside().len());
     for material in 0..boxes.len() {
@@ -52,15 +47,17 @@ fn assert_materials(boxes: &[Box3], touching: bool) {
                 } else {
                     assert!(defects.is_empty(), "{material}: {defects:?}");
                 }
-                close(boundary.enclosed_volume(), expected);
+                Assert::default()
+                    .eq_within_tols(boundary.enclosed_volume(), &Quantity::new(expected))?;
             }
             Err(_) => assert_eq!(expected, 0.0, "material {material}"),
         }
     }
+    Ok(())
 }
 
 #[test]
-fn a_host_with_two_separate_solids_inside() {
+fn a_host_with_two_separate_solids_inside() -> Result<(), AssertionError> {
     assert_materials(
         &[
             ([0, 0, 0], [8, 8, 8]),
@@ -68,11 +65,11 @@ fn a_host_with_two_separate_solids_inside() {
             ([5, 5, 5], [7, 7, 7]),
         ],
         false,
-    );
+    )
 }
 
 #[test]
-fn a_host_with_two_separate_solids_through_its_surface() {
+fn a_host_with_two_separate_solids_through_its_surface() -> Result<(), AssertionError> {
     assert_materials(
         &[
             ([0, 0, 0], [8, 8, 8]),
@@ -80,11 +77,11 @@ fn a_host_with_two_separate_solids_through_its_surface() {
             ([5, 5, 5], [10, 7, 7]),
         ],
         false,
-    );
+    )
 }
 
 #[test]
-fn a_chain_of_overlaps_where_the_ends_do_not_meet() {
+fn a_chain_of_overlaps_where_the_ends_do_not_meet() -> Result<(), AssertionError> {
     assert_materials(
         &[
             ([0, 0, 0], [4, 4, 4]),
@@ -92,11 +89,11 @@ fn a_chain_of_overlaps_where_the_ends_do_not_meet() {
             ([6, 2, 2], [10, 6, 6]),
         ],
         false,
-    );
+    )
 }
 
 #[test]
-fn three_solids_side_by_side_sharing_faces() {
+fn three_solids_side_by_side_sharing_faces() -> Result<(), AssertionError> {
     assert_materials(
         &[
             ([0, 0, 0], [4, 4, 4]),
@@ -104,23 +101,24 @@ fn three_solids_side_by_side_sharing_faces() {
             ([8, 0, 0], [12, 4, 4]),
         ],
         false,
-    );
+    )
 }
 
 #[test]
-fn a_solid_drawn_over_another_replaces_it_where_they_overlap() {
+fn a_solid_drawn_over_another_replaces_it_where_they_overlap() -> Result<(), AssertionError> {
     let boxes = [([0, 0, 0], [4, 4, 4]), ([2, 2, 2], [6, 6, 6])];
-    assert_materials(&boxes, false);
+    assert_materials(&boxes, false)?;
     assert_eq!(owned(&boxes, 1), 1.0);
     assert!(owned(&boxes, 0) < 1.0);
     let interfaces = Interfaces::new(&make(&boxes)).unwrap();
     assert!(interfaces.outside().contains(&Some(0)));
     assert!(interfaces.outside().iter().any(|&o| o.is_none()));
+    Ok(())
 }
 
 #[test]
-fn the_same_solids_in_the_other_order_swap_the_notch() {
-    assert_materials(&[([2, 2, 2], [6, 6, 6]), ([0, 0, 0], [4, 4, 4])], false);
+fn the_same_solids_in_the_other_order_swap_the_notch() -> Result<(), AssertionError> {
+    assert_materials(&[([2, 2, 2], [6, 6, 6]), ([0, 0, 0], [4, 4, 4])], false)
 }
 
 #[test]
@@ -140,7 +138,7 @@ const TRIPLE_POINT: [&str; 2] = [
 ];
 
 #[test]
-fn random_boxes_on_a_coarse_grid_give_closed_materials_or_an_error() {
+fn random_boxes_on_a_coarse_grid_give_closed_materials_or_an_error() -> Result<(), AssertionError> {
     let mut state = 17u64;
     let mut next = |n: u64| {
         state = state
@@ -159,11 +157,12 @@ fn random_boxes_on_a_coarse_grid_give_closed_materials_or_an_error() {
             .collect();
         match Interfaces::new(&make(&boxes)) {
             Ok(_) => {
-                assert_materials(&boxes, true);
+                assert_materials(&boxes, true)?;
                 done += 1;
             }
             Err(message) => assert!(TRIPLE_POINT.contains(&message), "{message}"),
         }
     }
     assert!(done > 200, "{done}");
+    Ok(())
 }

@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{Cone, Cuboid, Cylinder, Sphere};
+use super::{Cone, Cuboid, Cylinder, Ellipsoid, Sphere, Torus};
 use crate::{
     geometry::{
         Coordinate,
@@ -19,7 +19,9 @@ pub enum Primitive {
     Cone(Cone),
     Cuboid(Cuboid),
     Cylinder(Cylinder),
+    Ellipsoid(Ellipsoid),
     Sphere(Sphere),
+    Torus(Torus),
 }
 
 impl From<Cone> for Primitive {
@@ -40,9 +42,21 @@ impl From<Cylinder> for Primitive {
     }
 }
 
+impl From<Ellipsoid> for Primitive {
+    fn from(primitive: Ellipsoid) -> Self {
+        Self::Ellipsoid(primitive)
+    }
+}
+
 impl From<Sphere> for Primitive {
     fn from(primitive: Sphere) -> Self {
         Self::Sphere(primitive)
+    }
+}
+
+impl From<Torus> for Primitive {
+    fn from(primitive: Torus) -> Self {
+        Self::Torus(primitive)
     }
 }
 
@@ -52,7 +66,9 @@ impl SolidOracle for Primitive {
             Self::Cone(primitive) => primitive.signed_distance(point),
             Self::Cuboid(primitive) => primitive.signed_distance(point),
             Self::Cylinder(primitive) => primitive.signed_distance(point),
+            Self::Ellipsoid(primitive) => primitive.signed_distance(point),
             Self::Sphere(primitive) => primitive.signed_distance(point),
+            Self::Torus(primitive) => primitive.signed_distance(point),
         }
     }
     fn project(&self, point: &Coordinate<3>) -> Option<Projection> {
@@ -60,7 +76,9 @@ impl SolidOracle for Primitive {
             Self::Cone(primitive) => primitive.project(point),
             Self::Cuboid(primitive) => primitive.project(point),
             Self::Cylinder(primitive) => primitive.project(point),
+            Self::Ellipsoid(primitive) => primitive.project(point),
             Self::Sphere(primitive) => primitive.project(point),
+            Self::Torus(primitive) => primitive.project(point),
         }
     }
 }

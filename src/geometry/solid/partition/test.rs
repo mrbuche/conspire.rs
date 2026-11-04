@@ -318,7 +318,7 @@ fn bisection_requires_the_ends_to_straddle_the_boundary() {
 }
 
 #[test]
-fn bisection_terminates_on_a_coincident_interface() {
+fn bisection_terminates_on_a_coincident_interface() -> Result<(), AssertionError> {
     let partition = shared_face_partition();
     let found = partition
         .boundary_on_segment(
@@ -328,7 +328,11 @@ fn bisection_terminates_on_a_coincident_interface() {
             CREASE_TOLERANCE,
         )
         .unwrap();
-    assert!((found[0].value() - 1.0).abs() < 1e-8);
+    Assert {
+        abs_tol: 1e-8,
+        ..Assert::default()
+    }
+    .eq_within_tols(found[0], &Length::meters(1.0))
 }
 
 fn shared_face_partition() -> Partition<Watertight> {

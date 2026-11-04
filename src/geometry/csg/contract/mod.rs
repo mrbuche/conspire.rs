@@ -2,7 +2,10 @@
 
 use crate::{
     geometry::{Coordinate, Direction, solid::SolidOracle},
-    math::{CrossProduct, Quantity, Tensor},
+    math::{
+        CrossProduct, Quantity, Tensor,
+        assert::{Assert, AssertionError},
+    },
     units::Length,
 };
 use std::{array::from_fn, f64::consts::TAU};
@@ -87,6 +90,17 @@ fn length(value: f64) -> Quantity<Length> {
     Quantity::new(value)
 }
 
+/// A failure, with the point it was found at.
+fn at(point: &Coordinate<3>, result: Result<(), AssertionError>) -> Result<(), AssertionError> {
+    result.map_err(|error| AssertionError {
+        message: format!("\n{point:?}{}", error.message),
+    })
+}
+
+fn failure(message: String) -> Result<(), AssertionError> {
+    Err(AssertionError { message })
+}
+
 /// The projection lies on the surface at the distance the signed distance says, with a unit
 /// normal that points away from the solid, and the sign of the signed distance is `inside`'s.
 ///
@@ -96,46 +110,49 @@ pub fn assert_contract(
     points: &[Coordinate<3>],
     scale: f64,
     inside: impl Fn(&Coordinate<3>) -> bool,
-) {
-    let tolerance = length(1e-9 * scale);
+) -> Result<(), AssertionError> {
+    let tols = Assert {
+        abs_tol: 1e-9 * scale,
+        rel_tol: 1e-9,
+        ..Assert::default()
+    };
+    let slack = length(1e-9 * scale);
     for point in points {
-        let distance = solid.signed_distance(point);
-        let projection = solid.project(point).unwrap();
-        let reach = (&projection.point - point).norm();
-        assert!(
-            (reach - distance.abs()).abs() < tolerance,
-            "{point:?}: {reach} away, but the signed distance is {distance}"
-        );
-        assert!(
-            solid.signed_distance(&projection.point).abs() < tolerance,
-            "{point:?}: the projection is not on the surface"
-        );
-        assert!(
-            (projection.normal.norm() - 1.0).abs() < 1e-9,
-            "{point:?}: the normal is not a unit vector"
-        );
-        let along = &(point - &projection.point) * &projection.normal;
-        if distance > tolerance {
-            assert!(
-                along.value() > -1e-9 * scale,
-                "{point:?}: normal points inward"
-            );
-        }
-        if distance < -tolerance {
-            assert!(
-                along.value() < 1e-9 * scale,
-                "{point:?}: normal points inward"
-            );
-        }
-        if distance.abs() > tolerance {
-            assert_eq!(distance < Quantity::default(), inside(point), "{point:?}");
-        }
-        assert!(projection.exact);
+        let check = || -> Result<(), AssertionError> {
+            let distance = solid.signed_distance(point);
+            let projection = solid.project(point).unwrap();
+            let reach = (&projection.point - point).norm();
+            tols.eq_within_tols(reach, &distance.abs())?;
+            tols.zero_within_tols(&solid.signed_distance(&projection.point))?;
+            tols.eq_within_tols(projection.normal.norm(), &Quantity::new(1.0))?;
+            let along = &(point - &projection.point) * &projection.normal;
+            if distance > slack {
+                Assert::non_negative(&(along + slack))?;
+            }
+            if distance < -slack {
+                Assert::non_positive(&(along - slack))?;
+            }
+            if distance.abs() > slack && (distance < Quantity::default()) != inside(point) {
+                failure(format!(
+                    "the sign of the signed distance {distance} is wrong"
+                ))?;
+            }
+            if !projection.exact {
+                failure("the projection is not exact".to_string())?;
+            }
+            Ok(())
+        };
+        at(point, check())?;
     }
+    Ok(())
 }
 
 /// A distance field cannot change faster than the distance moved.
-pub fn assert_lipschitz(solid: &impl SolidOracle, points: &[Coordinate<3>], scale: f64) {
+pub fn assert_lipschitz(
+    solid: &impl SolidOracle,
+    points: &[Coordinate<3>],
+    scale: f64,
+) -> Result<(), AssertionError> {
     let distances: Vec<Quantity<Length>> = points
         .iter()
         .map(|point| solid.signed_distance(point))
@@ -143,12 +160,20 @@ pub fn assert_lipschitz(solid: &impl SolidOracle, points: &[Coordinate<3>], scal
     let slack = length(1e-9 * scale);
     for (i, a) in points.iter().enumerate() {
         for (j, b) in points.iter().enumerate().skip(i + 1).step_by(7) {
-            assert!(
-                (distances[i] - distances[j]).abs() <= (a - b).norm() + slack,
-                "{a:?} and {b:?}: the distance changes faster than the points move"
-            );
+            let change = (distances[i] - distances[j]).abs();
+            let moved = (a - b).norm();
+            at(
+                a,
+                Assert::non_positive(&(change - moved - slack)).map_err(|error| AssertionError {
+                    message: format!(
+                        "\nthe distance changes faster than the points move, to {b:?}{}",
+                        error.message
+                    ),
+                }),
+            )?;
         }
     }
+    Ok(())
 }
 
 /// The signed distance is the distance to the surface, which `samples` of it, `spacing` apart at
@@ -158,7 +183,7 @@ pub fn assert_against_samples(
     points: &[Coordinate<3>],
     samples: &[Coordinate<3>],
     spacing: f64,
-) {
+) -> Result<(), AssertionError> {
     let slack = length(1e-9 * spacing);
     for point in points {
         let distance = solid.signed_distance(point).abs();
@@ -167,13 +192,11 @@ pub fn assert_against_samples(
             .map(|sample| (sample - point).norm())
             .min_by(|a, b| a.total_cmp(b))
             .unwrap();
-        assert!(
-            distance <= nearest + slack,
-            "{point:?}: {distance} from the surface, but a sample is {nearest} away"
-        );
-        assert!(
-            nearest <= distance + length(spacing),
-            "{point:?}: {distance} from the surface, but the nearest sample is {nearest} away"
-        );
+        at(point, Assert::non_positive(&(distance - nearest - slack)))?;
+        at(
+            point,
+            Assert::non_positive(&(nearest - distance - length(spacing))),
+        )?;
     }
+    Ok(())
 }

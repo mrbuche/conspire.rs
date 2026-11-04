@@ -8,7 +8,10 @@ use crate::{
         },
         solid::SolidOracle,
     },
-    math::{Quantity, Tensor},
+    math::{
+        Quantity,
+        assert::{Assert, AssertionError},
+    },
     units::Length,
 };
 use std::{array::from_fn, f64::consts::TAU};
@@ -43,34 +46,39 @@ fn make(
 }
 
 #[test]
-fn a_frustum_has_its_wall_cap_and_rim_distances() {
+fn a_frustum_has_its_wall_cap_and_rim_distances() -> Result<(), AssertionError> {
     let cone = make([0.0; 3], [0.0, 0.0, 1.0], 2.0, 1.0, 3.0);
     let distance = |entries| cone.signed_distance(&point(entries));
+    let assert = Assert::default();
     let wall = 4.5 / 10.0_f64.sqrt();
-    assert!((distance([0.0, 0.0, 1.5]) + length(wall)).abs() < length(1e-12));
-    assert!((distance([0.0, 0.0, 0.25]) + length(0.25)).abs() < length(1e-12));
-    assert!((distance([0.5, 0.0, -2.0]) - length(2.0)).abs() < length(1e-12));
-    assert!((distance([0.5, 0.0, 5.0]) - length(2.0)).abs() < length(1e-12));
-    assert!((distance([2.0, 0.0, 4.0]) - length(2.0_f64.sqrt())).abs() < length(1e-12));
+    assert.eq_within_tols(distance([0.0, 0.0, 1.5]), &length(-wall))?;
+    assert.eq_within_tols(distance([0.0, 0.0, 0.25]), &length(-0.25))?;
+    assert.eq_within_tols(distance([0.5, 0.0, -2.0]), &length(2.0))?;
+    assert.eq_within_tols(distance([0.5, 0.0, 5.0]), &length(2.0))?;
+    assert.eq_within_tols(distance([2.0, 0.0, 4.0]), &length(2.0_f64.sqrt()))
 }
 
 #[test]
-fn a_pointed_cone_comes_to_a_point() {
+fn a_pointed_cone_comes_to_a_point() -> Result<(), AssertionError> {
     let cone = make([0.0; 3], [0.0, 0.0, 1.0], 1.0, 0.0, 2.0);
+    let assert = Assert::default();
     let apex = cone.project(&point([0.0, 0.0, 3.0])).unwrap();
-    assert!((&apex.point - &point([0.0, 0.0, 2.0])).norm() < length(1e-12));
-    assert!((cone.signed_distance(&point([0.0, 0.0, 3.0])) - length(1.0)).abs() < length(1e-12));
-    assert!(cone.signed_distance(&point([0.0, 0.0, 2.0])).abs() < length(1e-12));
+    assert.eq_within_tols(&apex.point, &point([0.0, 0.0, 2.0]))?;
+    assert.eq_within_tols(cone.signed_distance(&point([0.0, 0.0, 3.0])), &length(1.0))?;
+    assert.zero_within_tols(&cone.signed_distance(&point([0.0, 0.0, 2.0])))
 }
 
 #[test]
-fn projects_onto_the_side_with_its_normal() {
+fn projects_onto_the_side_with_its_normal() -> Result<(), AssertionError> {
     let cone = make([0.0; 3], [0.0, 0.0, 1.0], 2.0, 1.0, 3.0);
     let found = cone.project(&point([1.0, 0.0, 1.5])).unwrap();
-    assert!(cone.signed_distance(&found.point).abs() < length(1e-12));
+    let assert = Assert::default();
+    assert.zero_within_tols(&cone.signed_distance(&found.point))?;
     let size = 10.0_f64.sqrt();
-    let expected = [3.0 / size, 0.0, 1.0 / size];
-    assert!((&found.normal - &expected.into()).norm() < Quantity::new(1e-12));
+    assert.eq_within_tols(
+        &found.normal,
+        &Direction::from([3.0 / size, 0.0, 1.0 / size]),
+    )
 }
 
 #[test]
@@ -119,7 +127,7 @@ fn around(case: Case) -> ([f64; 3], [f64; 3]) {
 }
 
 #[test]
-fn satisfies_the_contract_for_any_size_place_and_direction() {
+fn satisfies_the_contract_for_any_size_place_and_direction() -> Result<(), AssertionError> {
     for case in CASES {
         let (base, direction, base_radius, tip_radius, height) = case;
         let cone = make(base, direction, base_radius, tip_radius, height);
@@ -133,13 +141,14 @@ fn satisfies_the_contract_for_any_size_place_and_direction() {
                 + (length(tip_radius) - length(base_radius)) * (along / length(height)).value();
             along > length(0.0) && along < length(height) && across < radius
         };
-        assert_contract(&cone, &points, scale, inside);
-        assert_lipschitz(&cone, &points, scale);
+        assert_contract(&cone, &points, scale, inside)?;
+        assert_lipschitz(&cone, &points, scale)?;
     }
+    Ok(())
 }
 
 #[test]
-fn agrees_with_a_sampling_of_its_surface() {
+fn agrees_with_a_sampling_of_its_surface() -> Result<(), AssertionError> {
     for case in &CASES[..4] {
         let (base, direction, base_radius, tip_radius, height) = *case;
         let cone = make(base, direction, base_radius, tip_radius, height);
@@ -162,6 +171,7 @@ fn agrees_with_a_sampling_of_its_surface() {
         let step = longest / 40.0;
         let spacing = 0.55 * step.hypot(radius * TAU / angles as f64);
         let (low, high) = around(*case);
-        assert_against_samples(&cone, &grid(low, high, 5), &samples, spacing);
+        assert_against_samples(&cone, &grid(low, high, 5), &samples, spacing)?;
     }
+    Ok(())
 }

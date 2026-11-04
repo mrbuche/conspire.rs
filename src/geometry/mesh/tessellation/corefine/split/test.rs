@@ -6,14 +6,14 @@ use crate::{
         },
         solid::SolidOracle,
     },
-    math::{Tensor, assert::Assert},
-    units::Length,
+    math::{
+        Tensor,
+        assert::{Assert, AssertionError},
+    },
 };
 
-fn assert_same_volume(split: &Tessellation, original: &Tessellation) {
-    Assert::default()
-        .eq_within_tols(split.enclosed_volume(), &original.enclosed_volume())
-        .unwrap()
+fn assert_same_volume(split: &Tessellation, original: &Tessellation) -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(split.enclosed_volume(), &original.enclosed_volume())
 }
 
 fn assert_closed(tessellation: &Tessellation) {
@@ -35,31 +35,34 @@ fn disjoint_tessellations_are_unchanged() {
 }
 
 #[test]
-fn overlapping_cubes_are_split_along_their_curve_and_stay_closed() {
+fn overlapping_cubes_are_split_along_their_curve_and_stay_closed() -> Result<(), AssertionError> {
     let first = cuboid([0.0; 3], [1.0; 3]);
     let second = cuboid([0.5; 3], [1.5; 3]);
     let [a, b] = first.corefine(&second).unwrap();
     for (split, original) in [(&a, &first), (&b, &second)] {
         assert_closed(split);
-        assert_same_volume(split, original);
+        assert_same_volume(split, original)?;
         let count = |t: &Tessellation| t.mesh().connectivities().iter().flatten().count();
         assert!(count(split) > count(original));
     }
+    Ok(())
 }
 
 #[test]
-fn cubes_sharing_a_face_are_split_where_the_faces_overlap_and_stay_closed() {
+fn cubes_sharing_a_face_are_split_where_the_faces_overlap_and_stay_closed()
+-> Result<(), AssertionError> {
     let first = cuboid([0.0; 3], [1.0; 3]);
     let second = cuboid([1.0, 0.25, 0.25], [2.0, 0.75, 0.75]);
     let [a, b] = first.corefine(&second).unwrap();
     for (split, original) in [(&a, &first), (&b, &second)] {
         assert_closed(split);
-        assert_same_volume(split, original);
+        assert_same_volume(split, original)?;
     }
+    Ok(())
 }
 
 #[test]
-fn cubes_that_cross_through_vertices_and_edges_stay_closed() {
+fn cubes_that_cross_through_vertices_and_edges_stay_closed() -> Result<(), AssertionError> {
     let first = cuboid([0.0; 3], [1.0; 3]);
     for (n, second) in [
         cuboid([0.5, 0.0, 0.0], [1.5, 1.0, 1.0]),
@@ -74,13 +77,14 @@ fn cubes_that_cross_through_vertices_and_edges_stay_closed() {
         let [a, b] = first.corefine(&second).unwrap();
         for (split, original) in [(&a, &first), (&b, &second)] {
             assert_closed(split);
-            assert_same_volume(split, original);
+            assert_same_volume(split, original)?;
         }
     }
+    Ok(())
 }
 
 #[test]
-fn the_new_vertices_lie_on_the_other_surface() {
+fn the_new_vertices_lie_on_the_other_surface() -> Result<(), AssertionError> {
     let (first, second) = (solid([0.0; 3], [1.0; 3]), solid([0.5; 3], [1.5; 3]));
     let [a, b] = first
         .tessellation()
@@ -90,14 +94,15 @@ fn the_new_vertices_lie_on_the_other_surface() {
         let coordinates = split.mesh().coordinates();
         let old = original.tessellation().mesh().coordinates().len();
         assert!(coordinates.len() > old);
-        (old..coordinates.len()).for_each(|node| {
-            assert!(against.signed_distance(&coordinates[node]).abs() < Length::meters(1e-12));
-        })
+        (old..coordinates.len()).try_for_each(|node| {
+            Assert::default().zero_within_tols(&against.signed_distance(&coordinates[node]))
+        })?;
     }
+    Ok(())
 }
 
 #[test]
-fn random_cuboids_on_a_coarse_grid_split_into_closed_surfaces() {
+fn random_cuboids_on_a_coarse_grid_split_into_closed_surfaces() -> Result<(), AssertionError> {
     let mut state = 7u64;
     let mut next = |n: u64| {
         state = state
@@ -115,7 +120,7 @@ fn random_cuboids_on_a_coarse_grid_split_into_closed_surfaces() {
                 done += 1;
                 for (split, original) in [(&a, &first), (&b, &second)] {
                     assert_closed(split);
-                    assert_same_volume(split, original);
+                    assert_same_volume(split, original)?;
                 }
             }
             Err(_) => failed += 1,
@@ -123,16 +128,17 @@ fn random_cuboids_on_a_coarse_grid_split_into_closed_surfaces() {
     }
     println!("{done} done, {failed} failed");
     assert!(done > 250);
+    Ok(())
 }
 
 #[test]
-fn a_sphere_and_a_cube_split_into_closed_surfaces() {
+fn a_sphere_and_a_cube_split_into_closed_surfaces() -> Result<(), AssertionError> {
     use crate::geometry::mesh::test::sphere;
     let cube = cuboid([-0.3, -0.3, -0.2], [0.7, 0.6, 0.9]);
     let ball = sphere(12, 16, 0.8);
     let [a, b] = ball.corefine(&cube).unwrap();
     assert_closed(&a);
     assert_closed(&b);
-    assert_same_volume(&a, &ball);
-    assert_same_volume(&b, &cube);
+    assert_same_volume(&a, &ball)?;
+    assert_same_volume(&b, &cube)
 }
