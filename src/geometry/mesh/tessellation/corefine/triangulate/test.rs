@@ -72,6 +72,7 @@ fn make(random: &mut Lcg, size: i64, sides: f64, interior: f64, gram: [i64; 3]) 
             gram: gram.map(|g| g as f64),
             points: integer.iter().map(|p| p.map(|x| x as f64)).collect(),
             sides: side_points,
+            segments: Vec::new(),
         },
         integer,
         gram,
@@ -81,6 +82,29 @@ fn make(random: &mut Lcg, size: i64, sides: f64, interior: f64, gram: [i64; 3]) 
 
 fn orient(a: [i64; 2], b: [i64; 2], c: [i64; 2]) -> i128 {
     (a[0] - c[0]) as i128 * (b[1] - c[1]) as i128 - (a[1] - c[1]) as i128 * (b[0] - c[0]) as i128
+}
+
+fn cross(case: &Case, [a, b]: [usize; 2], [c, d]: [usize; 2]) -> bool {
+    let p = |i: usize| case.integer[i];
+    orient(p(a), p(b), p(c)).signum() * orient(p(a), p(b), p(d)).signum() < 0
+        && orient(p(c), p(d), p(a)).signum() * orient(p(c), p(d), p(b)).signum() < 0
+}
+
+fn with_segments(case: &mut Case, random: &mut Lcg, wanted: usize) {
+    let count = case.integer.len();
+    let mut accepted: Vec<[usize; 2]> = Vec::new();
+    for _ in 0..4 * wanted {
+        if accepted.len() == wanted {
+            break;
+        }
+        let candidate = [random.below(count), random.below(count)];
+        if candidate[0] != candidate[1]
+            && !accepted.iter().any(|&other| cross(case, other, candidate))
+        {
+            accepted.push(candidate);
+        }
+    }
+    case.input.segments = accepted;
 }
 
 fn incircle(case: &Case, a: usize, b: usize, c: usize, d: usize) -> i128 {
@@ -97,6 +121,23 @@ fn incircle(case: &Case, a: usize, b: usize, c: usize, d: usize) -> i128 {
     lift([ax, ay]) * (bx * cy - cx * by)
         + lift([bx, by]) * (cx * ay - ax * cy)
         + lift([cx, cy]) * (ax * by - bx * ay)
+}
+
+fn segment_edges(case: &Case) -> HashSet<(usize, usize)> {
+    let p = |i: usize| case.integer[i];
+    let mut edges = HashSet::new();
+    for &[u, v] in &case.input.segments {
+        let axis = if p(u)[0] != p(v)[0] { 0 } else { 1 };
+        let (low, high) = (p(u)[axis].min(p(v)[axis]), p(u)[axis].max(p(v)[axis]));
+        let mut along: Vec<usize> = (0..case.integer.len())
+            .filter(|&i| orient(p(u), p(v), p(i)) == 0 && low <= p(i)[axis] && p(i)[axis] <= high)
+            .collect();
+        along.sort_by_key(|&i| p(i)[axis]);
+        along.windows(2).for_each(|w| {
+            edges.insert((w[0].min(w[1]), w[0].max(w[1])));
+        });
+    }
+    edges
 }
 
 fn verify(case: &Case, triangles: &[[usize; 3]]) {
@@ -133,22 +174,36 @@ fn verify(case: &Case, triangles: &[[usize; 3]]) {
         });
     }
     assert_eq!(boundary, expected);
+    let constrained = segment_edges(case);
+    for &(u, v) in &constrained {
+        assert!(
+            third.contains_key(&(u, v)) || third.contains_key(&(v, u)),
+            "the segment edge {u} {v} is missing"
+        );
+    }
     for &[a, b, c] in triangles {
-        for d in (0..count).filter(|d| ![a, b, c].contains(d)) {
-            assert!(
-                incircle(case, a, b, c, d) <= 0,
-                "{d} is inside the circle of {a} {b} {c}"
-            );
+        if case.input.segments.is_empty() {
+            for d in (0..count).filter(|d| ![a, b, c].contains(d)) {
+                assert!(
+                    incircle(case, a, b, c, d) <= 0,
+                    "{d} is inside the circle of {a} {b} {c}"
+                );
+            }
         }
         for (x, y, z) in [(a, b, c), (b, c, a), (c, a, b)] {
-            if let Some(&d) = third.get(&(z, y))
-                && incircle(case, x, y, z, d) == 0
-            {
-                let lowest = x.min(y).min(z).min(d);
-                assert!(
-                    lowest != y && lowest != z,
-                    "the tie at {x} {y} {z} {d} is wrong"
-                );
+            if constrained.contains(&(y.min(z), y.max(z))) {
+                continue;
+            }
+            if let Some(&d) = third.get(&(z, y)) {
+                let inside = incircle(case, x, y, z, d);
+                assert!(inside <= 0, "{d} is inside the circle of {x} {y} {z}");
+                if inside == 0 {
+                    let lowest = x.min(y).min(z).min(d);
+                    assert!(
+                        lowest != y && lowest != z,
+                        "the tie at {x} {y} {z} {d} is wrong"
+                    );
+                }
             }
         }
     }
@@ -179,7 +234,14 @@ fn check_all(case: &Case, random: &mut Lcg) {
         random.shuffle(&mut edges);
         let mut interior = case.input.interior();
         random.shuffle(&mut interior);
-        let shuffled = build(&case.input, edges, &interior).unwrap();
+        let mut input = case.input.clone();
+        random.shuffle(&mut input.segments);
+        input.segments.iter_mut().for_each(|segment| {
+            if random.chance(0.5) {
+                segment.reverse()
+            }
+        });
+        let shuffled = build(&input, edges, &interior).unwrap();
         consistent(&shuffled);
         assert_eq!(
             shuffled.triangles(),
@@ -232,6 +294,75 @@ fn a_full_lattice_is_cocircular_everywhere_and_the_result_is_still_unique() {
 }
 
 #[test]
+fn a_segment_across_the_triangle_is_an_edge() {
+    let mut random = Lcg(5);
+    let mut case = make(&mut random, 6, 1.0, 1.0, [1, 0, 1]);
+    let find = |at: [i64; 2]| case.integer.iter().position(|&p| p == at).unwrap();
+    case.input.segments = vec![[find([5, 0]), find([0, 5])]];
+    case.input.segments.push([find([1, 1]), find([1, 3])]);
+    check_all(&case, &mut random);
+}
+
+#[test]
+fn random_segments_are_recovered_and_everything_else_is_delaunay() {
+    let mut random = Lcg(6);
+    (0..400).for_each(|n| {
+        let size = 3 + n % 12;
+        let mut case = make(
+            &mut random,
+            size,
+            0.5,
+            0.2 + 0.1 * (n % 6) as f64,
+            GRAMS[n as usize % 4],
+        );
+        let wanted = 1 + random.below(8);
+        with_segments(&mut case, &mut random, wanted);
+        check_all(&case, &mut random);
+    })
+}
+
+#[test]
+fn segments_through_lattice_points_and_along_the_boundary_are_joined_through_them() {
+    let mut random = Lcg(7);
+    (0..40).for_each(|n| {
+        let mut case = make(&mut random, 4 + (n % 9), 1.0, 1.0, GRAMS[n as usize % 4]);
+        let size = case.size;
+        let find = |at: [i64; 2]| case.integer.iter().position(|&p| p == at).unwrap();
+        case.input.segments = vec![
+            [0, 1],
+            [1, 2],
+            [2, 0],
+            [find([1, 0]), find([size - 1, 0])],
+            [find([1, 1]), find([size - 2, 1])],
+            [0, find([size - 2, 1])],
+        ];
+        with_segments(&mut case, &mut random, 3);
+        check_all(&case, &mut random);
+    })
+}
+
+#[test]
+fn many_segments_in_a_full_lattice_are_all_recovered() {
+    let mut random = Lcg(8);
+    (0..30).for_each(|n| {
+        let mut case = make(&mut random, 6 + (n % 8), 1.0, 1.0, GRAMS[n as usize % 4]);
+        with_segments(&mut case, &mut random, 25);
+        check_all(&case, &mut random);
+    })
+}
+
+#[test]
+fn crossing_segments_are_an_error() {
+    let mut random = Lcg(9);
+    let mut case = make(&mut random, 6, 1.0, 1.0, [1, 0, 1]);
+    let find = |at: [i64; 2]| case.integer.iter().position(|&p| p == at).unwrap();
+    case.input.segments = vec![[find([1, 1]), find([3, 2])], [find([2, 0]), find([2, 3])]];
+    assert!(triangulate(&case.input).is_err());
+    case.input.segments = vec![[find([1, 1]), find([3, 1])], [find([2, 0]), find([2, 3])]];
+    assert!(triangulate(&case.input).is_ok());
+}
+
+#[test]
 fn bad_input_is_an_error() {
     let case = make(&mut Lcg(5), 6, 0.0, 0.5, [1, 0, 1]);
     let mut clockwise = make(&mut Lcg(5), 6, 0.0, 0.5, [1, 0, 1]);
@@ -249,5 +380,8 @@ fn bad_input_is_an_error() {
     let last = not_on_the_edge.input.points.len() - 1;
     not_on_the_edge.input.sides[0].push(last);
     assert!(triangulate(&not_on_the_edge.input).is_err());
+    let mut no_length = make(&mut Lcg(5), 6, 0.0, 0.5, [1, 0, 1]);
+    no_length.input.segments = vec![[3, 3]];
+    assert!(triangulate(&no_length.input).is_err());
     assert!(triangulate(&case.input).is_ok());
 }
