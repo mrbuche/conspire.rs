@@ -3,6 +3,7 @@ mod test;
 
 mod lattice;
 mod ntree;
+mod partition;
 mod pixels;
 mod segmentation;
 mod voxels;
