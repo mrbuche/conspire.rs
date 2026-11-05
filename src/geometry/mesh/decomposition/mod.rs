@@ -127,7 +127,7 @@ impl Decomposition {
 }
 
 impl<const D: usize> Mesh<D> {
-    pub fn partition_box(&self, divisions: [usize; D]) -> Decomposition {
+    pub fn decomposition_box(&self, divisions: [usize; D]) -> Decomposition {
         assert!(
             divisions.iter().all(|&n| n > 0),
             "divisions must be positive"

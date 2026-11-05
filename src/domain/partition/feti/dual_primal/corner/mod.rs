@@ -23,9 +23,9 @@ impl CornerSelection {
         nodes.dedup();
         Self { nodes }
     }
-    pub(crate) fn from_partition(partition: &Decomposition) -> Self {
+    pub(crate) fn from_decomposition(decomposition: &Decomposition) -> Self {
         let mut counts = HashMap::<usize, usize>::new();
-        partition.parts_nodes().iter().for_each(|nodes| {
+        decomposition.parts_nodes().iter().for_each(|nodes| {
             nodes.iter().for_each(|&node| {
                 *counts.entry(node).or_insert(0) += 1;
             })

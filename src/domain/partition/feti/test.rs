@@ -59,10 +59,11 @@ fn setup() -> Setup {
 }
 
 fn setup_with(stiffnesses: [SquareMatrix; 2], forces: [Vector; 2]) -> Setup {
-    let partition = Decomposition::from_parts_nodes(vec![vec![99, 50], vec![99, 50]]);
+    let decomposition = Decomposition::from_parts_nodes(vec![vec![99, 50], vec![99, 50]]);
     let corners = CornerSelection::new(vec![99]);
-    let (interfaces, num_multipliers) = build_interfaces(&partition, &corners, 1);
-    let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
+    let (interfaces, num_multipliers) = build_interfaces(&decomposition, &corners, 1);
+    let (splits, corner_dofs) =
+        build_splits(&decomposition, &corners, &BoundaryConditions::none(), 1);
     let condensed: Vec<Condensed> = splits
         .iter()
         .zip(stiffnesses.iter())
@@ -108,10 +109,12 @@ fn setup_with(stiffnesses: [SquareMatrix; 2], forces: [Vector; 2]) -> Setup {
 }
 
 fn chain_setup(count: usize) -> Setup {
-    let partition = Decomposition::from_parts_nodes((0..count).map(|i| vec![i, i + 1]).collect());
+    let decomposition =
+        Decomposition::from_parts_nodes((0..count).map(|i| vec![i, i + 1]).collect());
     let corners = CornerSelection::new((0..=count).step_by(2).collect());
-    let (interfaces, num_multipliers) = build_interfaces(&partition, &corners, 1);
-    let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
+    let (interfaces, num_multipliers) = build_interfaces(&decomposition, &corners, 1);
+    let (splits, corner_dofs) =
+        build_splits(&decomposition, &corners, &BoundaryConditions::none(), 1);
     let stiffnesses: Vec<SquareMatrix> = (0..count)
         .map(|i| stiffness([[i as f64 + 4.0, 1.0], [1.0, i as f64 + 3.0]]))
         .collect();

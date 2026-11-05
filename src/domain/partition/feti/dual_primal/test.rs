@@ -3,10 +3,11 @@ use crate::geometry::mesh::Decomposition;
 
 #[test]
 fn split_separates_primal_and_dual_dofs() {
-    let partition =
+    let decomposition =
         Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
-    let corners = CornerSelection::from_partition(&partition);
-    let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 3);
+    let corners = CornerSelection::from_decomposition(&decomposition);
+    let (splits, corner_dofs) =
+        build_splits(&decomposition, &corners, &BoundaryConditions::none(), 3);
     assert_eq!(corner_dofs.count(), 3);
     assert_eq!(splits[0].primal(), &[6, 7, 8]);
     assert_eq!(splits[0].dual(), &[0, 1, 2, 3, 4, 5]);
@@ -18,10 +19,10 @@ fn split_separates_primal_and_dual_dofs() {
 
 #[test]
 fn a_fixed_dof_is_excluded_from_both_primal_and_dual() {
-    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
-    let corners = CornerSelection::from_partition(&partition);
+    let decomposition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
+    let corners = CornerSelection::from_decomposition(&decomposition);
     let boundary_conditions = BoundaryConditions::new(vec![(0, 1)]);
-    let (splits, _) = build_splits(&partition, &corners, &boundary_conditions, 3);
+    let (splits, _) = build_splits(&decomposition, &corners, &boundary_conditions, 3);
     assert!(!splits[0].primal().contains(&1));
     assert!(!splits[0].dual().contains(&1));
     assert!(splits[0].dual().contains(&0));
@@ -30,12 +31,12 @@ fn a_fixed_dof_is_excluded_from_both_primal_and_dual() {
 
 #[test]
 fn a_boundary_condition_on_a_corner_component_shrinks_the_coarse_problem() {
-    let partition =
+    let decomposition =
         Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
-    let corners = CornerSelection::from_partition(&partition);
+    let corners = CornerSelection::from_decomposition(&decomposition);
     assert_eq!(corners.nodes(), &[2]);
     let boundary_conditions = super::BoundaryConditions::new(vec![(2, 1)]);
-    let (splits, corner_dofs) = build_splits(&partition, &corners, &boundary_conditions, 3);
+    let (splits, corner_dofs) = build_splits(&decomposition, &corners, &boundary_conditions, 3);
     assert_eq!(corner_dofs.count(), 2);
     splits
         .iter()

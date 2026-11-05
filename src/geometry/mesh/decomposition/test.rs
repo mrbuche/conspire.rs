@@ -48,10 +48,10 @@ impl Decomposition {
                 nodes.dedup();
                 parts_nodes.push(nodes);
             });
-        let mut partition = Self::from_parts_nodes(parts_nodes);
-        partition.elements_parts = elements_parts;
-        partition.parts_elements = parts_elements;
-        partition
+        let mut decomposition = Self::from_parts_nodes(parts_nodes);
+        decomposition.elements_parts = elements_parts;
+        decomposition.parts_elements = parts_elements;
+        decomposition
     }
 }
 
@@ -67,11 +67,12 @@ fn octant(mesh: &Mesh<3>, element: usize, nel: usize) -> usize {
 }
 
 #[test]
-fn box_partition_matches_octants() {
+fn box_decomposition_matches_octants() {
     let mesh = blocks([8; 3]);
-    let partition = mesh.partition_box([2; 3]);
-    (0..512).for_each(|element| assert_eq!(partition.part_of(element), octant(&mesh, element, 8)));
-    let quality = partition.quality(&mesh);
+    let decomposition = mesh.decomposition_box([2; 3]);
+    (0..512)
+        .for_each(|element| assert_eq!(decomposition.part_of(element), octant(&mesh, element, 8)));
+    let quality = decomposition.quality(&mesh);
     assert_eq!(quality.sizes, vec![64; 8]);
     assert_eq!(quality.imbalance, 1.0);
     assert_eq!(quality.disconnected_parts, 0);
@@ -79,18 +80,18 @@ fn box_partition_matches_octants() {
 }
 
 #[test]
-fn box_partition_uneven_divisions() {
+fn box_decomposition_uneven_divisions() {
     let mesh = blocks([6, 4, 2]);
-    let partition = mesh.partition_box([3, 2, 1]);
-    assert_eq!(partition.number_of_parts(), 6);
-    assert_eq!(partition.quality(&mesh).sizes, vec![8; 6]);
+    let decomposition = mesh.decomposition_box([3, 2, 1]);
+    assert_eq!(decomposition.number_of_parts(), 6);
+    assert_eq!(decomposition.quality(&mesh).sizes, vec![8; 6]);
 }
 
 #[test]
 fn quality_treats_node_sharing_elements_as_connected() {
     let mesh = blocks([2, 2, 1]);
-    let partition = Decomposition::new(&mesh, vec![0, 1, 1, 0]);
-    assert_eq!(partition.quality(&mesh).disconnected_parts, 0);
+    let decomposition = Decomposition::new(&mesh, vec![0, 1, 1, 0]);
+    assert_eq!(decomposition.quality(&mesh).disconnected_parts, 0);
 }
 
 #[test]
@@ -107,14 +108,14 @@ fn quality_detects_disconnected_parts() {
 #[test]
 fn nodes_cover_elements_and_share_interfaces() {
     let mesh = blocks([4, 2, 2]);
-    let partition = mesh.partition_box([2, 1, 1]);
-    assert_eq!(partition.number_of_parts(), 2);
-    let interface = partition.interface_nodes();
+    let decomposition = mesh.decomposition_box([2, 1, 1]);
+    assert_eq!(decomposition.number_of_parts(), 2);
+    let interface = decomposition.interface_nodes();
     assert_eq!(interface.len(), 9);
     interface
         .iter()
-        .for_each(|&node| assert_eq!(partition.node_parts(node), [0, 1]));
-    let mut all = partition.parts_nodes().concat();
+        .for_each(|&node| assert_eq!(decomposition.node_parts(node), [0, 1]));
+    let mut all = decomposition.parts_nodes().concat();
     all.sort_unstable();
     all.dedup();
     assert_eq!(all.len(), mesh.number_of_nodes());
@@ -126,8 +127,8 @@ fn nodes_cover_elements_and_share_interfaces() {
         .for_each(|(element, nodes)| {
             nodes.iter().for_each(|node| {
                 assert!(
-                    partition
-                        .part_nodes(partition.part_of(element))
+                    decomposition
+                        .part_nodes(decomposition.part_of(element))
                         .contains(node)
                 )
             })
@@ -137,16 +138,16 @@ fn nodes_cover_elements_and_share_interfaces() {
 #[test]
 fn part_elements_invert_the_assignment() {
     let mesh = blocks([3, 2, 2]);
-    let partition = mesh.partition_box([3, 1, 1]);
+    let decomposition = mesh.decomposition_box([3, 1, 1]);
     (0..3).for_each(|part| {
-        partition
+        decomposition
             .part_elements(part)
             .iter()
-            .for_each(|&element| assert_eq!(partition.part_of(element), part))
+            .for_each(|&element| assert_eq!(decomposition.part_of(element), part))
     });
     assert_eq!(
         (0..3)
-            .map(|part| partition.part_elements(part).len())
+            .map(|part| decomposition.part_elements(part).len())
             .sum::<usize>(),
         12
     );
@@ -155,14 +156,14 @@ fn part_elements_invert_the_assignment() {
 #[test]
 fn part_extracts_subdomain_with_node_map() {
     let mesh = blocks([4, 2, 2]);
-    let partition = mesh.partition_box([2, 1, 1]);
+    let decomposition = mesh.decomposition_box([2, 1, 1]);
     (0..2).for_each(|part| {
-        let (submesh, old_nodes) = partition.part(&mesh, part);
+        let (submesh, old_nodes) = decomposition.part(&mesh, part);
         assert_eq!(submesh.number_of_elements(), 8);
         assert_eq!(submesh.number_of_nodes(), 27);
         let mut sorted = old_nodes.clone();
         sorted.sort_unstable();
-        assert_eq!(sorted, partition.part_nodes(part));
+        assert_eq!(sorted, decomposition.part_nodes(part));
         old_nodes.iter().enumerate().for_each(|(new, &old)| {
             assert_eq!(submesh.coordinates()[new], mesh.coordinates()[old])
         });
@@ -172,15 +173,15 @@ fn part_extracts_subdomain_with_node_map() {
 #[test]
 fn unused_part_indices_are_empty_parts() {
     let mesh = blocks([2, 1, 1]);
-    let partition = Decomposition::new(&mesh, vec![0, 2]);
-    assert_eq!(partition.number_of_parts(), 3);
-    assert!(partition.part_elements(1).is_empty());
-    assert!(partition.part_nodes(1).is_empty());
+    let decomposition = Decomposition::new(&mesh, vec![0, 2]);
+    assert_eq!(decomposition.number_of_parts(), 3);
+    assert!(decomposition.part_elements(1).is_empty());
+    assert!(decomposition.part_nodes(1).is_empty());
 }
 
 #[test]
 #[should_panic(expected = "one entry per element")]
-fn partition_rejects_wrong_length_assignment() {
+fn decomposition_rejects_wrong_length_assignment() {
     Decomposition::new(&blocks([2, 1, 1]), vec![0]);
 }
 
@@ -192,9 +193,9 @@ fn materials() -> Mesh<3> {
 fn part_keeps_block_labels_drops_empty_blocks_and_records_global_labels() {
     let mesh = materials();
     assert_eq!(mesh.block_labels(), Some([5, 7].as_slice()));
-    let partition = mesh.partition_box([2, 1, 1]);
-    let (first, first_nodes) = partition.part(&mesh, 0);
-    let (second, second_nodes) = partition.part(&mesh, 1);
+    let decomposition = mesh.decomposition_box([2, 1, 1]);
+    let (first, first_nodes) = decomposition.part(&mesh, 0);
+    let (second, second_nodes) = decomposition.part(&mesh, 1);
     assert_eq!(first.block_labels(), Some([5].as_slice()));
     assert_eq!(second.block_labels(), Some([7].as_slice()));
     assert_eq!(
@@ -222,9 +223,9 @@ fn part_carries_node_and_side_sets() {
         vec![7, 9],
     )));
     mesh.set_side_sets(SideSets::from((vec![vec![(0, 3), (3, 1)]], vec![4])));
-    let partition = mesh.partition_box([2, 1, 1]);
-    let (first, first_nodes) = partition.part(&mesh, 0);
-    let (second, second_nodes) = partition.part(&mesh, 1);
+    let decomposition = mesh.decomposition_box([2, 1, 1]);
+    let (first, first_nodes) = decomposition.part(&mesh, 0);
+    let (second, second_nodes) = decomposition.part(&mesh, 1);
     let labels = |part: &Mesh<3>| {
         part.node_sets()
             .iter()

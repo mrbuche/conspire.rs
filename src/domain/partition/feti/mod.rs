@@ -93,7 +93,7 @@ pub enum Formulation {
 pub struct Feti {
     pub formulation: Formulation,
     pub method: KrylovMethod,
-    pub partition: Decomposition,
+    pub decomposition: Decomposition,
     pub preconditioner: Preconditioner,
     pub rel_tol: Quantity,
 }
@@ -104,7 +104,7 @@ impl Default for Feti {
         Self {
             method: KrylovMethod::ConjugateGradients,
             formulation: Formulation::DualPrimal,
-            partition: Decomposition::default(),
+            decomposition: Decomposition::default(),
             preconditioner: Preconditioner::Dirichlet,
             rel_tol: Krylov::default().rel_tol,
         }
@@ -131,10 +131,10 @@ impl Feti {
         boundary_conditions: &BoundaryConditions,
     ) -> Result<Vector, SolveError> {
         let (stiffnesses, forces) = systems
-            .subdomains(&self.partition)
-            .map_err(SolveError::Partition)?;
+            .subdomains(&self.decomposition)
+            .map_err(SolveError::Decomposition)?;
         solve_local_systems(
-            &self.partition,
+            &self.decomposition,
             boundary_conditions,
             stiffnesses,
             forces,

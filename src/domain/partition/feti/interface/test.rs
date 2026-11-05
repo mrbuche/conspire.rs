@@ -5,9 +5,9 @@ use crate::math::Vector;
 
 #[test]
 fn two_subdomains_one_shared_node() {
-    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
+    let decomposition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
     let (interfaces, num_multipliers) =
-        build_interfaces(&partition, &CornerSelection::new(vec![]), 3);
+        build_interfaces(&decomposition, &CornerSelection::new(vec![]), 3);
     assert_eq!(num_multipliers, 3);
     assert_eq!(interfaces.len(), 2);
     assert_eq!(interfaces[0].multipliers(), &[0, 1, 2]);
@@ -18,9 +18,9 @@ fn two_subdomains_one_shared_node() {
 
 #[test]
 fn continuity_zeros_the_jump() {
-    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
+    let decomposition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
     let (interfaces, num_multipliers) =
-        build_interfaces(&partition, &CornerSelection::new(vec![]), 3);
+        build_interfaces(&decomposition, &CornerSelection::new(vec![]), 3);
     let mut local_a = Vector::zero(9);
     let mut local_b = Vector::zero(9);
     [1.0, 2.0, 3.0].into_iter().enumerate().for_each(|(i, v)| {
@@ -34,9 +34,9 @@ fn continuity_zeros_the_jump() {
 
 #[test]
 fn no_shared_nodes_yields_no_multipliers() {
-    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1], vec![2, 3]]);
+    let decomposition = Decomposition::from_parts_nodes(vec![vec![0, 1], vec![2, 3]]);
     let (interfaces, num_multipliers) =
-        build_interfaces(&partition, &CornerSelection::new(vec![]), 3);
+        build_interfaces(&decomposition, &CornerSelection::new(vec![]), 3);
     assert_eq!(num_multipliers, 0);
     assert!(interfaces[0].dofs().is_empty());
     assert!(interfaces[1].dofs().is_empty());
@@ -45,9 +45,9 @@ fn no_shared_nodes_yields_no_multipliers() {
 #[test]
 fn scaling_takes_each_copy_of_a_node_to_its_deviation_from_the_average() {
     [2, 3, 5].into_iter().for_each(|copies| {
-        let partition = Decomposition::from_parts_nodes(vec![vec![0]; copies]);
+        let decomposition = Decomposition::from_parts_nodes(vec![vec![0]; copies]);
         let (interfaces, num_multipliers) =
-            build_interfaces(&partition, &CornerSelection::new(vec![]), 1);
+            build_interfaces(&decomposition, &CornerSelection::new(vec![]), 1);
         assert_eq!(num_multipliers, copies - 1);
         let values: Vec<f64> = (0..copies).map(|copy| (copy * copy) as f64 - 1.5).collect();
         let jump = interfaces
@@ -70,9 +70,9 @@ fn scaling_takes_each_copy_of_a_node_to_its_deviation_from_the_average() {
 
 #[test]
 fn a_corner_node_gets_no_multiplier() {
-    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
+    let decomposition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
     let (interfaces, num_multipliers) =
-        build_interfaces(&partition, &CornerSelection::new(vec![2]), 3);
+        build_interfaces(&decomposition, &CornerSelection::new(vec![2]), 3);
     assert_eq!(num_multipliers, 0);
     assert!(interfaces[0].dofs().is_empty());
     assert!(interfaces[1].dofs().is_empty());

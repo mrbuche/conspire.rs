@@ -123,13 +123,13 @@ impl Interface {
 /// continuous by direct assembly into the coarse problem, not weakly
 /// through a multiplier.
 pub(crate) fn build_interfaces(
-    partition: &Decomposition,
+    decomposition: &Decomposition,
     corners: &CornerSelection,
     dimension: usize,
 ) -> (Vec<Interface>, usize) {
-    let num_subdomains = partition.number_of_parts();
+    let num_subdomains = decomposition.number_of_parts();
     let mut node_occurrences = HashMap::<usize, Vec<(usize, usize)>>::new();
-    partition
+    decomposition
         .parts_nodes()
         .iter()
         .enumerate()

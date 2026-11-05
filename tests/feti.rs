@@ -149,7 +149,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     let (model, constraint) = problem(nel);
     let feti = NewtonRaphson {
         linear_solver: Feti {
-            partition: mesh(nel).partition_box(divisions),
+            decomposition: mesh(nel).decomposition_box(divisions),
             ..Default::default()
         },
         abs_tol: TOLERANCES,
@@ -197,7 +197,7 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
-                    partition: mesh([6; 3]).partition_box([2; 3]),
+                    decomposition: mesh([6; 3]).decomposition_box([2; 3]),
                     method: GMRES,
                     ..Default::default()
                 },
@@ -278,7 +278,7 @@ fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
-                    partition: mesh(nel).partition_box([2; 3]),
+                    decomposition: mesh(nel).decomposition_box([2; 3]),
                     method: GMRES,
                     ..Default::default()
                 },
@@ -301,7 +301,7 @@ fn gmres_on_the_dual_problem_matches_conjugate_gradients() {
                 NewtonRaphson {
                     abs_tol: TOLERANCES,
                     linear_solver: Feti {
-                        partition: mesh([6; 3]).partition_box([2; 3]),
+                        decomposition: mesh([6; 3]).decomposition_box([2; 3]),
                         method,
                         ..Default::default()
                     },
@@ -349,7 +349,7 @@ fn the_linear_solver_path_reproduces_the_block_solve() {
         .flat_map(|(node, _)| (0..3).map(move |component| 3 * node + component))
         .collect();
     let feti = Feti {
-        partition: mesh(nel).partition_box([2; 3]),
+        decomposition: mesh(nel).decomposition_box([2; 3]),
         ..Default::default()
     };
     let expected = feti
@@ -379,7 +379,7 @@ fn the_linear_solver_path_reproduces_the_block_solve() {
 }
 
 #[test]
-fn a_partition_that_leaves_a_subdomain_floating_is_refused() {
+fn a_decomposition_that_leaves_a_subdomain_floating_is_refused() {
     let nel = [4; 3];
     let (model, constraint) = problem(nel);
     let error = model
@@ -389,7 +389,7 @@ fn a_partition_that_leaves_a_subdomain_floating_is_refused() {
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
-                    partition: mesh(nel).partition_box([2, 1, 1]),
+                    decomposition: mesh(nel).decomposition_box([2, 1, 1]),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -418,7 +418,7 @@ fn refusal(
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
-                    partition: Decomposition::new(&mesh(nel), elements_parts),
+                    decomposition: Decomposition::new(&mesh(nel), elements_parts),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -471,7 +471,7 @@ fn benchmark_cg_vs_gmres() {
                     NewtonRaphson {
                         abs_tol: TOLERANCES,
                         linear_solver: Feti {
-                            partition: mesh(nel).partition_box(divisions),
+                            decomposition: mesh(nel).decomposition_box(divisions),
                             method,
                             ..Default::default()
                         },
@@ -510,7 +510,7 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
-                    partition: mesh(nel).partition_box([2; 3]),
+                    decomposition: mesh(nel).decomposition_box([2; 3]),
                     formulation: Formulation::Classical,
                     ..Default::default()
                 },
@@ -563,7 +563,7 @@ fn classical_differs_from_dual_primal_by_the_prestress() {
         [[2; 3], [4; 3]].into_iter().for_each(|divisions| {
             let solve = |formulation| {
                 Feti {
-                    partition: mesh(nel).partition_box(divisions),
+                    decomposition: mesh(nel).decomposition_box(divisions),
                     formulation,
                     ..Default::default()
                 }

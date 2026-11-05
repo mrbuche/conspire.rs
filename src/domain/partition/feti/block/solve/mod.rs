@@ -31,8 +31,8 @@ use std::collections::HashSet;
 pub enum SolveError {
     /// Downstream error from an element.
     Element(ElementModelError),
-    /// The partition does not describe the model it is meant to decompose.
-    Partition(String),
+    /// The decomposition does not describe the model it is meant to decompose.
+    Decomposition(String),
     /// Downstream error from the dual PCG.
     Krylov(KrylovError),
     /// A subdomain left with some rigid-body modes free.
@@ -49,9 +49,9 @@ impl StyledError for SolveError {
     fn message(&self, style: &Style) -> String {
         match self {
             Self::Element(error) => error.message(style),
-            Self::Partition(reason) => {
+            Self::Decomposition(reason) => {
                 let (h, c) = (style.headline, style.frame);
-                format!("{h}The partition does not fit the model.{c}\n{reason}")
+                format!("{h}The decomposition does not fit the model.{c}\n{reason}")
             }
             Self::Krylov(error) => error.message(style),
             Self::FloatingSubdomain { part, removed } => {
@@ -61,7 +61,7 @@ impl StyledError for SolveError {
                     Its corner nodes and pinned degrees of freedom remove only {removed} of its \
                     6 rigid-body modes, so its stiffness is singular. A subdomain needs three \
                     non-collinear corner nodes (nodes shared by three or more subdomains) or \
-                    enough pinned degrees of freedom, so the partition has to bring more \
+                    enough pinned degrees of freedom, so the decomposition has to bring more \
                     subdomains together at a node."
                 )
             }
@@ -71,7 +71,7 @@ impl StyledError for SolveError {
                     "{h}The stiffness of subdomain {part} is singular.{c}\n\
                     Its corners and pinned degrees of freedom hold the subdomain as a whole, but \
                     some part of it is still free to move: a piece attached to the rest through \
-                    only a node or an edge, or cut off from it altogether. Change the partition \
+                    only a node or an edge, or cut off from it altogether. Change the decomposition \
                     so that every part of a subdomain is attached through faces. Otherwise the \
                     model itself has a mechanism or a collapsed element."
                 )
@@ -83,7 +83,7 @@ impl StyledError for SolveError {
                     The degrees of freedom of the subdomain away from the interface form a \
                     singular block, though the subdomain as a whole does not, which the \
                     Dirichlet preconditioner cannot handle. The tangent is likely not \
-                    positive definite there, as under severe compression, or the partition \
+                    positive definite there, as under severe compression, or the decomposition \
                     leaves part of the interior loosely attached."
                 )
             }
@@ -122,7 +122,7 @@ enum LocalError {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_local_systems<const D: usize>(
-    partition: &Decomposition,
+    decomposition: &Decomposition,
     boundary_conditions: &BoundaryConditions,
     local_stiffnesses: Vec<SquareMatrix>,
     local_forces: Vec<Vector>,
@@ -134,11 +134,11 @@ pub(crate) fn solve_local_systems<const D: usize>(
 ) -> Result<Vector, SolveError> {
     let corners = match formulation {
         Formulation::Classical => CornerSelection::new(Vec::new()),
-        Formulation::DualPrimal => CornerSelection::from_partition(partition),
+        Formulation::DualPrimal => CornerSelection::from_decomposition(decomposition),
     };
-    let (interfaces, num_multipliers) = build_interfaces(partition, &corners, D);
-    let (splits, corner_dofs) = build_splits(partition, &corners, boundary_conditions, D);
-    let subdomain_nodes = partition.parts_nodes();
+    let (interfaces, num_multipliers) = build_interfaces(decomposition, &corners, D);
+    let (splits, corner_dofs) = build_splits(decomposition, &corners, boundary_conditions, D);
+    let subdomain_nodes = decomposition.parts_nodes();
     let removable = D + D * (D - 1) / 2;
     subdomain_nodes
         .iter()

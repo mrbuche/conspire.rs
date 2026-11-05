@@ -103,15 +103,15 @@ impl ElementSystems {
     #[allow(clippy::type_complexity)]
     pub(crate) fn subdomains(
         &self,
-        partition: &Decomposition,
+        decomposition: &Decomposition,
     ) -> Result<(Vec<SquareMatrix>, Vec<Vector>), String> {
         const D: usize = 3;
-        if partition.elements_parts().len() != self.elements.len() {
-            return Err("The partition must assign every element to a subdomain.".to_string());
+        if decomposition.elements_parts().len() != self.elements.len() {
+            return Err("The decomposition must assign every element to a subdomain.".to_string());
         }
-        Ok((0..partition.number_of_parts())
+        Ok((0..decomposition.number_of_parts())
             .map(|part| {
-                let nodes = partition.part_nodes(part);
+                let nodes = decomposition.part_nodes(part);
                 let local: HashMap<usize, usize> = nodes
                     .iter()
                     .enumerate()
@@ -119,23 +119,26 @@ impl ElementSystems {
                     .collect();
                 let mut stiffness = SquareMatrix::zero(D * nodes.len());
                 let mut force = Vector::zero(D * nodes.len());
-                partition.part_elements(part).iter().for_each(|&element| {
-                    let element = &self.elements[element];
-                    let dofs: Vec<usize> = element
-                        .nodes
-                        .iter()
-                        .flat_map(|node| {
-                            let base = D * local[node];
-                            (0..D).map(move |i| base + i)
+                decomposition
+                    .part_elements(part)
+                    .iter()
+                    .for_each(|&element| {
+                        let element = &self.elements[element];
+                        let dofs: Vec<usize> = element
+                            .nodes
+                            .iter()
+                            .flat_map(|node| {
+                                let base = D * local[node];
+                                (0..D).map(move |i| base + i)
+                            })
+                            .collect();
+                        dofs.iter().enumerate().for_each(|(a, &dof_a)| {
+                            force[dof_a] += element.force[a];
+                            dofs.iter().enumerate().for_each(|(b, &dof_b)| {
+                                stiffness[dof_a][dof_b] += element.stiffness[a][b]
+                            })
                         })
-                        .collect();
-                    dofs.iter().enumerate().for_each(|(a, &dof_a)| {
-                        force[dof_a] += element.force[a];
-                        dofs.iter().enumerate().for_each(|(b, &dof_b)| {
-                            stiffness[dof_a][dof_b] += element.stiffness[a][b]
-                        })
-                    })
-                });
+                    });
                 (stiffness, force)
             })
             .unzip())

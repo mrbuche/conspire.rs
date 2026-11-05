@@ -12,13 +12,13 @@ pub enum Bisection {
 }
 
 impl<const D: usize> Mesh<D> {
-    pub fn partition_rcb(&self, parts: usize) -> Decomposition {
-        self.partition_bisection(parts, Bisection::Coordinate)
+    pub fn decomposition_rcb(&self, parts: usize) -> Decomposition {
+        self.decomposition_bisection(parts, Bisection::Coordinate)
     }
-    pub fn partition_rib(&self, parts: usize) -> Decomposition {
-        self.partition_bisection(parts, Bisection::Principal)
+    pub fn decomposition_rib(&self, parts: usize) -> Decomposition {
+        self.decomposition_bisection(parts, Bisection::Principal)
     }
-    pub fn partition_bisection(&self, parts: usize, bisection: Bisection) -> Decomposition {
+    pub fn decomposition_bisection(&self, parts: usize, bisection: Bisection) -> Decomposition {
         let points = self.element_points();
         assert!(
             (1..=points.len()).contains(&parts),

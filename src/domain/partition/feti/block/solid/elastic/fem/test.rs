@@ -35,7 +35,7 @@ fn block() -> Block<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4> {
     ))
 }
 
-fn partition() -> Decomposition {
+fn decomposition() -> Decomposition {
     Decomposition::from_parts_elements(
         vec![vec![0], vec![1], vec![2]],
         &[vec![0, 1, 2, 3], vec![1, 2, 3, 4], vec![1, 2, 3, 5]],
@@ -45,11 +45,11 @@ fn partition() -> Decomposition {
 fn solve(
     block: &Block<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4>,
     nodal_coordinates: &NodalCoordinates<3>,
-    partition: &Decomposition,
+    decomposition: &Decomposition,
     boundary_conditions: &BoundaryConditions,
 ) -> Result<Vector, SolveError> {
     Feti {
-        partition: partition.clone(),
+        decomposition: decomposition.clone(),
         ..Default::default()
     }
     .solve(block, nodal_coordinates, boundary_conditions)
@@ -62,7 +62,7 @@ fn a_free_floating_assembly_has_no_boundary_condition_to_pin_it() {
     let result = solve(
         &block,
         &nodal_coordinates,
-        &partition(),
+        &decomposition(),
         &BoundaryConditions::none(),
     );
     assert!(matches!(result, Err(SolveError::SingularCoarseProblem)));
@@ -86,7 +86,7 @@ fn a_supported_assembly_at_zero_deformation_solves_to_zero_displacement() {
     let solution = solve(
         &block,
         &nodal_coordinates,
-        &partition(),
+        &decomposition(),
         &boundary_conditions,
     )
     .unwrap_or_else(|_| panic!("solve failed"));
@@ -106,7 +106,7 @@ fn a_boundary_condition_on_a_corner_node_solves_correctly() {
     let solution = solve(
         &block,
         &nodal_coordinates,
-        &partition(),
+        &decomposition(),
         &boundary_conditions,
     )
     .unwrap_or_else(|_| panic!("solve failed"));
@@ -142,7 +142,7 @@ fn element_systems_are_stress_free_and_symmetric_at_zero_deformation() {
 
 fn solve_classical(boundary_conditions: &BoundaryConditions) -> Result<Vector, SolveError> {
     Feti {
-        partition: partition(),
+        decomposition: decomposition(),
         formulation: Formulation::Classical,
         ..Default::default()
     }
@@ -171,7 +171,7 @@ fn classical_matches_dual_primal_when_every_subdomain_is_pinned() {
     let dual_primal = solve(
         &block(),
         &NodalCoordinates::from(coordinates()),
-        &partition(),
+        &decomposition(),
         &boundary_conditions,
     )
     .unwrap_or_else(|_| panic!("dual-primal solve failed"));

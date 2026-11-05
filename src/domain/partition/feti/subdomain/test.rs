@@ -65,8 +65,8 @@ fn a_singular_interior_block_is_refused_though_the_dual_block_is_not() {
 
 #[test]
 fn a_floating_subdomain_solves_a_consistent_system_through_its_kernel() {
-    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1], vec![1, 2]]);
-    let (interfaces, _) = build_interfaces(&partition, &CornerSelection::new(vec![]), 1);
+    let decomposition = Decomposition::from_parts_nodes(vec![vec![0, 1], vec![1, 2]]);
+    let (interfaces, _) = build_interfaces(&decomposition, &CornerSelection::new(vec![]), 1);
     let interface = interfaces.into_iter().next().unwrap();
     let stiffness: SquareMatrix = [[1.0, -1.0], [-1.0, 1.0]]
         .into_iter()

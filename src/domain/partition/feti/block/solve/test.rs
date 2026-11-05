@@ -13,7 +13,7 @@ fn identity(len: usize) -> SquareMatrix {
 
 #[test]
 fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating() {
-    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![1, 2, 3]]);
+    let decomposition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![1, 2, 3]]);
     let local_stiffnesses = vec![identity(9), identity(9)];
     let local_forces = vec![Vector::zero(9), Vector::zero(9)];
     let positions = [
@@ -23,7 +23,7 @@ fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating
         [0.0, 0.0, 1.0],
     ];
     let result = solve_local_systems(
-        &partition,
+        &decomposition,
         &BoundaryConditions::none(),
         local_stiffnesses,
         local_forces,
@@ -44,7 +44,7 @@ fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating
 
 #[test]
 fn a_subdomain_with_a_singular_interior_is_refused_though_its_dual_block_is_not() {
-    let partition =
+    let decomposition =
         Decomposition::from_parts_nodes(vec![vec![0, 1, 2, 3, 4, 5], vec![3, 4, 6, 7, 8]]);
     let mut first = identity(18);
     (0..3).for_each(|i| {
@@ -67,7 +67,7 @@ fn a_subdomain_with_a_singular_interior_is_refused_though_its_dual_block_is_not(
     ];
     let pinned = [0, 1, 2, 6, 7, 8];
     let result = solve_local_systems(
-        &partition,
+        &decomposition,
         &BoundaryConditions::new(
             pinned
                 .iter()
@@ -118,7 +118,7 @@ fn bars(nodes: &[usize]) -> SquareMatrix {
 #[test]
 fn classical_reproduces_a_dense_solve_of_the_assembled_truss() {
     let parts = vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4]];
-    let partition = Decomposition::from_parts_nodes(parts.clone());
+    let decomposition = Decomposition::from_parts_nodes(parts.clone());
     let stiffnesses: Vec<SquareMatrix> = parts.iter().map(|nodes| bars(nodes)).collect();
     let forces: Vec<Vector> = parts
         .iter()
@@ -155,7 +155,7 @@ fn classical_reproduces_a_dense_solve_of_the_assembled_truss() {
         .unwrap()
         .solve(&free.iter().map(|&dof| load[dof]).collect());
     let solution = solve_local_systems(
-        &partition,
+        &decomposition,
         &BoundaryConditions::new(pinned),
         stiffnesses,
         forces,

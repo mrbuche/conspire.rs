@@ -184,7 +184,7 @@ fn newton_with_feti_matches_newton_with_the_sparse_solve_on_polyhedra() {
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
-                    partition: mesh(nel).partition_box([2; 3]),
+                    decomposition: mesh(nel).decomposition_box([2; 3]),
                     ..Default::default()
                 },
                 ..Default::default()

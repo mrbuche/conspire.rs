@@ -105,13 +105,13 @@ impl DualPrimalSplit {
 }
 
 pub(crate) fn build_splits(
-    partition: &Decomposition,
+    decomposition: &Decomposition,
     corners: &CornerSelection,
     boundary_conditions: &BoundaryConditions,
     dimension: usize,
 ) -> (Vec<DualPrimalSplit>, CornerDofs) {
     let corner_dofs = CornerDofs::new(corners, boundary_conditions, dimension);
-    let splits = partition
+    let splits = decomposition
         .parts_nodes()
         .iter()
         .map(|nodes| {

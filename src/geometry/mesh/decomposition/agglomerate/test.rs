@@ -71,7 +71,10 @@ fn number_of_faces(mesh: &Mesh<3>) -> usize {
 #[test]
 fn hexes_box_split_has_shared_interface_and_no_interior_nodes() {
     let mesh = blocks([4, 2, 2]);
-    let agglomerated = mesh.partition_box([2, 1, 1]).agglomerate(&mesh).unwrap();
+    let agglomerated = mesh
+        .decomposition_box([2, 1, 1])
+        .agglomerate(&mesh)
+        .unwrap();
     assert_eq!(agglomerated.number_of_elements(), 2);
     assert_eq!(number_of_faces(&agglomerated), 24 + 24 - 4);
     assert_eq!(agglomerated.number_of_nodes(), 45 - 2);
@@ -81,9 +84,12 @@ fn hexes_box_split_has_shared_interface_and_no_interior_nodes() {
 #[test]
 fn hexes_volumes_are_conserved_for_many_parts() {
     let mesh = blocks([6, 6, 6]);
-    let agglomerated = mesh.partition_box([2, 2, 2]).agglomerate(&mesh).unwrap();
+    let agglomerated = mesh
+        .decomposition_box([2, 2, 2])
+        .agglomerate(&mesh)
+        .unwrap();
     assert_volumes(&agglomerated, &[27.0; 8]);
-    let agglomerated = mesh.partition_rcb(5).agglomerate(&mesh).unwrap();
+    let agglomerated = mesh.decomposition_rcb(5).agglomerate(&mesh).unwrap();
     let volumes = signed_volumes(&agglomerated);
     assert!(volumes.iter().all(|&volume| volume > 0.0));
     assert!((volumes.iter().sum::<f64>() - 216.0).abs() < 1e-9);
@@ -97,7 +103,10 @@ fn tets_are_agglomerated() {
         &Coordinate::from([1.0, 1.0, 1.0]),
         &Coordinate::from([0.0, 0.0, 0.0]),
     );
-    let agglomerated = mesh.partition_box([2, 1, 1]).agglomerate(&mesh).unwrap();
+    let agglomerated = mesh
+        .decomposition_box([2, 1, 1])
+        .agglomerate(&mesh)
+        .unwrap();
     assert_volumes(&agglomerated, &[2.0, 2.0]);
 }
 
@@ -132,7 +141,10 @@ fn mixed_elements_are_agglomerated() {
 #[test]
 fn polyhedra_are_agglomerated_again() {
     let mesh = blocks([6, 1, 1]);
-    let once = mesh.partition_box([3, 1, 1]).agglomerate(&mesh).unwrap();
+    let once = mesh
+        .decomposition_box([3, 1, 1])
+        .agglomerate(&mesh)
+        .unwrap();
     assert_volumes(&once, &[2.0, 2.0, 2.0]);
     let twice = Decomposition::new(&once, vec![0, 0, 1])
         .agglomerate(&once)
@@ -177,7 +189,10 @@ fn surface_elements_are_an_error() {
 #[test]
 fn polyhedra_owned_by_a_later_part_are_reoriented() {
     let mesh = blocks([6, 1, 1]);
-    let once = mesh.partition_box([3, 1, 1]).agglomerate(&mesh).unwrap();
+    let once = mesh
+        .decomposition_box([3, 1, 1])
+        .agglomerate(&mesh)
+        .unwrap();
     let twice = Decomposition::new(&once, vec![1, 1, 0])
         .agglomerate(&once)
         .unwrap();
