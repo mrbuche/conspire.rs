@@ -21,7 +21,7 @@ pub(crate) mod factor;
 #[cfg(feature = "fem")]
 pub mod fem;
 #[cfg(feature = "fem")]
-#[path = "partition/feti/mod.rs"]
+#[path = "decomposition/feti/mod.rs"]
 pub mod feti;
 pub(crate) mod from;
 pub(crate) mod lumping;

@@ -4,11 +4,11 @@ pub mod test;
 mod base;
 mod buffer;
 mod connectivity;
+mod decomposition;
 pub(crate) mod differential;
 mod fit;
 mod from;
 mod into;
-mod partition;
 mod quality;
 mod read;
 mod remesh;
@@ -26,9 +26,9 @@ pub use self::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,
     },
+    decomposition::{Bisection, Decomposition, DecompositionQuality},
     differential::laplace::Weighting,
     fit::{Fitting, Freedom},
-    partition::{Bisection, Partition, PartitionQuality},
     quality::metrics::Verdict,
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
