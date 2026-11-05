@@ -12,7 +12,7 @@ use conspire::{
     geometry::{
         Coordinates,
         grid::Voxels,
-        mesh::{Connectivities, Connectivity, Mesh, Partition},
+        mesh::{Connectivities, Connectivity, Decomposition, Mesh},
     },
     math::{
         Tensor,
@@ -418,7 +418,7 @@ fn refusal(
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
-                    partition: Partition::new(&mesh(nel), elements_parts),
+                    partition: Decomposition::new(&mesh(nel), elements_parts),
                     ..Default::default()
                 },
                 ..Default::default()

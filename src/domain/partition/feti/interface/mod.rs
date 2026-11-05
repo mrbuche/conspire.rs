@@ -3,7 +3,7 @@ mod test;
 
 use super::dual_primal::CornerSelection;
 use crate::{
-    geometry::mesh::Partition,
+    geometry::mesh::Decomposition,
     math::{Scalar, Vector},
 };
 use std::collections::HashMap;
@@ -123,7 +123,7 @@ impl Interface {
 /// continuous by direct assembly into the coarse problem, not weakly
 /// through a multiplier.
 pub(crate) fn build_interfaces(
-    partition: &Partition,
+    partition: &Decomposition,
     corners: &CornerSelection,
     dimension: usize,
 ) -> (Vec<Interface>, usize) {

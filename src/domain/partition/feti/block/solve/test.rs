@@ -1,7 +1,7 @@
 use super::super::super::{Formulation, dual_primal::BoundaryConditions, pcg::Preconditioner};
 use super::{SolveError, solve_local_systems};
 use crate::{
-    geometry::mesh::Partition,
+    geometry::mesh::Decomposition,
     math::{Quantity, SquareMatrix, Tensor, Vector, optimize::KrylovMethod},
 };
 
@@ -13,7 +13,7 @@ fn identity(len: usize) -> SquareMatrix {
 
 #[test]
 fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating() {
-    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![1, 2, 3]]);
+    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![1, 2, 3]]);
     let local_stiffnesses = vec![identity(9), identity(9)];
     let local_forces = vec![Vector::zero(9), Vector::zero(9)];
     let positions = [
@@ -44,7 +44,8 @@ fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating
 
 #[test]
 fn a_subdomain_with_a_singular_interior_is_refused_though_its_dual_block_is_not() {
-    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2, 3, 4, 5], vec![3, 4, 6, 7, 8]]);
+    let partition =
+        Decomposition::from_parts_nodes(vec![vec![0, 1, 2, 3, 4, 5], vec![3, 4, 6, 7, 8]]);
     let mut first = identity(18);
     (0..3).for_each(|i| {
         first[12 + i][12 + i] = 0.0;
@@ -117,7 +118,7 @@ fn bars(nodes: &[usize]) -> SquareMatrix {
 #[test]
 fn classical_reproduces_a_dense_solve_of_the_assembled_truss() {
     let parts = vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4]];
-    let partition = Partition::from_parts_nodes(parts.clone());
+    let partition = Decomposition::from_parts_nodes(parts.clone());
     let stiffnesses: Vec<SquareMatrix> = parts.iter().map(|nodes| bars(nodes)).collect();
     let forces: Vec<Vector> = parts
         .iter()

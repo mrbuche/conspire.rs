@@ -2,7 +2,7 @@
 mod test;
 
 use super::BoundaryConditions;
-use crate::geometry::mesh::Partition;
+use crate::geometry::mesh::Decomposition;
 use std::collections::HashMap;
 
 /// Which nodes are corners.
@@ -23,7 +23,7 @@ impl CornerSelection {
         nodes.dedup();
         Self { nodes }
     }
-    pub(crate) fn from_partition(partition: &Partition) -> Self {
+    pub(crate) fn from_partition(partition: &Decomposition) -> Self {
         let mut counts = HashMap::<usize, usize>::new();
         partition.parts_nodes().iter().for_each(|nodes| {
             nodes.iter().for_each(|&node| {

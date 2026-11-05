@@ -6,7 +6,7 @@ pub(crate) mod rigid_projector;
 #[cfg(test)]
 mod test;
 
-use crate::geometry::mesh::Partition;
+use crate::geometry::mesh::Decomposition;
 use std::collections::HashSet;
 
 pub(crate) use corner::{CornerDofs, CornerSelection};
@@ -105,7 +105,7 @@ impl DualPrimalSplit {
 }
 
 pub(crate) fn build_splits(
-    partition: &Partition,
+    partition: &Decomposition,
     corners: &CornerSelection,
     boundary_conditions: &BoundaryConditions,
     dimension: usize,

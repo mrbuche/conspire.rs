@@ -11,7 +11,7 @@ use crate::{geometry::mesh::Mesh, math::Tensor};
 use std::array::from_fn;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PartitionQuality {
+pub struct DecompositionQuality {
     pub sizes: Vec<usize>,
     pub imbalance: f64,
     pub interface_nodes: usize,
@@ -19,14 +19,14 @@ pub struct PartitionQuality {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Partition {
+pub struct Decomposition {
     elements_parts: Vec<usize>,
     parts_elements: Vec<Vec<usize>>,
     parts_nodes: Vec<Vec<usize>>,
     nodes_parts: Vec<Vec<usize>>,
 }
 
-impl Partition {
+impl Decomposition {
     pub fn new<const D: usize>(mesh: &Mesh<D>, elements_parts: Vec<usize>) -> Self {
         assert_eq!(
             elements_parts.len(),
@@ -92,7 +92,7 @@ impl Partition {
             .map(|(node, _)| node)
             .collect()
     }
-    pub fn quality<const D: usize>(&self, mesh: &Mesh<D>) -> PartitionQuality {
+    pub fn quality<const D: usize>(&self, mesh: &Mesh<D>) -> DecompositionQuality {
         let sizes = self.parts_elements.iter().map(Vec::len).collect::<Vec<_>>();
         let mean = self.elements_parts.len() as f64 / sizes.len() as f64;
         let mut roots = (0..self.elements_parts.len()).collect::<Vec<_>>();
@@ -117,7 +117,7 @@ impl Partition {
         (0..self.elements_parts.len())
             .filter(|&element| find(&mut roots, element) == element)
             .for_each(|element| components[self.elements_parts[element]] += 1);
-        PartitionQuality {
+        DecompositionQuality {
             imbalance: sizes.iter().copied().max().unwrap_or(0) as f64 / mean,
             interface_nodes: self.interface_nodes().len(),
             disconnected_parts: components.iter().filter(|&&count| count > 1).count(),
@@ -127,7 +127,7 @@ impl Partition {
 }
 
 impl<const D: usize> Mesh<D> {
-    pub fn partition_box(&self, divisions: [usize; D]) -> Partition {
+    pub fn partition_box(&self, divisions: [usize; D]) -> Decomposition {
         assert!(
             divisions.iter().all(|&n| n > 0),
             "divisions must be positive"
@@ -156,7 +156,7 @@ impl<const D: usize> Mesh<D> {
                 })
             })
             .collect();
-        Partition::new(self, assignment)
+        Decomposition::new(self, assignment)
     }
     fn element_points(&self) -> Vec<[f64; D]> {
         self.centroids()

@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, Partition, partition::test::blocks},
+        mesh::{Connectivity, Decomposition, Mesh, decomposition::test::blocks},
     },
     math::CrossProduct,
 };
@@ -121,7 +121,7 @@ fn mixed_elements_are_agglomerated() {
         ],
         coordinates,
     ));
-    let agglomerated = Partition::new(&mesh, vec![0, 1, 1])
+    let agglomerated = Decomposition::new(&mesh, vec![0, 1, 1])
         .agglomerate(&mesh)
         .unwrap();
     let volumes = signed_volumes(&agglomerated);
@@ -134,11 +134,11 @@ fn polyhedra_are_agglomerated_again() {
     let mesh = blocks([6, 1, 1]);
     let once = mesh.partition_box([3, 1, 1]).agglomerate(&mesh).unwrap();
     assert_volumes(&once, &[2.0, 2.0, 2.0]);
-    let twice = Partition::new(&once, vec![0, 0, 1])
+    let twice = Decomposition::new(&once, vec![0, 0, 1])
         .agglomerate(&once)
         .unwrap();
     assert_volumes(&twice, &[4.0, 2.0]);
-    let thrice = Partition::new(&twice, vec![0, 0])
+    let thrice = Decomposition::new(&twice, vec![0, 0])
         .agglomerate(&twice)
         .unwrap();
     assert_volumes(&thrice, &[6.0]);
@@ -148,7 +148,7 @@ fn polyhedra_are_agglomerated_again() {
 fn disconnected_part_is_an_error() {
     let mesh = blocks([4, 1, 1]);
     assert!(
-        Partition::new(&mesh, vec![0, 1, 0, 1])
+        Decomposition::new(&mesh, vec![0, 1, 0, 1])
             .agglomerate(&mesh)
             .is_err()
     );
@@ -158,7 +158,7 @@ fn disconnected_part_is_an_error() {
 fn parts_touching_only_at_an_edge_are_an_error() {
     let mesh = blocks([2, 2, 1]);
     assert!(
-        Partition::new(&mesh, vec![0, 1, 1, 0])
+        Decomposition::new(&mesh, vec![0, 1, 1, 0])
             .agglomerate(&mesh)
             .is_err()
     );
@@ -168,7 +168,7 @@ fn parts_touching_only_at_an_edge_are_an_error() {
 fn surface_elements_are_an_error() {
     let mesh = crate::geometry::mesh::test::mesh();
     assert!(
-        Partition::new(&mesh, vec![0; mesh.number_of_elements()])
+        Decomposition::new(&mesh, vec![0; mesh.number_of_elements()])
             .agglomerate(&mesh)
             .is_err()
     );
@@ -178,7 +178,7 @@ fn surface_elements_are_an_error() {
 fn polyhedra_owned_by_a_later_part_are_reoriented() {
     let mesh = blocks([6, 1, 1]);
     let once = mesh.partition_box([3, 1, 1]).agglomerate(&mesh).unwrap();
-    let twice = Partition::new(&once, vec![1, 1, 0])
+    let twice = Decomposition::new(&once, vec![1, 1, 0])
         .agglomerate(&once)
         .unwrap();
     assert_volumes(&twice, &[2.0, 4.0]);

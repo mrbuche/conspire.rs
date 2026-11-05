@@ -1,9 +1,10 @@
 use super::{BoundaryConditions, CornerSelection, build_splits};
-use crate::geometry::mesh::Partition;
+use crate::geometry::mesh::Decomposition;
 
 #[test]
 fn split_separates_primal_and_dual_dofs() {
-    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
+    let partition =
+        Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
     let corners = CornerSelection::from_partition(&partition);
     let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 3);
     assert_eq!(corner_dofs.count(), 3);
@@ -17,7 +18,7 @@ fn split_separates_primal_and_dual_dofs() {
 
 #[test]
 fn a_fixed_dof_is_excluded_from_both_primal_and_dual() {
-    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
+    let partition = Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
     let corners = CornerSelection::from_partition(&partition);
     let boundary_conditions = BoundaryConditions::new(vec![(0, 1)]);
     let (splits, _) = build_splits(&partition, &corners, &boundary_conditions, 3);
@@ -29,7 +30,8 @@ fn a_fixed_dof_is_excluded_from_both_primal_and_dual() {
 
 #[test]
 fn a_boundary_condition_on_a_corner_component_shrinks_the_coarse_problem() {
-    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
+    let partition =
+        Decomposition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
     let corners = CornerSelection::from_partition(&partition);
     assert_eq!(corners.nodes(), &[2]);
     let boundary_conditions = super::BoundaryConditions::new(vec![(2, 1)]);

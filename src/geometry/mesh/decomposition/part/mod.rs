@@ -1,4 +1,4 @@
-use super::Partition;
+use super::Decomposition;
 use crate::{
     geometry::{
         Coordinates,
@@ -7,7 +7,7 @@ use crate::{
     math::TensorVec,
 };
 
-impl Partition {
+impl Decomposition {
     pub fn part<const D: usize>(&self, mesh: &Mesh<D>, part: usize) -> (Mesh<D>, Vec<usize>) {
         let old_nodes = self.parts_nodes[part].clone();
         let mut nodes = vec![usize::MAX; mesh.number_of_nodes()];

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::Partition;
+use super::Decomposition;
 use crate::geometry::mesh::Mesh;
 use std::{array::from_fn, cmp::Ordering};
 
@@ -12,13 +12,13 @@ pub enum Bisection {
 }
 
 impl<const D: usize> Mesh<D> {
-    pub fn partition_rcb(&self, parts: usize) -> Partition {
+    pub fn partition_rcb(&self, parts: usize) -> Decomposition {
         self.partition_bisection(parts, Bisection::Coordinate)
     }
-    pub fn partition_rib(&self, parts: usize) -> Partition {
+    pub fn partition_rib(&self, parts: usize) -> Decomposition {
         self.partition_bisection(parts, Bisection::Principal)
     }
-    pub fn partition_bisection(&self, parts: usize, bisection: Bisection) -> Partition {
+    pub fn partition_bisection(&self, parts: usize, bisection: Bisection) -> Decomposition {
         let points = self.element_points();
         assert!(
             (1..=points.len()).contains(&parts),
@@ -27,7 +27,7 @@ impl<const D: usize> Mesh<D> {
         let mut assignment = vec![0; points.len()];
         let mut elements = (0..points.len()).collect::<Vec<_>>();
         bisect(&mut elements, parts, 0, &points, bisection, &mut assignment);
-        Partition::new(self, assignment)
+        Decomposition::new(self, assignment)
     }
 }
 

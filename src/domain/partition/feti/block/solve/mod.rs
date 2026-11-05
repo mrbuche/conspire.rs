@@ -18,7 +18,7 @@ use super::super::{
 };
 use crate::{
     domain::ElementModelError,
-    geometry::mesh::Partition,
+    geometry::mesh::Decomposition,
     math::{
         Quantity, Scalar, SquareMatrix, Style, StyledError, Vector,
         optimize::{KrylovError, KrylovMethod},
@@ -122,7 +122,7 @@ enum LocalError {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_local_systems<const D: usize>(
-    partition: &Partition,
+    partition: &Decomposition,
     boundary_conditions: &BoundaryConditions,
     local_stiffnesses: Vec<SquareMatrix>,
     local_forces: Vec<Vector>,

@@ -1,6 +1,6 @@
 use crate::{
     domain::{Blocks, ElementModelError, Model, NodalCoordinates},
-    geometry::mesh::Partition,
+    geometry::mesh::Decomposition,
     math::{Scalar, SquareMatrix, Tensor, Vector},
 };
 use std::{array::from_fn, collections::HashMap};
@@ -103,7 +103,7 @@ impl ElementSystems {
     #[allow(clippy::type_complexity)]
     pub(crate) fn subdomains(
         &self,
-        partition: &Partition,
+        partition: &Decomposition,
     ) -> Result<(Vec<SquareMatrix>, Vec<Vector>), String> {
         const D: usize = 3;
         if partition.elements_parts().len() != self.elements.len() {

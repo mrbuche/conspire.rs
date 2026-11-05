@@ -8,7 +8,7 @@ use crate::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::linear::Tetrahedron},
     },
-    geometry::mesh::Partition,
+    geometry::mesh::Decomposition,
     math::{Tensor, Vector},
 };
 
@@ -35,8 +35,8 @@ fn block() -> Block<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4> {
     ))
 }
 
-fn partition() -> Partition {
-    Partition::from_parts_elements(
+fn partition() -> Decomposition {
+    Decomposition::from_parts_elements(
         vec![vec![0], vec![1], vec![2]],
         &[vec![0, 1, 2, 3], vec![1, 2, 3, 4], vec![1, 2, 3, 5]],
     )
@@ -45,7 +45,7 @@ fn partition() -> Partition {
 fn solve(
     block: &Block<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4>,
     nodal_coordinates: &NodalCoordinates<3>,
-    partition: &Partition,
+    partition: &Decomposition,
     boundary_conditions: &BoundaryConditions,
 ) -> Result<Vector, SolveError> {
     Feti {

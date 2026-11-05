@@ -1,9 +1,9 @@
 use crate::geometry::{
     grid::Voxels,
-    mesh::{Mesh, NodeSet, NodeSets, Partition, SideSets},
+    mesh::{Decomposition, Mesh, NodeSet, NodeSets, SideSets},
 };
 
-impl Partition {
+impl Decomposition {
     #[cfg_attr(not(feature = "fem"), allow(dead_code))]
     pub(crate) fn from_parts_nodes(parts_nodes: Vec<Vec<usize>>) -> Self {
         let number_of_nodes = parts_nodes
@@ -25,7 +25,7 @@ impl Partition {
     }
 }
 
-impl Partition {
+impl Decomposition {
     #[cfg_attr(not(feature = "fem"), allow(dead_code))]
     pub(crate) fn from_parts_elements(
         parts_elements: Vec<Vec<usize>>,
@@ -89,16 +89,16 @@ fn box_partition_uneven_divisions() {
 #[test]
 fn quality_treats_node_sharing_elements_as_connected() {
     let mesh = blocks([2, 2, 1]);
-    let partition = Partition::new(&mesh, vec![0, 1, 1, 0]);
+    let partition = Decomposition::new(&mesh, vec![0, 1, 1, 0]);
     assert_eq!(partition.quality(&mesh).disconnected_parts, 0);
 }
 
 #[test]
 fn quality_detects_disconnected_parts() {
     let mesh = blocks([4, 1, 1]);
-    let bad = Partition::new(&mesh, vec![0, 1, 0, 1]).quality(&mesh);
+    let bad = Decomposition::new(&mesh, vec![0, 1, 0, 1]).quality(&mesh);
     assert_eq!(bad.disconnected_parts, 2);
-    let good = Partition::new(&mesh, vec![0, 0, 1, 1]).quality(&mesh);
+    let good = Decomposition::new(&mesh, vec![0, 0, 1, 1]).quality(&mesh);
     assert_eq!(good.disconnected_parts, 0);
     assert_eq!(good.interface_nodes, 4);
     assert!(bad.interface_nodes > good.interface_nodes);
@@ -172,7 +172,7 @@ fn part_extracts_subdomain_with_node_map() {
 #[test]
 fn unused_part_indices_are_empty_parts() {
     let mesh = blocks([2, 1, 1]);
-    let partition = Partition::new(&mesh, vec![0, 2]);
+    let partition = Decomposition::new(&mesh, vec![0, 2]);
     assert_eq!(partition.number_of_parts(), 3);
     assert!(partition.part_elements(1).is_empty());
     assert!(partition.part_nodes(1).is_empty());
@@ -181,7 +181,7 @@ fn unused_part_indices_are_empty_parts() {
 #[test]
 #[should_panic(expected = "one entry per element")]
 fn partition_rejects_wrong_length_assignment() {
-    Partition::new(&blocks([2, 1, 1]), vec![0]);
+    Decomposition::new(&blocks([2, 1, 1]), vec![0]);
 }
 
 fn materials() -> Mesh<3> {

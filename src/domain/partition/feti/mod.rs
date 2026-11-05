@@ -24,7 +24,7 @@ pub use pcg::Preconditioner;
 use crate::domain::{NodalCoordinates, solid::NodalForcesSolid};
 #[cfg(feature = "fem")]
 use crate::{
-    geometry::mesh::Partition,
+    geometry::mesh::Decomposition,
     math::{
         Quantity, Vector,
         optimize::{Krylov, KrylovMethod, LinearSolver},
@@ -75,7 +75,7 @@ pub enum Formulation {
 
 /// FETI-DP solver for the linearized systems of a decomposable block.
 ///
-/// The block is split by a [`Partition`], and each subdomain is solved
+/// The block is split by a [`Decomposition`], and each subdomain is solved
 /// independently, tied together through the corner DOFs and Lagrange
 /// multipliers on the interface. Any elastic block is supported. The tangent
 /// need not be symmetric, but then the dual solve must be [`GMRES`], since
@@ -93,7 +93,7 @@ pub enum Formulation {
 pub struct Feti {
     pub formulation: Formulation,
     pub method: KrylovMethod,
-    pub partition: Partition,
+    pub partition: Decomposition,
     pub preconditioner: Preconditioner,
     pub rel_tol: Quantity,
 }
@@ -104,7 +104,7 @@ impl Default for Feti {
         Self {
             method: KrylovMethod::ConjugateGradients,
             formulation: Formulation::DualPrimal,
-            partition: Partition::default(),
+            partition: Decomposition::default(),
             preconditioner: Preconditioner::Dirichlet,
             rel_tol: Krylov::default().rel_tol,
         }

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::Partition;
+use super::Decomposition;
 use crate::{
     geometry::{
         Coordinates,
@@ -11,7 +11,7 @@ use crate::{
 };
 use std::collections::HashMap;
 
-impl Partition {
+impl Decomposition {
     pub fn agglomerate(&self, mesh: &Mesh<3>) -> Result<Mesh<3>, &'static str> {
         let elements_faces = outward_faces(mesh)?;
         let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
