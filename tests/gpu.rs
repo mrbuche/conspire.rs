@@ -186,7 +186,7 @@ fn run_with_history_follows_the_run_on_the_calling_thread() {
     );
     let run = match run {
         Ok(run) => run,
-        Err(error) if no_device(&error) => return println!("skipped: no device"),
+        Err(error) if no_device(&error) => return println!("skipped: {error:?}"),
         Err(error) => panic!("{error:?}"),
     };
     let (gap, scale) = difference(&components(run.1.iter().last().unwrap()), &expected.0);
@@ -220,7 +220,7 @@ fn run_on_the_device_follows_the_run_on_the_calling_thread() {
         );
         let (found_coordinates, found_velocities) = match run {
             Ok(run) => run,
-            Err(error) if no_device(&error) => return println!("skipped: no device"),
+            Err(error) if no_device(&error) => return println!("skipped: {error:?}"),
             Err(error) => panic!("{error:?}"),
         };
         let (gap, scale) = difference(&components(&found_coordinates), &expected.0);
