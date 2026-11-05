@@ -22,6 +22,8 @@ pub(crate) trait Real: Argument + Copy + Default {
     /// Whether the compiler may fuse a multiplication and an addition, which it does not in
     /// `f64`, so that the results stay those of the library as far as the device allows.
     const FUSED: bool;
+    /// Whether this is double precision, for which some operations are done differently.
+    const DOUBLE: bool;
     fn from_f64(value: f64) -> Self;
     fn to_f64(self) -> f64;
 }
@@ -29,6 +31,7 @@ pub(crate) trait Real: Argument + Copy + Default {
 impl Real for f32 {
     const NAME: &'static str = "float";
     const FUSED: bool = true;
+    const DOUBLE: bool = false;
     fn from_f64(value: f64) -> Self {
         value as f32
     }
@@ -40,6 +43,7 @@ impl Real for f32 {
 impl Real for f64 {
     const NAME: &'static str = "double";
     const FUSED: bool = false;
+    const DOUBLE: bool = true;
     fn from_f64(value: f64) -> Self {
         value
     }
@@ -180,6 +184,9 @@ impl<R: Real> State<R> {
             ];
             if on_the_fly {
                 definitions.push("ON_THE_FLY".to_string());
+            }
+            if R::DOUBLE {
+                definitions.push("DOUBLE_PRECISION".to_string());
             }
             let module = device.module(KERNELS, &definitions, R::FUSED)?;
             let items = block.number_of_items();

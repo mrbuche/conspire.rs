@@ -34,9 +34,7 @@
 //   reference_coordinates[3 * node + component]
 //   derivatives[(point * NODES + node) * 3 + component]
 //   parametric_weights[point]
-#ifdef ON_THE_FLY
-#define GRADIENT(a, j) gradient[a][j]
-#else
+#ifndef ON_THE_FLY
 // A value of the reference data of the element of the thread.
 #define REFERENCE(value) reference[(size_t)(value) * items + item]
 #define GRADIENT(a, j) REFERENCE((g * NODES + a) * 3 + (j))
@@ -66,28 +64,36 @@ extern "C" __global__ void item_forces(
     REAL x[NODES][3];
     REAL f[NODES][3];
 #ifdef ON_THE_FLY
-    unsigned int nodes_of[NODES];
+    // The reference coordinates of the nodes, which the Jacobian at each point is made from.
+    REAL X[NODES][3];
 #endif
 #pragma unroll
     for (int a = 0; a < NODES; ++a)
     {
         const size_t node = connectivity[(size_t)a * items + item];
-#ifdef ON_THE_FLY
-        nodes_of[a] = (unsigned int)node;
-#endif
 #pragma unroll
         for (int i = 0; i < 3; ++i)
         {
             x[a][i] = coordinates[3 * node + i];
             f[a][i] = 0;
+#ifdef ON_THE_FLY
+            X[a][i] = reference_coordinates[3 * node + i];
+#endif
         }
     }
     bool valid = true;
     for (int g = 0; g < POINTS && valid; ++g)
     {
+        REAL F[3][3];
 #ifdef ON_THE_FLY
-        // The gradient vectors and the weight of the point, from the reference coordinates.
-        REAL gradient[NODES][3];
+        // Never made: the gradient vectors of the nodes. With J the sum over the nodes of the
+        // outer products of the reference coordinates and the derivatives of the shape functions
+        // S_a, the gradient vector of a node is J^-T S_a, so
+        //   F = sum_a x_a (J^-T S_a) = (sum_a x_a S_a) J^-1, and
+        //   f_a = w P (J^-T S_a) = (w P J^-T) S_a,
+        // which is three matrix products at the point in place of a gradient vector for each of
+        // the nodes, twice.
+        REAL JIT[3][3];
         REAL weight;
         {
             REAL J[3][3];
@@ -106,15 +112,13 @@ extern "C" __global__ void item_forces(
 #pragma unroll
                 for (int i = 0; i < 3; ++i)
                 {
-                    const REAL coordinate = reference_coordinates[3 * (size_t)nodes_of[a] + i];
 #pragma unroll
                     for (int K = 0; K < 3; ++K)
                     {
-                        J[i][K] += coordinate * derivatives[(g * NODES + a) * 3 + K];
+                        J[i][K] += X[a][i] * derivatives[(g * NODES + a) * 3 + K];
                     }
                 }
             }
-            REAL cofactor_of_J[3][3];
 #pragma unroll
             for (int i = 0; i < 3; ++i)
             {
@@ -125,10 +129,10 @@ extern "C" __global__ void item_forces(
                 {
                     const int K1 = (K + 1) % 3;
                     const int K2 = (K + 2) % 3;
-                    cofactor_of_J[i][K] = J[i1][K1] * J[i2][K2] - J[i1][K2] * J[i2][K1];
+                    JIT[i][K] = J[i1][K1] * J[i2][K2] - J[i1][K2] * J[i2][K1];
                 }
             }
-            const REAL determinant = J[0][0] * cofactor_of_J[0][0] + J[0][1] * cofactor_of_J[0][1] + J[0][2] * cofactor_of_J[0][2];
+            const REAL determinant = J[0][0] * JIT[0][0] + J[0][1] * JIT[0][1] + J[0][2] * JIT[0][2];
             weight = determinant * parametric_weights[g];
             // The inverse transpose of J is the cofactors over the determinant, which is one
             // division for all of them, since a division in double precision takes a long
@@ -140,7 +144,21 @@ extern "C" __global__ void item_forces(
 #pragma unroll
                 for (int K = 0; K < 3; ++K)
                 {
-                    cofactor_of_J[i][K] *= inverse_determinant;
+                    JIT[i][K] *= inverse_determinant;
+                }
+            }
+        }
+        {
+            // The sum of the outer products of the coordinates and the derivatives, which is
+            // the deformation gradient before the inverse of J.
+            REAL Fxi[3][3];
+#pragma unroll
+            for (int i = 0; i < 3; ++i)
+            {
+#pragma unroll
+                for (int K = 0; K < 3; ++K)
+                {
+                    Fxi[i][K] = 0;
                 }
             }
 #pragma unroll
@@ -149,16 +167,27 @@ extern "C" __global__ void item_forces(
 #pragma unroll
                 for (int i = 0; i < 3; ++i)
                 {
-                    gradient[a][i] = cofactor_of_J[i][0] * derivatives[(g * NODES + a) * 3] + cofactor_of_J[i][1] * derivatives[(g * NODES + a) * 3 + 1] + cofactor_of_J[i][2] * derivatives[(g * NODES + a) * 3 + 2];
+#pragma unroll
+                    for (int K = 0; K < 3; ++K)
+                    {
+                        Fxi[i][K] += x[a][i] * derivatives[(g * NODES + a) * 3 + K];
+                    }
+                }
+            }
+#pragma unroll
+            for (int i = 0; i < 3; ++i)
+            {
+#pragma unroll
+                for (int j = 0; j < 3; ++j)
+                {
+                    F[i][j] = Fxi[i][0] * JIT[j][0] + Fxi[i][1] * JIT[j][1] + Fxi[i][2] * JIT[j][2];
                 }
             }
         }
 #else
         const REAL weight = REFERENCE(POINTS * NODES * 3 + g);
-#endif
         // The deformation gradient, the sum of the outer products of the coordinates and the
         // gradient vectors of the nodes.
-        REAL F[3][3];
 #pragma unroll
         for (int i = 0; i < 3; ++i)
         {
@@ -181,6 +210,7 @@ extern "C" __global__ void item_forces(
                 }
             }
         }
+#endif
         // The cofactors, which are the Jacobian times the inverse transpose.
         REAL cofactor[3][3];
 #pragma unroll
@@ -221,9 +251,15 @@ extern "C" __global__ void item_forces(
             }
         }
         const REAL inverse_jacobian = 1 / jacobian;
-        const REAL inverse_cube_root = rcbrt(jacobian);
         const REAL third_of_trace = (b[0][0] + b[1][1] + b[2][2]) * (REAL)(1.0 / 3.0);
+#ifdef DOUBLE_PRECISION
+        const REAL inverse_cube_root = rcbrt(jacobian);
         const REAL scaling = shear_modulus * inverse_jacobian * inverse_cube_root * inverse_cube_root;
+#else
+        // A power in single precision is a few instructions on the hardware, which a reciprocal
+        // cube root is not cheaper than.
+        const REAL scaling = shear_modulus / pow(jacobian, (REAL)(5.0 / 3.0));
+#endif
         const REAL pressure = bulk_modulus * (REAL)0.5 * (jacobian - inverse_jacobian);
         REAL sigma[3][3];
 #pragma unroll
@@ -248,6 +284,29 @@ extern "C" __global__ void item_forces(
                 P[i][j] = sigma[i][0] * cofactor[0][j] + sigma[i][1] * cofactor[1][j] + sigma[i][2] * cofactor[2][j];
             }
         }
+#ifdef ON_THE_FLY
+        // The first Piola-Kirchhoff stress times the inverse transpose of J and the weight, which
+        // the derivatives of the shape functions turn into the force on each node.
+        REAL Q[3][3];
+#pragma unroll
+        for (int i = 0; i < 3; ++i)
+        {
+#pragma unroll
+            for (int K = 0; K < 3; ++K)
+            {
+                Q[i][K] = (P[i][0] * JIT[0][K] + P[i][1] * JIT[1][K] + P[i][2] * JIT[2][K]) * weight;
+            }
+        }
+#pragma unroll
+        for (int a = 0; a < NODES; ++a)
+        {
+#pragma unroll
+            for (int i = 0; i < 3; ++i)
+            {
+                f[a][i] += Q[i][0] * derivatives[(g * NODES + a) * 3] + Q[i][1] * derivatives[(g * NODES + a) * 3 + 1] + Q[i][2] * derivatives[(g * NODES + a) * 3 + 2];
+            }
+        }
+#else
 #pragma unroll
         for (int a = 0; a < NODES; ++a)
         {
@@ -257,6 +316,7 @@ extern "C" __global__ void item_forces(
                 f[a][i] += (P[i][0] * GRADIENT(a, 0) + P[i][1] * GRADIENT(a, 1) + P[i][2] * GRADIENT(a, 2)) * weight;
             }
         }
+#endif
     }
 #pragma unroll
     for (int a = 0; a < NODES; ++a)

@@ -361,7 +361,12 @@ fn run_on_host(
     let on_the_fly = gradients == GpuGradients::OnTheFly;
     let compiled = Command::new("c++")
         .current_dir(&directory)
-        .args(["-O2", "-ffp-contract=off", "-DREAL=double"])
+        .args([
+            "-O2",
+            "-ffp-contract=off",
+            "-DREAL=double",
+            "-DDOUBLE_PRECISION",
+        ])
         .args(on_the_fly.then_some("-DON_THE_FLY"))
         .args([
             &format!("-DNODES={NODES}"),
