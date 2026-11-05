@@ -295,6 +295,12 @@ impl Device {
             format!("--fmad={fmad}"),
             "--std=c++14".to_string(),
         ];
+        // The registers that a kernel uses and the bytes that it spills to local memory, which
+        // limit how many threads the device runs at once, are in the log of the compiler.
+        let verbose = std::env::var_os("CONSPIRE_GPU_VERBOSE").is_some();
+        if verbose {
+            options.push("--ptxas-options=-v".to_string());
+        }
         options.extend(
             definitions
                 .iter()
@@ -329,6 +335,13 @@ impl Device {
             let mut log = vec![0 as c_char; log_size.max(1)];
             (api.log)(program, log.as_mut_ptr());
             let log = CStr::from_ptr(log.as_ptr()).to_string_lossy().into_owned();
+            if verbose && status == 0 && !log.trim().is_empty() {
+                eprintln!(
+                    "kernels for {} ({}):\n{log}",
+                    self.name,
+                    definitions.join(" ")
+                );
+            }
             let binary = if status == 0 {
                 let mut size = 0;
                 api.check((api.binary_size)(program, &mut size), "nvrtcGetCUBINSize")
