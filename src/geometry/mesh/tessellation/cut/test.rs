@@ -171,10 +171,7 @@ pub(super) fn sphere(refinements: usize) -> Tessellation {
             })
             .collect()
     });
-    Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        Coordinates::from(coordinates),
-    )))
+    (faces, coordinates).into()
 }
 
 pub(super) fn star(refinements: usize, height: f64) -> Tessellation {
@@ -209,10 +206,7 @@ pub(super) fn star(refinements: usize, height: f64) -> Tessellation {
             faces.push([b, c, apex]);
             faces.push([c, a, apex]);
         });
-    Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        Coordinates::from(coordinates),
-    )))
+    (faces, coordinates).into()
 }
 
 pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
@@ -240,10 +234,7 @@ pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation 
         .iter()
         .flat_map(|&[a, b, c, d]| [[a, b, c], [a, c, d]])
         .collect();
-    Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        Coordinates::from(coordinates),
-    )))
+    (faces, coordinates).into()
 }
 
 pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
@@ -421,10 +412,7 @@ fn rotated_box(minimum: [f64; 3], maximum: [f64; 3], angle: f64) -> Tessellation
         .iter()
         .map(|p| rotate([p[0].value(), p[1].value(), p[2].value()]))
         .collect();
-    Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(triangles.into())],
-        Coordinates::from(coordinates),
-    )))
+    (triangles, coordinates).into()
 }
 
 fn corners_landed_on(tessellation: &Tessellation, mesh: &Mesh<3>) -> usize {

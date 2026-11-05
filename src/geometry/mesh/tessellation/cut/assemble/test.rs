@@ -1,9 +1,9 @@
-use super::super::geometry::star_volume;
 use super::super::test::{hexahedron, signed_volumes, sphere};
+use super::super::{Class, geometry::star_volume};
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh},
+        mesh::{Connectivity, Tessellation},
     },
     math::{CrossProduct, Quantity},
 };
@@ -60,15 +60,12 @@ fn agglomerate_sliver() {
         [3, 0, 4],
         [3, 4, 7],
     ];
-    let tessellation = crate::geometry::mesh::tessellation::Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(triangles.into())],
-        coordinates,
-    )));
-    let mesh = Mesh::from((
+    let tessellation = Tessellation::from((triangles, coordinates));
+    let mesh = (
         vec![Connectivity::Hexahedral(
             vec![[0, 1, 2, 3, 4, 5, 6, 7], [1, 8, 9, 2, 5, 10, 11, 6]].into(),
         )],
-        Coordinates::from(vec![
+        vec![
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [1.0, 1.0, 0.0],
@@ -81,13 +78,12 @@ fn agglomerate_sliver() {
             [2.0, 1.0, 0.0],
             [2.0, 0.0, 1.0],
             [2.0, 1.0, 1.0],
-        ]),
-    ));
+        ]
+        .into(),
+    )
+        .into();
     let classes = tessellation.classify(&mesh);
-    assert_eq!(
-        classes,
-        vec![super::super::Class::Cut, super::super::Class::Cut]
-    );
+    assert_eq!(classes, vec![Class::Cut, Class::Cut]);
     let tables = tessellation
         .tables(&mesh, &classes, &HashSet::new())
         .unwrap();
@@ -103,7 +99,7 @@ fn agglomerate_sliver() {
                 .collect();
             let volume = star_volume(&faces, result.coordinates());
             assert!(
-                (volume.value() - 0.220095389507154).abs() < 1e-12,
+                (volume - Quantity::new(0.220095389507154)).abs() < Quantity::new(1e-12),
                 "{volume}"
             );
             let signed = signed_volumes(polyhedra, result.coordinates())[0];

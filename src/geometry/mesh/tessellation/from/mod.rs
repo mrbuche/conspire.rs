@@ -4,6 +4,7 @@ pub mod test;
 mod grid;
 
 use crate::geometry::{
+    Coordinates,
     grid::Isosurface,
     mesh::{
         Connectivity, Mesh,
@@ -14,8 +15,20 @@ use std::cell::OnceCell;
 
 impl From<Isosurface> for Tessellation {
     fn from(surface: Isosurface) -> Self {
-        let connectivities = vec![Connectivity::Triangular(surface.faces.into())];
-        Tessellation::from(Mesh::from((connectivities, surface.vertices)))
+        (surface.faces, surface.vertices).into()
+    }
+}
+
+impl<C> From<(Vec<[usize; 3]>, C)> for Tessellation
+where
+    C: Into<Coordinates<D>>,
+{
+    fn from((triangles, coordinates): (Vec<[usize; 3]>, C)) -> Self {
+        Mesh::from((
+            vec![Connectivity::Triangular(triangles.into())],
+            coordinates.into(),
+        ))
+        .into()
     }
 }
 

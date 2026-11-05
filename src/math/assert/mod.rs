@@ -10,7 +10,7 @@ pub use self::{
     eq::AssertEq, error::AssertionError, fd::FiniteDifference, fd::perturbation, fd_eq::AssertFd,
 };
 
-use self::eq::{non_negative_impl, zero_impl, zero_within_tols_impl};
+use self::eq::{non_negative_impl, non_positive_impl, zero_impl, zero_within_tols_impl};
 use crate::{
     ABS_TOL, EPSILON, REL_TOL,
     math::{Scalar, Tensor},
@@ -62,6 +62,13 @@ impl Assert {
         T: Default + Display + PartialOrd,
     {
         non_negative_impl(a)
+    }
+    /// Asserts non-positivity.
+    pub fn non_positive<T>(a: &T) -> Result<(), AssertionError>
+    where
+        T: Default + Display + PartialOrd,
+    {
+        non_positive_impl(a)
     }
     /// Asserts exact equality with zero.
     pub fn zero<T>(a: &T) -> Result<(), AssertionError>

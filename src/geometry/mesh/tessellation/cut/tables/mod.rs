@@ -2,11 +2,12 @@
 mod test;
 
 use super::{
-    CROSSING_TOLERANCE, Class, DIRECTIONS, Sign, Tables, Vertex,
+    CROSSING_TOLERANCE, Class, Sign, Tables, Vertex,
     face::face_cut,
     geometry::dedupe,
     topology::{element_edges, element_faces, face_owners, oriented_element_faces},
 };
+use crate::geometry::mesh::tessellation::NORMALIZED_DIRECTIONS;
 use crate::{
     geometry::{
         Coordinate, DirectionsRef,
@@ -58,7 +59,7 @@ impl Tessellation {
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
-        let directions = DIRECTIONS.map(|direction| direction.normalized());
+        let directions = NORMALIZED_DIRECTIONS;
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
         let mut edges = HashSet::new();
@@ -197,7 +198,7 @@ impl Tessellation {
         let surface_coordinates = self.mesh().coordinates();
         let elements: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
         let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
-        let directions = DIRECTIONS.map(|direction| direction.normalized());
+        let directions = NORMALIZED_DIRECTIONS;
         let contains = |point: &Coordinate<D>| {
             self.encloses(point, surface_coordinates, &elements, &normals, &directions)
         };
@@ -269,7 +270,7 @@ impl Tessellation {
         let surface_coordinates = self.mesh().coordinates();
         let elements: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
         let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
-        let directions = DIRECTIONS.map(|direction| direction.normalized());
+        let directions = NORMALIZED_DIRECTIONS;
         let contains = |point: &Coordinate<D>| {
             self.encloses(point, surface_coordinates, &elements, &normals, &directions)
         };

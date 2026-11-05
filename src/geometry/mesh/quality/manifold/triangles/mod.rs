@@ -4,7 +4,8 @@ mod test;
 use crate::{
     ABS_TOL,
     geometry::{Coordinates, bvh::BoundingVolumeHierarchy, mesh::Mesh},
-    math::{CrossProduct, Scalar, Tensor},
+    math::{CrossProduct, Quantity, Tensor},
+    units::{Length, Volume},
 };
 
 const D: usize = 3;
@@ -39,13 +40,13 @@ fn triangles_intersect(t1: [usize; N], t2: [usize; N], coordinates: &Coordinates
     let v = t1.map(|i| &coordinates[i]);
     let u = t2.map(|i| &coordinates[i]);
     let n1 = (v[1] - v[0]).cross(v[2] - v[0]);
-    let du = u.map(|p| (&n1 * &(p - v[0])).value());
-    if du[0] * du[1] > 0.0 && du[0] * du[2] > 0.0 {
+    let du = u.map(|p| &n1 * &(p - v[0]));
+    if same_side(du[0], du[1]) && same_side(du[0], du[2]) {
         return false;
     }
     let n2 = (u[1] - u[0]).cross(u[2] - u[0]);
-    let dv = v.map(|p| (&n2 * &(p - u[0])).value());
-    if dv[0] * dv[1] > 0.0 && dv[0] * dv[2] > 0.0 {
+    let dv = v.map(|p| &n2 * &(p - u[0]));
+    if same_side(dv[0], dv[1]) && same_side(dv[0], dv[2]) {
         return false;
     }
     let direction = n1.cross(&n2);
@@ -64,25 +65,28 @@ fn triangles_intersect(t1: [usize; N], t2: [usize; N], coordinates: &Coordinates
             2
         }
     };
-    let interval1 = interval(
-        [v[0][axis].value(), v[1][axis].value(), v[2][axis].value()],
-        dv,
-    );
-    let interval2 = interval(
-        [u[0][axis].value(), u[1][axis].value(), u[2][axis].value()],
-        du,
-    );
+    let interval1 = interval([v[0][axis], v[1][axis], v[2][axis]], dv);
+    let interval2 = interval([u[0][axis], u[1][axis], u[2][axis]], du);
     interval1[0] <= interval2[1] && interval2[0] <= interval1[1]
 }
 
-fn interval(projection: [Scalar; N], distance: [Scalar; N]) -> [Scalar; 2] {
-    let (pivot, a, b) = if distance[0] * distance[1] > 0.0 {
+fn same_side(a: Quantity<Volume>, b: Quantity<Volume>) -> bool {
+    let zero = Quantity::default();
+    (a > zero && b > zero) || (a < zero && b < zero)
+}
+
+fn interval(
+    projection: [Quantity<Length>; N],
+    distance: [Quantity<Volume>; N],
+) -> [Quantity<Length>; 2] {
+    let zero = Quantity::default();
+    let (pivot, a, b) = if same_side(distance[0], distance[1]) {
         (2, 0, 1)
-    } else if distance[0] * distance[2] > 0.0 {
+    } else if same_side(distance[0], distance[2]) {
         (1, 0, 2)
-    } else if distance[1] * distance[2] > 0.0 || distance[0] != 0.0 {
+    } else if same_side(distance[1], distance[2]) || distance[0] != zero {
         (0, 1, 2)
-    } else if distance[1] != 0.0 {
+    } else if distance[1] != zero {
         (1, 0, 2)
     } else {
         (2, 0, 1)

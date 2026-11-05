@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use super::{Class, DIRECTIONS, PADDING};
+use super::{Class, PADDING};
+use crate::geometry::mesh::tessellation::NORMALIZED_DIRECTIONS;
 use crate::{
     geometry::{
         Coordinate, CoordinateList, DirectionsRef,
@@ -181,7 +182,7 @@ impl Lattice {
         let coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let normals: DirectionsRef<'_, D> = tessellation.normals().iter().flatten().collect();
-        let directions = DIRECTIONS.map(|direction| direction.normalized());
+        let directions = NORMALIZED_DIRECTIONS;
         let mut seeds: Vec<[usize; D]> = self
             .cells
             .keys()

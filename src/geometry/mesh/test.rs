@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, Tessellation},
+        mesh::{Connectivity, Mesh, Tessellation, Watertight},
     },
     math::assert::AssertionError,
 };
@@ -42,6 +42,23 @@ pub fn mesh() -> Mesh<3> {
     (connectivities, coordinates).into()
 }
 
+pub fn cuboid(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
+    let coordinates: Coordinates<3> = COORDINATES
+        .iter()
+        .map(|corner| {
+            std::array::from_fn(|axis| {
+                minimum[axis] + (maximum[axis] - minimum[axis]) * corner[axis].value()
+            })
+            .into()
+        })
+        .collect();
+    (CONNECTIVITY.to_vec(), coordinates).into()
+}
+
+pub fn solid(minimum: [f64; 3], maximum: [f64; 3]) -> Watertight {
+    Watertight::new(cuboid(minimum, maximum)).unwrap()
+}
+
 pub fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {
     let mut points = vec![[0.0, 0.0, radius]];
     for i in 1..=stacks {
@@ -80,9 +97,7 @@ pub fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {
             ring_start(stacks) + j,
         ]);
     }
-    let coordinates = Coordinates::from(points);
-    let connectivities = vec![Connectivity::Triangular(faces.into())];
-    Mesh::from((connectivities, coordinates)).into()
+    (faces, points).into()
 }
 
 pub fn mesh_with_node_sets() -> Mesh<3> {
@@ -189,9 +204,7 @@ pub fn octahedron(levels: usize) -> Tessellation {
             })
             .collect();
     }
-    let coordinates = Coordinates::from(points);
-    let connectivities = vec![Connectivity::Triangular(faces.into())];
-    Mesh::from((connectivities, coordinates)).into()
+    (faces, points).into()
 }
 
 mod node_element_connectivity {

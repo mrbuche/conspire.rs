@@ -120,3 +120,15 @@ fn assert_zero_within_tols_fail() {
         .zero_within_tols(&TensorRank1::<3, Current>::from([1.0, 0.0, 0.0]))
         .unwrap()
 }
+
+#[test]
+fn assert_non_positive_success() -> Result<(), AssertionError> {
+    Assert::non_positive(&-1.0)?;
+    Assert::non_positive(&0.0)
+}
+
+#[test]
+#[should_panic(expected = "Assertion `left <= right` failed.")]
+fn assert_non_positive_fail() {
+    Assert::non_positive(&1.0).unwrap()
+}

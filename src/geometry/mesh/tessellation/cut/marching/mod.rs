@@ -5,7 +5,8 @@ mod polyhedron;
 mod project;
 mod split;
 
-use super::{DIRECTIONS, lattice::Lattice};
+use super::lattice::Lattice;
+use crate::geometry::mesh::tessellation::NORMALIZED_DIRECTIONS;
 use crate::{
     geometry::{
         Coordinate, DirectionsRef,
@@ -167,7 +168,7 @@ impl Tessellation {
         let coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
-        let directions = DIRECTIONS.map(|direction| direction.normalized());
+        let directions = NORMALIZED_DIRECTIONS;
         let bvh = self.bvh();
         let (origin, spacing) = lattice.frame();
         let mut signs = Signs {

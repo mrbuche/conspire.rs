@@ -41,6 +41,21 @@ impl<const D: usize> Mesh<D> {
             .filter_map(|(edge, count)| (count > 2).then_some(edge))
             .collect()
     }
+    /// The directed edges traversed more than once, so two faces disagree on orientation.
+    pub fn inconsistent_edges(&self) -> Vec<[usize; 2]> {
+        let mut directed = FxHashMap::<[usize; 2], usize>::default();
+        self.iter().for_each(|block| {
+            block.iter().for_each(|element| {
+                block.element_faces(element).into_iter().for_each(|edge| {
+                    *directed.entry([edge[0], edge[1]]).or_default() += 1;
+                })
+            })
+        });
+        directed
+            .into_iter()
+            .filter_map(|(edge, count)| (count > 1).then_some(edge))
+            .collect()
+    }
     pub fn non_manifold_seams(&self) -> Vec<Vec<[usize; 2]>> {
         let edges = self.non_manifold_edges();
         let mut incident = FxHashMap::<usize, Vec<usize>>::default();

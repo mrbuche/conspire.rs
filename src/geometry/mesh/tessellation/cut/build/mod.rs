@@ -19,7 +19,7 @@ use crate::{
         },
     },
     math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec},
-    units::Length,
+    units::{Length, Volume},
 };
 use std::collections::{HashMap, HashSet};
 
@@ -39,14 +39,14 @@ fn orient_outward(polygons: &mut [Vec<usize>], clipped: usize, coordinates: &Coo
             .sum::<Coordinate<D>>()
             / polygon.len() as Scalar)
             - &centroid;
-        let outward: Scalar = (0..polygon.len())
+        let outward: Quantity<Volume> = (0..polygon.len())
             .map(|i| {
                 let one = &coordinates[polygon[i]] - &centroid;
                 let two = &coordinates[polygon[(i + 1) % polygon.len()]] - &centroid;
-                (one.cross(&two) * &middle).value()
+                one.cross(&two) * &middle
             })
             .sum();
-        if outward < 0.0 {
+        if outward < Quantity::default() {
             polygon.reverse()
         }
     });

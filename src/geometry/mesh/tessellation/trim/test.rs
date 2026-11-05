@@ -1,6 +1,5 @@
 use crate::{
     geometry::{
-        Coordinates,
         mesh::{
             Connectivity, Dualization, Fitting, Mesh, Verdict,
             tessellation::{D, Tessellation},
@@ -76,10 +75,7 @@ fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellati
             })
         })
         .collect();
-    Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        Coordinates::from(coordinates),
-    )))
+    (faces, coordinates).into()
 }
 
 #[test]

@@ -35,10 +35,12 @@ pub use self::{
     smooth::Smoothing,
     tessellation::{
         Tessellation,
+        corefine::{Constraint, Corefined, Crossing, Interfaces, Polyline, Region, Side},
         cut::{
             Class,
             marching::{Finish, Marching, Placement},
         },
+        watertight::{Defects, Watertight},
         write::Stl,
     },
     write::{Output, exodus::ExodusFormat, vtk::Vtk},

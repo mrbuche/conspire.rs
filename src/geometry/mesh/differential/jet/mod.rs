@@ -107,11 +107,7 @@ pub(crate) fn vertex_jets(
             ring.remove(&vertex);
             ring.retain(|w| !discarded.contains(w));
             let points = ring.iter().map(|&w| coordinates[w].clone()).collect();
-            fit_jet(
-                &coordinates[vertex],
-                &points,
-                &normals[vertex].clone().normalized(),
-            )
+            fit_jet(&coordinates[vertex], &points, &normals[vertex].normalized())
         })
         .collect()
 }
