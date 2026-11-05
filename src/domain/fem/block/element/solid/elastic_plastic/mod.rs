@@ -17,7 +17,7 @@ use crate::{
     },
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList, Scalar},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 pub trait ElasticPlasticFiniteElement<
     C,

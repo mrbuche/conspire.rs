@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{Tensor, Vector};
-use std::array::from_fn;
+use core::array::from_fn;
 
 pub(crate) fn removed_modes<const D: usize>(
     positions: &[[f64; D]],

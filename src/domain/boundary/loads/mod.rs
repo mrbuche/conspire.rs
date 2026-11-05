@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{domain::boundary::NodalState, math::Quantity, units::Time};
-use std::{marker::PhantomData, ops::Add};
+use core::{marker::PhantomData, ops::Add};
 
 /// External forces on the degrees of freedom of a state, which may be a function of time.
 pub trait LoadAt<X, R> {

@@ -1,6 +1,6 @@
 use crate::math::{Erase, Quantity};
 use crate::units::{Dimensionless, Stress, UnitDiv};
-use std::ops::{Div, Mul};
+use core::ops::{Div, Mul};
 
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic::internal_variables::ElasticIV},
@@ -373,7 +373,7 @@ where
     for<'a> &'a CscMatrix: Mul<&'a V, Output = Vector>,
 {
     fn internal_variables_initial(&self, constitutive_model: &C) -> InternalVariables<G, V> {
-        std::array::from_fn(|_| constitutive_model.internal_variables_initial()).into()
+        core::array::from_fn(|_| constitutive_model.internal_variables_initial()).into()
     }
     fn internal_variables_root(
         &self,

@@ -343,7 +343,7 @@ mod dynamics {
         },
         units::{Density, Time, VolumetricHeatCapacity},
     };
-    use std::f64::consts::FRAC_PI_2;
+    use core::f64::consts::FRAC_PI_2;
     const DENSITY: Quantity<Density> = Density::kilograms_per_cubic_meter(7.8e3);
     const HEAT_CAPACITY: f64 = 3.0e6;
     const STRETCH_RATE: f64 = 0.01;

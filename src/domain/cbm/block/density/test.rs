@@ -115,7 +115,7 @@ fn the_solid_angle_mass_of_a_corner_particle_is_its_share_of_the_tetrahedron()
     let (connectivity, coordinates) = problem();
     let block = Block::from(((), LEFT, connectivity, &coordinates, Weighting::SolidAngle));
     let masses = Model::from((block, problem().1)).nodal_lumped_masses();
-    let octant = std::f64::consts::FRAC_PI_2;
+    let octant = core::f64::consts::FRAC_PI_2;
     let other = 2.0 * (1.0 / (3.0 + 2.0 * 2.0_f64.sqrt())).atan();
     let share = octant / (octant + 3.0 * other);
     Assert::default().eq_within_tols(masses[0], &(LEFT * Volume::cubic_meters(share / 6.0)))

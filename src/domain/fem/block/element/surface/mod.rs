@@ -15,7 +15,7 @@ use crate::{
     },
     units::{Area, ForcePerLength, Length, Rate, Stress, Volume},
 };
-use std::fmt::{self, Debug, Formatter};
+use core::fmt::{self, Debug, Formatter};
 
 const M: usize = 2;
 

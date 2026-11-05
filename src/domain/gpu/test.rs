@@ -889,3 +889,109 @@ fn library_stress_on_the_device_is_the_stress_of_the_library() {
         "the largest difference is {worst} of stresses up to {largest}"
     );
 }
+
+/// The elements of the library run on the device: the nodal forces that the library computes for
+/// the elements of a block on the calling thread are those that the device computes with the
+/// same code, from the bytes of the same elements, one of which is inverted.
+#[test]
+fn library_element_forces_on_the_device_are_the_forces_of_the_library() {
+    use crate::domain::solid::elastic::ElasticItems;
+    let device = match super::cuda::Device::new(0) {
+        Ok(device) => device,
+        Err(GpuError::Unavailable(message)) => {
+            println!("skipped: no device ({message})");
+            return;
+        }
+        Err(error) => panic!("{error}"),
+    };
+    device.bind().unwrap();
+    let module = device
+        .module_from_ptx(include_str!("../../../gpu-kernels/kernels.ptx"))
+        .unwrap();
+    let kernel = module.function("neo_hookean_hexahedron_forces").unwrap();
+    let cells = 4;
+    let (model, reference) = grid(cells);
+    let mut current = deformed(&reference);
+    // Collapsing the nodes of the last element onto one point inverts it.
+    let inverted = hexahedra(cells).last().copied().unwrap();
+    let point = current[inverted[0]].clone();
+    inverted
+        .iter()
+        .for_each(|&node| current[node] = point.clone());
+    let block = &model.blocks;
+    let elements = block.elements();
+    let count = elements.len();
+    // SAFETY: the elements are plain numbers, which the device reads as the bytes that they are.
+    let bytes = unsafe {
+        std::slice::from_raw_parts(
+            elements.as_ptr().cast::<u8>(),
+            std::mem::size_of_val(elements),
+        )
+    };
+    let elements_buffer = device.buffer_of(bytes).unwrap();
+    let connectivity = device
+        .buffer_of(
+            &block
+                .connectivity()
+                .iter()
+                .flat_map(|nodes| nodes.iter().map(|&node| node as u32))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+    let coordinates = device.buffer_of(&components(&current)).unwrap();
+    let forces = device.buffer::<f64>(24 * count).unwrap();
+    let failures = device.buffer::<u32>(count).unwrap();
+    let launched = count as u32;
+    let (shear_modulus, bulk_modulus) = (3.0e9, 13.0e9);
+    device
+        .launch(
+            &kernel,
+            count,
+            64,
+            &[
+                &elements_buffer,
+                &connectivity,
+                &coordinates,
+                &forces,
+                &failures,
+                &launched,
+                &shear_modulus,
+                &bulk_modulus,
+            ],
+        )
+        .unwrap();
+    device.synchronize().unwrap();
+    let mut found = vec![0.0; 24 * count];
+    let mut failed = vec![0_u32; count];
+    forces.download(&mut found).unwrap();
+    failures.download(&mut failed).unwrap();
+    let mut largest = 0.0_f64;
+    let mut worst = 0.0_f64;
+    for item in 0..count {
+        match block.forces_of(item, &current) {
+            Ok(expected) => {
+                assert_eq!(failed[item], 0, "{item}");
+                expected.iter().enumerate().for_each(|(a, force)| {
+                    force.iter().enumerate().for_each(|(i, component)| {
+                        let value = component.value();
+                        largest = largest.max(value.abs());
+                        worst = worst.max((found[24 * item + 3 * a + i] - value).abs());
+                    })
+                });
+            }
+            Err(_) => {
+                assert_eq!(failed[item], 1, "{item}");
+                assert!(found[24 * item..24 * item + 24].iter().all(|&x| x == 0.0));
+            }
+        }
+    }
+    assert_eq!(failed[count - 1], 1, "the inverted element must fail");
+    assert!(
+        largest > 1e3,
+        "the forces are not small enough to be nothing"
+    );
+    assert!(
+        worst < 1e-10 * largest,
+        "the largest difference is {worst} of forces up to {largest}"
+    );
+}

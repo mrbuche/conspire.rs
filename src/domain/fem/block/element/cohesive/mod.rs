@@ -10,7 +10,7 @@ use crate::{
     mechanics::{CurrentCoordinate, NormalGradients},
     units::Area,
 };
-use std::fmt::{self, Debug, Formatter};
+use core::fmt::{self, Debug, Formatter};
 
 pub type Separation = CurrentCoordinate;
 pub type Separations<const P: usize> = ElementNodalCoordinates<P>;

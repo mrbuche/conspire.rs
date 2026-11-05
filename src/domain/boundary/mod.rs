@@ -20,7 +20,7 @@ use crate::{
         Temperature as TemperatureUnit, Velocity as VelocityUnit,
     },
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// How the degrees of freedom are laid out, `STRIDE` to a node, indexed as `STRIDE * node + offset`.
 pub trait Layout {

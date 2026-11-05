@@ -34,7 +34,7 @@ macro_rules! test_thermoelastic_thermal_conduction_rate_element {
                 math::assert::{Assert, AssertionError, perturbation},
                 units::{Length, Temperature, Velocity},
             };
-            use std::array::from_fn;
+            use core::array::from_fn;
             fn model() -> Canonical<AlmansiHamel, Fourier> {
                 (
                     AlmansiHamel {

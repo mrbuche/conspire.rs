@@ -10,7 +10,7 @@ use crate::{
     },
     units::Time,
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Degrees of freedom held at values, each given by its index.
 ///

@@ -1,18 +1,29 @@
 #[cfg(test)]
 pub(crate) mod test;
 
+#[cfg(feature = "fem")]
 mod density;
+#[cfg(feature = "fem")]
 pub(crate) mod diffusion;
+#[cfg(feature = "fem")]
 pub mod electrical;
 pub mod element;
+#[cfg(feature = "fem")]
 pub mod mass;
+#[cfg(feature = "fem")]
 pub mod multiphysics;
+#[cfg(feature = "fem")]
 pub mod solid;
+#[cfg(feature = "fem")]
 pub mod surface;
+#[cfg(feature = "fem")]
 pub mod thermal;
+#[cfg(feature = "fem")]
 mod time_scale;
+#[cfg(feature = "fem")]
 pub mod volume;
 
+#[cfg(feature = "fem")]
 use crate::{
     domain::block::{element::Items, trimmed_type_name},
     fem::{
@@ -26,11 +37,15 @@ use crate::{
     math::{Quantity, TensorRank1List, TensorRank1Vec},
     units::Volume,
 };
-use std::fmt::{self, Debug, Formatter};
+#[cfg(feature = "fem")]
+use core::fmt::{self, Debug, Formatter};
 
+#[cfg(feature = "fem")]
 pub use density::{Densities, DensityField, ElementDensities, NoDensity};
+#[cfg(feature = "fem")]
 pub use thermal::capacity::{ElementHeatCapacities, HeatCapacities, NoHeatCapacity};
 
+#[cfg(feature = "fem")]
 pub struct Block<
     C,
     F,
@@ -48,6 +63,7 @@ pub struct Block<
     heat_capacity: H,
 }
 
+#[cfg(feature = "fem")]
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
     Block<C, F, G, M, N, P, R, H>
 where
@@ -76,6 +92,7 @@ where
     }
 }
 
+#[cfg(feature = "fem")]
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> Debug
     for Block<C, F, G, M, N, P, R, H>
 where
@@ -91,6 +108,7 @@ where
     }
 }
 
+#[cfg(feature = "fem")]
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> Items
     for Block<C, F, G, M, N, P, R, H>
 where
@@ -104,6 +122,7 @@ where
     }
 }
 
+#[cfg(feature = "fem")]
 impl<C, F, const G: usize, const N: usize, const P: usize>
     From<(
         C,
@@ -134,6 +153,7 @@ where
     }
 }
 
+#[cfg(feature = "fem")]
 impl<C, F, const G: usize, const N: usize, const P: usize>
     From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<3>)> for Block<C, F, G, 3, N, P>
 where
@@ -155,6 +175,7 @@ where
     }
 }
 
+#[cfg(feature = "fem")]
 impl<C, F, const G: usize, const N: usize, const P: usize>
     From<(
         C,
@@ -185,6 +206,7 @@ where
     }
 }
 
+#[cfg(feature = "fem")]
 impl<C, F, const G: usize, const N: usize, const P: usize>
     From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<2>)> for Block<C, F, G, 2, N, P>
 where

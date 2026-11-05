@@ -22,7 +22,7 @@ use crate::{
     vem::{NodalCoordinates, NodalReferenceCoordinates, NodalVelocities},
 };
 
-use std::fmt::{self, Debug, Display, Formatter};
+use core::fmt::{self, Debug, Display, Formatter};
 
 pub type ElementNodalCoordinates = NodalCoordinates;
 pub type ElementNodalVelocities = NodalVelocities;

@@ -16,7 +16,7 @@ use crate::{
     },
     units::{Dimensionless, Energy, UnitDiv},
 };
-use std::ops::{Div, Mul};
+use core::ops::{Div, Mul};
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E, R, H>
     HyperelasticIVElements<G, V, 3> for Block<C, F, G, M, N, P, R, H>

@@ -11,6 +11,15 @@
     all(not(feature = "std"), target_arch = "nvptx64"),
     feature(stdarch_nvptx)
 )]
+// The elements alone, which is how the library is built as code for a device, leave unused
+// what the host uses with them.
+#![cfg_attr(
+    all(
+        feature = "elements",
+        not(any(feature = "cbm", feature = "fem", feature = "vem"))
+    ),
+    allow(dead_code)
+)]
 
 extern crate alloc;
 
@@ -29,11 +38,16 @@ pub use domain::cbm;
 #[cfg(feature = "constitutive")]
 pub mod constitutive;
 
-#[cfg(any(feature = "cbm", feature = "fem", feature = "vem"))]
+#[cfg(any(
+    feature = "cbm",
+    feature = "elements",
+    feature = "fem",
+    feature = "vem"
+))]
 #[path = "domain/mod.rs"]
 pub mod domain;
 
-#[cfg(feature = "fem")]
+#[cfg(any(feature = "elements", feature = "fem"))]
 #[doc(hidden)]
 pub use domain::fem;
 

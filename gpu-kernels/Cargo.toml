@@ -6,7 +6,7 @@ publish = false
 version = "0.0.0"
 
 [dependencies]
-conspire = { path = "..", default-features = false, features = ["constitutive"] }
+conspire = { path = "..", default-features = false, features = ["elements"] }
 
 [lib]
 crate-type = ["cdylib"]

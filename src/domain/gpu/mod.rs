@@ -12,7 +12,7 @@ mod test;
 pub(crate) use resident::Resident;
 
 use crate::constitutive::solid::elastic::GpuModel;
-use std::fmt::{self, Display, Formatter};
+use core::fmt::{self, Display, Formatter};
 
 /// The floating-point type that a device computes with.
 ///
@@ -86,7 +86,7 @@ impl Display for GpuError {
     }
 }
 
-impl std::error::Error for GpuError {}
+impl core::error::Error for GpuError {}
 
 /// A block of elements as a device takes it: plain arrays, in the order of the elements.
 pub struct GpuItems {

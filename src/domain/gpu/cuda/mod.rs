@@ -23,7 +23,7 @@ const RTLD_NOW: c_int = 2;
 const COMPUTE_CAPABILITY_MAJOR: c_int = 75;
 const COMPUTE_CAPABILITY_MINOR: c_int = 76;
 
-type Result<T> = std::result::Result<T, GpuError>;
+type Result<T> = core::result::Result<T, GpuError>;
 type Context = *mut c_void;
 type DevicePointer = u64;
 type Program = *mut c_void;
@@ -442,7 +442,7 @@ macro_rules! scalar_argument {
     ($($type:ty),*) => {$(
         impl Argument for $type {
             fn pointer(&self) -> *mut c_void {
-                std::ptr::from_ref(self).cast_mut().cast()
+                core::ptr::from_ref(self).cast_mut().cast()
             }
         }
     )*};
@@ -460,7 +460,7 @@ pub struct Buffer<T> {
 
 impl<T> Argument for Buffer<T> {
     fn pointer(&self) -> *mut c_void {
-        std::ptr::from_ref(&self.pointer).cast_mut().cast()
+        core::ptr::from_ref(&self.pointer).cast_mut().cast()
     }
 }
 
@@ -477,7 +477,7 @@ impl<T: Copy> Buffer<T> {
                 (self.api.upload)(
                     self.pointer,
                     values.as_ptr().cast(),
-                    std::mem::size_of_val(values),
+                    core::mem::size_of_val(values),
                 )
             },
             "cuMemcpyHtoD",
@@ -495,7 +495,7 @@ impl<T: Copy> Buffer<T> {
                 (self.api.download)(
                     values.as_mut_ptr().cast(),
                     self.pointer,
-                    std::mem::size_of_val(values),
+                    core::mem::size_of_val(values),
                 )
             },
             "cuMemcpyDtoH",

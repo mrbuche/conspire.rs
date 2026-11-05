@@ -9,6 +9,9 @@
 
 use conspire::{
     constitutive::solid::{elastic::Elastic, hyperelastic::NeoHookean},
+    fem::block::element::{
+        ElementNodalCoordinates, linear::Hexahedron, solid::elastic::ElasticElement,
+    },
     math::Tensor,
     mechanics::DeformationGradient,
     units::Stress,
@@ -107,6 +110,72 @@ pub unsafe extern "ptx-kernel" fn neo_hookean_stress(
                     row.iter()
                         .enumerate()
                         .for_each(|(j, component)| output[3 * i + j] = component.value())
+                });
+                *failure = 0;
+            }
+            Err(_) => {
+                output.iter_mut().for_each(|value| *value = 0.0);
+                *failure = 1;
+            }
+        }
+    }
+}
+
+/// The nodal forces of hexahedra of a Neo-Hookean solid, by the code of the library, one element
+/// to a thread.
+///
+/// The elements are those of the library, as the bytes that they are on the host, so each has
+/// the gradient vectors and weights that it was made with. The nodes of an element are eight
+/// numbers, and its forces are twenty-four values, by node and then component, for each. An
+/// element whose Jacobian is not positive gives forces of zeros and a one in `failures`.
+///
+/// # Safety
+///
+/// `elements` must be `count` hexahedra, `connectivity` must be `8 * count` nodes that
+/// `coordinates` has, `forces` must have `24 * count` values, and `failures` must have `count`.
+#[unsafe(no_mangle)]
+pub unsafe extern "ptx-kernel" fn neo_hookean_hexahedron_forces(
+    elements: *const Hexahedron,
+    connectivity: *const u32,
+    coordinates: *const f64,
+    forces: *mut f64,
+    failures: *mut u32,
+    count: u32,
+    shear_modulus: f64,
+    bulk_modulus: f64,
+) {
+    let index = thread();
+    if index < count as usize {
+        // SAFETY: the index is within the elements, nodes, forces and failures that there are.
+        let (element, nodes, output, failure) = unsafe {
+            (
+                &*elements.add(index),
+                core::slice::from_raw_parts(connectivity.add(8 * index), 8),
+                core::slice::from_raw_parts_mut(forces.add(24 * index), 24),
+                &mut *failures.add(index),
+            )
+        };
+        let model = NeoHookean {
+            bulk_modulus: Stress::pascals(bulk_modulus),
+            shear_modulus: Stress::pascals(shear_modulus),
+        };
+        let mut positions = [[0.0; 3]; 8];
+        positions
+            .iter_mut()
+            .zip(nodes)
+            .for_each(|(position, &node)| {
+                // SAFETY: the node is one that `coordinates` has.
+                let node =
+                    unsafe { core::slice::from_raw_parts(coordinates.add(3 * node as usize), 3) };
+                position.copy_from_slice(node)
+            });
+        match element.nodal_forces(&model, &ElementNodalCoordinates::<8>::from(positions)) {
+            Ok(nodal_forces) => {
+                nodal_forces.iter().enumerate().for_each(|(a, force)| {
+                    force
+                        .iter()
+                        .enumerate()
+                        .for_each(|(i, component)| output[3 * a + i] = component.value())
                 });
                 *failure = 0;
             }

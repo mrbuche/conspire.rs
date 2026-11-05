@@ -6,7 +6,7 @@ use crate::{
     domain::block::add_node_neighbors,
     math::{Style, StyledError, assert::AssertionError, defeat_message},
 };
-use std::{
+use core::{
     fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
 };
@@ -52,9 +52,20 @@ pub enum ElementError<K> {
     Upstream(String, String, PhantomData<K>),
 }
 
+#[cfg(feature = "std")]
 impl<K> ElementError<K> {
     pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
         Self::Upstream(format!("{error}"), format!("{context:?}"), PhantomData)
+    }
+}
+
+/// Without the standard library, which is how the library is built as code for a device, there
+/// is no heap to make the text of an error in, so an error is its kind, and whatever runs the
+/// code on the host can say more.
+#[cfg(not(feature = "std"))]
+impl<K> ElementError<K> {
+    pub fn upstream(_: impl Display, _: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(String::new(), String::new(), PhantomData)
     }
 }
 
@@ -100,4 +111,4 @@ impl<K: ElementKind> Display for ElementError<K> {
     }
 }
 
-impl<K: ElementKind> std::error::Error for ElementError<K> {}
+impl<K: ElementKind> core::error::Error for ElementError<K> {}

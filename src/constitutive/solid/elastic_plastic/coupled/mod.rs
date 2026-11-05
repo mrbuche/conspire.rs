@@ -7,7 +7,7 @@ mod monolithic;
 mod sensitivities;
 
 pub(crate) use condensed::{condensed, solve, updated_state};
-#[cfg(feature = "fem")]
+#[cfg(any(feature = "elements", feature = "fem"))]
 pub(crate) use monolithic::{Monolithic, monolithic_evaluate};
 pub(crate) use monolithic::{
     monolithic_plastic, monolithic_residual_local, monolithic_state, monolithic_tangents,
