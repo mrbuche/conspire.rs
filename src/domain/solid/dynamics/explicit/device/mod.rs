@@ -14,6 +14,7 @@ use crate::{
     math::{Quantity, Tensor, integrate::IntegrationError},
     units::Time,
 };
+use std::time::Duration;
 
 /// The components of the nodes, as `3 * node + component`.
 fn flatten<T, U>(nodes: &T) -> Vec<f64>
@@ -45,21 +46,37 @@ pub trait DeviceExplicitDynamics {
         steps: usize,
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         conditions: &impl ConstrainAt<Solid<3>>,
-    ) -> Result<(NodalCoordinates<3>, NodalVelocities<3>), IntegrationError>;
+    ) -> Result<(NodalCoordinates<3>, NodalVelocities<3>), IntegrationError> {
+        self.integrate_on_device_timed(options, dt, steps, initial_state, conditions)
+            .map(|(state, _)| state)
+    }
+    /// Takes the steps of [`integrate_on_device`](Self::integrate_on_device), and also returns
+    /// how long they took on the device: from when the device has the state and the kernels
+    /// ready, which the setup of the run does, to when the last step is done. The setup of
+    /// a run is large next to a step, and it varies, so the cost of a step is better read
+    /// from this than from the time of the call.
+    fn integrate_on_device_timed(
+        &self,
+        options: GpuOptions,
+        dt: Quantity<Time>,
+        steps: usize,
+        initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
+        conditions: &impl ConstrainAt<Solid<3>>,
+    ) -> Result<((NodalCoordinates<3>, NodalVelocities<3>), Duration), IntegrationError>;
 }
 
 impl<B> DeviceExplicitDynamics for Model<B, 3>
 where
     B: ParallelElasticElements<3> + LumpedMassElements<3>,
 {
-    fn integrate_on_device(
+    fn integrate_on_device_timed(
         &self,
         options: GpuOptions,
         dt: Quantity<Time>,
         steps: usize,
         (mut coordinates, velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         conditions: &impl ConstrainAt<Solid<3>>,
-    ) -> Result<(NodalCoordinates<3>, NodalVelocities<3>), IntegrationError> {
+    ) -> Result<((NodalCoordinates<3>, NodalVelocities<3>), Duration), IntegrationError> {
         let masses = Lumped.masses(self);
         let (inverse, velocities, motion) = Motion::held(
             &masses,
@@ -79,7 +96,7 @@ where
         let mut blocks = Vec::new();
         self.gpu_blocks(&mut blocks).map_err(error)?;
         let mut resident = Resident::new(options, &blocks, &self.coordinates).map_err(error)?;
-        let (coordinates, velocities) = resident
+        let (coordinates, velocities, stepping) = resident
             .integrate(
                 &inverse.per_degree_of_freedom::<3>(),
                 &flatten(&coordinates),
@@ -89,6 +106,9 @@ where
             )
             .map_err(error)?;
         let unflatten = |values: Vec<f64>| -> Vec<[f64; 3]> { values.as_chunks::<3>().0.to_vec() };
-        Ok((unflatten(coordinates).into(), unflatten(velocities).into()))
+        Ok((
+            (unflatten(coordinates).into(), unflatten(velocities).into()),
+            stepping,
+        ))
     }
 }

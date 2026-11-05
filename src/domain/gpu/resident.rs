@@ -10,6 +10,8 @@ use crate::{
     math::{Quantity, Tensor},
 };
 
+use std::time::{Duration, Instant};
+
 const KERNELS: &str = include_str!("kernel.cu");
 const DYNAMICS: &str = include_str!("dynamics.cu");
 const THREADS_PER_BLOCK: usize = 128;
@@ -98,7 +100,7 @@ impl Resident {
         velocities: &[f64],
         dt: f64,
         steps: usize,
-    ) -> Result<(Vec<f64>, Vec<f64>), GpuError> {
+    ) -> Result<(Vec<f64>, Vec<f64>, Duration), GpuError> {
         match self {
             Self::Single(state) => state.integrate(masses, coordinates, velocities, dt, steps),
             Self::Double(state) => state.integrate(masses, coordinates, velocities, dt, steps),
@@ -334,7 +336,7 @@ impl<R: Real> State<R> {
         velocities: &[f64],
         dt: f64,
         steps: usize,
-    ) -> Result<(Vec<f64>, Vec<f64>), GpuError> {
+    ) -> Result<(Vec<f64>, Vec<f64>, Duration), GpuError> {
         let count = 3 * self.nodes;
         if [masses.len(), coordinates.len(), velocities.len()] != [count; 3] {
             return Err(GpuError::Unsupported(format!(
@@ -356,6 +358,9 @@ impl<R: Real> State<R> {
         let accelerate = module.function("accelerate")?;
         let (count, dt) = (count as u32, R::from_f64(dt));
         let (first, kick) = (0_u32, 1_u32);
+        // Everything above is the setup of the run, which is waited for so that it is not timed.
+        self.device.synchronize()?;
+        let started = Instant::now();
         // The accelerations at the start, which do not change the velocities.
         self.launch_forces()?;
         self.device.launch(
@@ -399,13 +404,18 @@ impl<R: Real> State<R> {
             }
         }
         self.device.synchronize()?;
+        let stepping = started.elapsed();
         self.check_failures()?;
         let mut final_coordinates = vec![R::default(); count as usize];
         let mut final_velocities = vec![R::default(); count as usize];
         self.coordinates.download(&mut final_coordinates)?;
         velocities.download(&mut final_velocities)?;
         let to_host = |values: Vec<R>| values.into_iter().map(Real::to_f64).collect();
-        Ok((to_host(final_coordinates), to_host(final_velocities)))
+        Ok((
+            to_host(final_coordinates),
+            to_host(final_velocities),
+            stepping,
+        ))
     }
     fn nodal_forces_into(
         &mut self,

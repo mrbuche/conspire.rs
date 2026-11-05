@@ -168,31 +168,35 @@ fn marginal(short: usize, long: usize, mut run: impl FnMut(usize)) -> (f64, f64)
     (step, short_time - short as f64 * step)
 }
 
-/// The cost of a step and of the setup of a run on a device, in milliseconds.
+/// The cost of a step and of the setup of a run on a device, in milliseconds, from a `run` of a
+/// number of steps that returns how long its steps took on the device and how long the whole
+/// run took, both in milliseconds.
 ///
-/// The setup is the time of a run of no steps. A run is then made long enough that its steps
-/// take about a second or more, so that the jitter of the setup, which is tens of milliseconds,
-/// is a few percent of what is timed whatever the cost of a step, which is a few microseconds
-/// for a fast kernel on a small grid.
-fn device_cost(mut run: impl FnMut(usize)) -> (f64, f64) {
-    let mut median_of =
-        |steps| median((0..repetitions()).map(|_| time_of(|| run(steps))).collect());
-    let setup = median_of(0);
+/// The steps are timed by the device, from when the setup of the run is done, so the setup, which
+/// is large and varies, is not subtracted from anything. The number of steps is found by trying,
+/// until they take about a second, and that run is then repeated. The cost of a step is that of
+/// the fastest repetition, since whatever else is using the machine can only slow a run, and the
+/// setup is the time of the whole run that is not the steps, at the median.
+fn device_cost(mut run: impl FnMut(usize) -> (f64, f64)) -> (f64, f64) {
     let mut steps = 200;
     loop {
-        let stepping = median_of(steps) - setup;
-        if stepping >= 1000.0 || steps >= 4_000_000 {
-            return (stepping / steps as f64, setup);
+        let (stepping, _) = run(steps);
+        if stepping >= 500.0 || steps >= 4_000_000 {
+            break;
         }
-        // Ten times the steps if what is timed is lost in the jitter, and otherwise as many as
-        // take about two seconds.
-        steps = if stepping < 50.0 {
+        // Ten times the steps if what is timed is lost in the clock, and otherwise as many as
+        // take about a second and a half.
+        steps = if stepping < 20.0 {
             steps * 10
         } else {
-            (steps as f64 * 2000.0 / stepping) as usize
+            (steps as f64 * 1500.0 / stepping) as usize
         }
         .min(4_000_000);
     }
+    let runs = (0..repetitions()).map(|_| run(steps)).collect::<Vec<_>>();
+    let stepping = runs.iter().map(|run| run.0).fold(f64::INFINITY, f64::min);
+    let setup = median(runs.iter().map(|run| run.1 - run.0).collect());
+    (stepping / steps as f64, setup)
 }
 
 /// The steps of the runs that keep a history, which is large, so fewer for larger grids.
@@ -279,7 +283,20 @@ fn compare(cells: usize) -> bool {
     });
     let timed = |precision, gradients| {
         device_cost(|steps| {
-            device(precision, gradients, steps).unwrap();
+            let start = Instant::now();
+            let (_, stepping) = model
+                .integrate_on_device_timed(
+                    options(precision, gradients),
+                    Time::seconds(STEP),
+                    steps,
+                    (current.clone(), velocities()),
+                    &conditions,
+                )
+                .unwrap();
+            (
+                stepping.as_secs_f64() * 1e3,
+                start.elapsed().as_secs_f64() * 1e3,
+            )
         })
     };
     let (double, double_setup) = timed(GpuPrecision::F64, GpuGradients::Stored);
