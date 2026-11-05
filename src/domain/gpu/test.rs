@@ -103,7 +103,7 @@ int main(int, char **argv)
                { item_forces(items, connectivity.data(), reference.data(), coordinates.data(),
                              per_item.data(), &failure, moduli[0], moduli[1]); });
         launch(gathered, [&]()
-               { gather(gathered, offsets.data(), contributions.data(), per_item.data(), forces.data()); });
+               { gather(gathered, items, offsets.data(), contributions.data(), per_item.data(), forces.data()); });
     };
     evaluate();
     if (steps > 0)
@@ -280,6 +280,42 @@ fn block_is_described_to_the_device() {
         .for_each(|&contribution| assert!((contribution as usize) < cells.pow(3) * NODES));
 }
 
+#[test]
+fn device_layout_puts_the_element_last() {
+    let (model, _) = grid(3);
+    let mut blocks = Vec::new();
+    model.gpu_blocks(&mut blocks).unwrap();
+    let block = &blocks[0];
+    let items = block.number_of_items();
+    let layout = block.device_layout();
+    assert_eq!(layout.connectivity.len(), block.connectivity.len());
+    assert_eq!(layout.reference.len(), block.reference.len());
+    assert_eq!(layout.contributions.len(), block.contributions.len());
+    for item in 0..items {
+        for position in 0..NODES {
+            assert_eq!(
+                layout.connectivity[position * items + item],
+                block.connectivity[item * NODES + position]
+            );
+        }
+        for value in 0..REFERENCE_SIZE {
+            assert_eq!(
+                layout.reference[value * items + item],
+                block.reference[item * REFERENCE_SIZE + value]
+            );
+        }
+    }
+    // A contribution names the same element and position as before, as position then element.
+    block
+        .contributions
+        .iter()
+        .zip(&layout.contributions)
+        .for_each(|(&before, &after)| {
+            let (item, position) = (before as usize / NODES, before as usize % NODES);
+            assert_eq!(after as usize, position * items + item);
+        });
+}
+
 /// Runs the kernels on the host as C++, from the blocks of the model, and returns whether an
 /// element failed and what the harness wrote: the forces if there are no steps, and otherwise
 /// the coordinates and then the velocities at the end.
@@ -331,16 +367,18 @@ fn run_on_host(
     push(&(coordinates.len() as u32).to_le_bytes());
     push(&((block.offsets.len() - 1) as u32).to_le_bytes());
     push(&(steps as u32).to_le_bytes());
-    block
+    // What the kernels are given is the layout that the device has, which the harness reads.
+    let layout = block.device_layout();
+    layout
         .connectivity
         .iter()
         .for_each(|x| push(&x.to_le_bytes()));
     block.offsets.iter().for_each(|x| push(&x.to_le_bytes()));
-    block
+    layout
         .contributions
         .iter()
         .for_each(|x| push(&x.to_le_bytes()));
-    block.reference.iter().for_each(|x| push(&x.to_le_bytes()));
+    layout.reference.iter().for_each(|x| push(&x.to_le_bytes()));
     components(coordinates)
         .iter()
         .for_each(|x| push(&x.to_le_bytes()));

@@ -158,7 +158,8 @@ impl<R: Real> State<R> {
                 R::FUSED,
             )?;
             let items = block.number_of_items();
-            let reference = block
+            let layout = block.device_layout();
+            let reference = layout
                 .reference
                 .iter()
                 .map(|&x| R::from_f64(x))
@@ -168,10 +169,10 @@ impl<R: Real> State<R> {
                 nodes: (block.offsets.len() - 1) as u32,
                 shear_modulus: R::from_f64(shear_modulus),
                 bulk_modulus: R::from_f64(bulk_modulus),
-                connectivity: device.buffer_of(&block.connectivity)?,
+                connectivity: device.buffer_of(&layout.connectivity)?,
                 reference: device.buffer_of(&reference)?,
                 offsets: device.buffer_of(&block.offsets)?,
-                contributions: device.buffer_of(&block.contributions)?,
+                contributions: device.buffer_of(&layout.contributions)?,
                 item_forces: device.buffer(items * block.nodes_per_item * 3)?,
                 failure: device.buffer::<u32>(1)?,
                 forces_kernel: module.function("item_forces")?,
@@ -220,6 +221,7 @@ impl<R: Real> State<R> {
                 THREADS_PER_BLOCK,
                 &[
                     &block.nodes,
+                    &block.items,
                     &block.offsets,
                     &block.contributions,
                     &block.item_forces,

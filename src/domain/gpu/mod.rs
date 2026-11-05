@@ -86,6 +86,8 @@ pub struct GpuItems {
     /// The offsets of the contributions to each node, from the index of the elements.
     pub offsets: Vec<u32>,
     /// The contributions to the nodes, as `nodes_per_item * element + position of the node`.
+    /// These arrays are by element, and [`device_layout`](Self::device_layout) puts the
+    /// element last for the kernels.
     pub contributions: Vec<u32>,
 }
 
@@ -93,4 +95,51 @@ impl GpuItems {
     pub fn number_of_items(&self) -> usize {
         self.connectivity.len() / self.nodes_per_item
     }
+    /// The arrays as the kernels read them, with the element last, so that the threads of a
+    /// warp, which are consecutive elements, read consecutive addresses.
+    pub(crate) fn device_layout(&self) -> DeviceLayout {
+        let items = self.number_of_items();
+        let reference_size = self.reference.len() / items.max(1);
+        DeviceLayout {
+            connectivity: transpose(&self.connectivity, self.nodes_per_item, items),
+            reference: transpose(&self.reference, reference_size, items),
+            // The position of the node in the element, then the element, instead of the
+            // element and then the position.
+            contributions: self
+                .contributions
+                .iter()
+                .map(|&contribution| {
+                    let (item, local) = (
+                        contribution as usize / self.nodes_per_item,
+                        contribution as usize % self.nodes_per_item,
+                    );
+                    (local * items + item) as u32
+                })
+                .collect(),
+        }
+    }
+}
+
+/// The arrays of a block as the kernels read them.
+pub(crate) struct DeviceLayout {
+    /// The node of each element, as `position * items + item`.
+    pub connectivity: Vec<u32>,
+    /// The reference values of each element, as `value * items + item`.
+    pub reference: Vec<f64>,
+    /// The contributions to the nodes, as `position * items + item`.
+    pub contributions: Vec<u32>,
+}
+
+/// `values`, which are `width` for each of `items`, with the item last instead of first.
+fn transpose<T: Copy + Default>(values: &[T], width: usize, items: usize) -> Vec<T> {
+    let mut transposed = vec![T::default(); values.len()];
+    values
+        .chunks_exact(width.max(1))
+        .enumerate()
+        .for_each(|(item, row)| {
+            row.iter()
+                .enumerate()
+                .for_each(|(value, &x)| transposed[value * items + item] = x)
+        });
+    transposed
 }
