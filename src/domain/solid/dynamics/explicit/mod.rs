@@ -17,10 +17,14 @@ use crate::{
     units::Time,
 };
 
+#[cfg(feature = "gpu")]
+mod device;
 mod execution;
 mod stability;
 
 pub use crate::domain::solid::mass::{Consistent, Lumped, MassChoice};
+#[cfg(feature = "gpu")]
+pub use device::DeviceExplicitDynamics;
 pub use execution::Execution;
 pub use stability::{Checked, Stability, Unchecked};
 

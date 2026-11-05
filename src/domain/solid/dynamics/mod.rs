@@ -5,6 +5,8 @@ mod explicit;
 mod implicit;
 mod motion;
 
+#[cfg(feature = "gpu")]
+pub use explicit::DeviceExplicitDynamics;
 pub use explicit::{
     Checked, Consistent, ElasticExplicitDynamics, Execution, Lumped, MassChoice, Stability,
     Unchecked,

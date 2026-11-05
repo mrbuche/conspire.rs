@@ -12,6 +12,9 @@ pub mod mass;
 pub mod time_scale;
 pub mod viscoelastic;
 
+#[cfg(feature = "gpu")]
+pub use crate::domain::solid::dynamics::DeviceExplicitDynamics;
+
 pub use crate::domain::solid::dynamics::{
     Checked, Consistent, ElasticExplicitDynamics, ElasticImplicitDynamics, Execution, Lumped,
     MassChoice, Stability, Unchecked,

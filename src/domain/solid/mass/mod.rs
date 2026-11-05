@@ -183,6 +183,23 @@ impl<const D: usize> MassMatrix<D> for NodalLumpedMasses {
     }
 }
 
+impl FixedLumpedMasses {
+    /// The mass of each degree of freedom, as `D * node + component`, for a device, with the
+    /// held ones infinite so that they never accelerate.
+    #[cfg(feature = "gpu")]
+    pub(crate) fn per_degree_of_freedom<const D: usize>(&self) -> Vec<f64> {
+        let mut masses = self
+            .masses
+            .iter()
+            .flat_map(|mass| [mass.value(); D])
+            .collect::<Vec<_>>();
+        self.fixed
+            .iter()
+            .for_each(|&index| masses[index] = f64::INFINITY);
+        masses
+    }
+}
+
 impl<const D: usize> InverseMass<D> for FixedLumpedMasses {
     fn nodal_accelerations(
         &self,

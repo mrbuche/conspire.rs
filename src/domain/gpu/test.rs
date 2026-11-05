@@ -1,12 +1,13 @@
 use super::{GpuError, GpuOptions, GpuPrecision, Resident};
 use crate::{
-    constitutive::solid::hyperelastic::NeoHookean,
+    constitutive::solid::{elastic::GpuModel, hyperelastic::NeoHookean},
+    domain::solid::{dynamics::test::fixed_dofs, mass::MassMatrix},
     fem::{
         Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{Block, element::linear::Hexahedron},
-        boundary::{BoundaryConditions, Solid},
         solid::{
-            ElasticExplicitDynamics, Execution, Lumped, NodalForcesSolid, Unchecked,
+            DeviceExplicitDynamics, ElasticExplicitDynamics, Execution, Lumped, MassChoice,
+            NodalForcesSolid, Unchecked,
             elastic::{ElasticElements, ParallelElasticElements},
         },
     },
@@ -40,9 +41,13 @@ static unsigned int atomicMin(unsigned int *address, unsigned int value)
 "#;
 
 /// Launches the kernels over every thread of every block, one after another.
+///
+/// With no steps it evaluates the forces once, and with some it takes them as the device does,
+/// with the same kernels in the same order.
 const HARNESS: &str = r#"
 #include "shim.h"
 #include "kernel.cu"
+#include "dynamics.cu"
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -59,43 +64,72 @@ static std::vector<T> read(FILE *file, size_t count)
     return values;
 }
 
+template <class F>
+static void launch(unsigned int threads, F kernel)
+{
+    blockDim.x = 128;
+    for (unsigned int block = 0; block < (threads + 127) / 128; ++block)
+    {
+        for (unsigned int thread = 0; thread < 128; ++thread)
+        {
+            blockIdx.x = block;
+            threadIdx.x = thread;
+            kernel();
+        }
+    }
+}
+
 int main(int, char **argv)
 {
     FILE *input = fopen(argv[1], "rb");
-    const auto header = read<uint32_t>(input, 3);
-    const unsigned int items = header[0], nodes = header[1], gathered = header[2];
+    const auto header = read<uint32_t>(input, 4);
+    const unsigned int items = header[0], nodes = header[1], gathered = header[2], steps = header[3];
     const auto connectivity = read<uint32_t>(input, (size_t)items * NODES);
     const auto offsets = read<uint32_t>(input, gathered + 1);
     const auto contributions = read<uint32_t>(input, offsets[gathered]);
     const auto reference = read<REAL>(input, (size_t)items * REFERENCE_SIZE);
-    const auto coordinates = read<REAL>(input, 3 * (size_t)nodes);
+    auto coordinates = read<REAL>(input, 3 * (size_t)nodes);
     const auto moduli = read<REAL>(input, 2);
+    const REAL dt = read<REAL>(input, 1)[0];
+    const auto masses = read<REAL>(input, 3 * (size_t)nodes);
+    auto velocities = read<REAL>(input, 3 * (size_t)nodes);
     fclose(input);
-    std::vector<REAL> per_item((size_t)items * NODES * 3), forces(3 * (size_t)nodes, 0);
+    const unsigned int count = 3 * nodes;
+    std::vector<REAL> per_item((size_t)items * NODES * 3), forces(count, 0), accelerations(count, 0);
     unsigned int failure = 0xffffffffu;
-    blockDim.x = 128;
-    for (unsigned int block = 0; block < (items + 127) / 128; ++block)
+    auto evaluate = [&]()
     {
-        for (unsigned int thread = 0; thread < 128; ++thread)
-        {
-            blockIdx.x = block;
-            threadIdx.x = thread;
-            item_forces(items, connectivity.data(), reference.data(), coordinates.data(),
-                               per_item.data(), &failure, moduli[0], moduli[1]);
-        }
-    }
-    for (unsigned int block = 0; block < (gathered + 127) / 128; ++block)
+        launch(items, [&]()
+               { item_forces(items, connectivity.data(), reference.data(), coordinates.data(),
+                             per_item.data(), &failure, moduli[0], moduli[1]); });
+        launch(gathered, [&]()
+               { gather(gathered, offsets.data(), contributions.data(), per_item.data(), forces.data()); });
+    };
+    evaluate();
+    if (steps > 0)
     {
-        for (unsigned int thread = 0; thread < 128; ++thread)
+        launch(count, [&]()
+               { accelerate(count, forces.data(), masses.data(), accelerations.data(), velocities.data(), dt, 0); });
+        for (unsigned int step = 0; step < steps; ++step)
         {
-            blockIdx.x = block;
-            threadIdx.x = thread;
-            gather(gathered, offsets.data(), contributions.data(), per_item.data(), forces.data());
+            launch(count, [&]()
+                   { kick_drift(count, coordinates.data(), velocities.data(), accelerations.data(), dt); });
+            evaluate();
+            launch(count, [&]()
+                   { accelerate(count, forces.data(), masses.data(), accelerations.data(), velocities.data(), dt, 1); });
         }
     }
     FILE *output = fopen(argv[2], "wb");
     fwrite(&failure, sizeof(failure), 1, output);
-    fwrite(forces.data(), sizeof(REAL), forces.size(), output);
+    if (steps == 0)
+    {
+        fwrite(forces.data(), sizeof(REAL), forces.size(), output);
+    }
+    else
+    {
+        fwrite(coordinates.data(), sizeof(REAL), coordinates.size(), output);
+        fwrite(velocities.data(), sizeof(REAL), velocities.size(), output);
+    }
     fclose(output);
     return 0;
 }
@@ -175,10 +209,15 @@ fn deformed(coordinates: &[[f64; 3]]) -> NodalCoordinates<3> {
         .into()
 }
 
-fn components(forces: &NodalForcesSolid<3>) -> Vec<f64> {
-    forces
+/// The components of the nodes, as `3 * node + component`.
+fn components<T, U>(nodes: &T) -> Vec<f64>
+where
+    T: Tensor,
+    T::Item: Tensor<Item = Quantity<U>>,
+{
+    nodes
         .iter()
-        .flat_map(|force| force.iter().map(|component| component.value()))
+        .flat_map(|node| node.iter().map(|component| component.value()))
         .collect()
 }
 
@@ -241,22 +280,28 @@ fn block_is_described_to_the_device() {
         .for_each(|&contribution| assert!((contribution as usize) < cells.pow(3) * NODES));
 }
 
-/// The kernels, run on the host as C++, give the forces that the library gives.
+/// Runs the kernels on the host as C++, from the blocks of the model, and returns whether an
+/// element failed and what the harness wrote: the forces if there are no steps, and otherwise
+/// the coordinates and then the velocities at the end.
 ///
-/// Skipped when there is no C++ compiler. This checks the arithmetic of the kernels and the
-/// layout of what they are given, and needs no device.
-#[test]
-fn kernels_on_the_host_give_the_forces_of_the_library() {
-    let cells = 4;
-    let (model, coordinates) = grid(cells);
-    let current = deformed(&coordinates);
+/// Nothing is returned when there is no C++ compiler.
+fn run_on_host(
+    name: &str,
+    model: &Model<Grid, 3>,
+    coordinates: &NodalCoordinates<3>,
+    velocities: &[f64],
+    masses: &[f64],
+    dt: f64,
+    steps: usize,
+) -> Option<(u32, Vec<f64>)> {
     let mut blocks = Vec::new();
     model.gpu_blocks(&mut blocks).unwrap();
     let block = &blocks[0];
-    let directory = std::env::temp_dir().join(format!("conspire-kernels-{}", std::process::id()));
+    let directory = std::env::temp_dir().join(format!("conspire-{name}-{}", std::process::id()));
     fs::create_dir_all(&directory).unwrap();
     fs::write(directory.join("shim.h"), SHIM).unwrap();
     fs::write(directory.join("kernel.cu"), include_str!("kernel.cu")).unwrap();
+    fs::write(directory.join("dynamics.cu"), include_str!("dynamics.cu")).unwrap();
     fs::write(directory.join("harness.cpp"), HARNESS).unwrap();
     let compiled = Command::new("c++")
         .current_dir(&directory)
@@ -273,7 +318,7 @@ fn kernels_on_the_host_give_the_forces_of_the_library() {
         .output();
     let Ok(compiled) = compiled else {
         println!("skipped: there is no C++ compiler");
-        return;
+        return None;
     };
     assert!(
         compiled.status.success(),
@@ -283,8 +328,9 @@ fn kernels_on_the_host_give_the_forces_of_the_library() {
     let mut input = Vec::new();
     let mut push = |bytes: &[u8]| input.extend_from_slice(bytes);
     push(&(block.number_of_items() as u32).to_le_bytes());
-    push(&(current.len() as u32).to_le_bytes());
+    push(&(coordinates.len() as u32).to_le_bytes());
     push(&((block.offsets.len() - 1) as u32).to_le_bytes());
+    push(&(steps as u32).to_le_bytes());
     block
         .connectivity
         .iter()
@@ -295,15 +341,18 @@ fn kernels_on_the_host_give_the_forces_of_the_library() {
         .iter()
         .for_each(|x| push(&x.to_le_bytes()));
     block.reference.iter().for_each(|x| push(&x.to_le_bytes()));
-    current
+    components(coordinates)
         .iter()
-        .for_each(|c| c.iter().for_each(|x| push(&x.value().to_le_bytes())));
-    let crate::constitutive::solid::elastic::GpuModel::NeoHookean {
+        .for_each(|x| push(&x.to_le_bytes()));
+    let GpuModel::NeoHookean {
         shear_modulus,
         bulk_modulus,
     } = block.model;
     push(&shear_modulus.to_le_bytes());
     push(&bulk_modulus.to_le_bytes());
+    push(&dt.to_le_bytes());
+    masses.iter().for_each(|x| push(&x.to_le_bytes()));
+    velocities.iter().for_each(|x| push(&x.to_le_bytes()));
     fs::write(directory.join("input.bin"), input).unwrap();
     let ran = Command::new(directory.join("harness"))
         .args([Path::new("input.bin"), Path::new("output.bin")])
@@ -313,13 +362,31 @@ fn kernels_on_the_host_give_the_forces_of_the_library() {
     assert!(ran.success());
     let output = fs::read(directory.join("output.bin")).unwrap();
     let failure = u32::from_le_bytes(output[..4].try_into().unwrap());
-    assert_eq!(failure, u32::MAX, "an element was found to be inverted");
     let found = output[4..]
         .as_chunks::<8>()
         .0
         .iter()
         .map(|&bytes| f64::from_le_bytes(bytes))
         .collect::<Vec<_>>();
+    let _ = fs::remove_dir_all(&directory);
+    Some((failure, found))
+}
+
+/// The kernels, run on the host as C++, give the forces that the library gives.
+///
+/// Skipped when there is no C++ compiler. This checks the arithmetic of the kernels and the
+/// layout of what they are given, and needs no device.
+#[test]
+fn kernels_on_the_host_give_the_forces_of_the_library() {
+    let (model, coordinates) = grid(4);
+    let current = deformed(&coordinates);
+    let zeros = vec![0.0; 3 * current.len()];
+    let ones = vec![1.0; 3 * current.len()];
+    let Some((failure, found)) = run_on_host("forces", &model, &current, &zeros, &ones, 0.0, 0)
+    else {
+        return;
+    };
+    assert_eq!(failure, u32::MAX, "an element was found to be inverted");
     let expected = components(&model.nodal_forces(&current).unwrap());
     let (difference, scale) = largest_difference(&found, &expected);
     assert!(scale > 1e3, "the forces are not small enough to be nothing");
@@ -327,7 +394,101 @@ fn kernels_on_the_host_give_the_forces_of_the_library() {
         difference < 1e-10 * scale,
         "the largest difference is {difference} of forces up to {scale}"
     );
-    let _ = fs::remove_dir_all(&directory);
+}
+
+/// The degrees of freedom held in the runs below: the bottom layer of nodes of the grid in
+/// every direction, and the top layer in one, so that the body is neither free nor still.
+fn held(cells: usize) -> Vec<usize> {
+    let layer = (cells + 1) * (cells + 1);
+    let nodes = (cells + 1) * layer;
+    (0..layer)
+        .flat_map(|node| [3 * node, 3 * node + 1, 3 * node + 2])
+        .chain((nodes - layer..nodes).map(|node| 3 * node + 2))
+        .collect()
+}
+
+/// A velocity that varies from node to node.
+fn initial_velocities(coordinates: &[[f64; 3]]) -> NodalVelocities<3> {
+    NodalVelocities::from(
+        coordinates
+            .iter()
+            .map(|&[x, y, z]| [1.0 * y, -0.5 * z, 0.25 * x])
+            .collect::<Vec<_>>(),
+    )
+}
+
+const STEPS: usize = 25;
+const STEP: f64 = 1e-8;
+
+/// The state at the end of the run of the library on the calling thread.
+fn serial_run(
+    model: &Model<Grid, 3>,
+    current: &NodalCoordinates<3>,
+    velocities: &NodalVelocities<3>,
+    held: &[usize],
+) -> (Vec<f64>, Vec<f64>) {
+    let run = model
+        .integrate(
+            Execution::Serial,
+            Unchecked,
+            Lumped,
+            &VelocityVerlet::new(Time::seconds(STEP)),
+            &[Time::seconds(0.0), Time::seconds(STEPS as f64 * STEP)],
+            (current.clone(), velocities.clone()),
+            &(),
+            &fixed_dofs(held),
+        )
+        .unwrap();
+    (
+        components(run.1.iter().last().unwrap()),
+        components(run.2.iter().last().unwrap()),
+    )
+}
+
+/// The steps of the kernels, run on the host as C++, are the steps of the library, with some
+/// degrees of freedom held.
+///
+/// Skipped when there is no C++ compiler. This checks the loop that stays on the device, with
+/// the masses and what is held, against the integrator of the library.
+#[test]
+fn steps_on_the_host_are_the_steps_of_the_library() {
+    let cells = 4;
+    let (model, coordinates) = grid(cells);
+    let current = deformed(&coordinates);
+    let velocities = initial_velocities(&coordinates);
+    let held = held(cells);
+    let masses = MassMatrix::<3>::inverse(&Lumped.masses(&model), &held)
+        .unwrap()
+        .per_degree_of_freedom::<3>();
+    let (expected_coordinates, expected_velocities) =
+        serial_run(&model, &current, &velocities, &held);
+    let Some((failure, found)) = run_on_host(
+        "steps",
+        &model,
+        &current,
+        &components(&velocities),
+        &masses,
+        STEP,
+        STEPS,
+    ) else {
+        return;
+    };
+    assert_eq!(failure, u32::MAX, "an element was found to be inverted");
+    let count = 3 * current.len();
+    let (difference, scale) = largest_difference(&found[..count], &expected_coordinates);
+    assert!(
+        difference < 1e-12 * scale.max(1.0),
+        "the coordinates differ by {difference}"
+    );
+    let (difference, scale) = largest_difference(&found[count..], &expected_velocities);
+    assert!(
+        scale > 1e-3 && difference < 1e-9 * scale,
+        "the velocities differ by {difference} of up to {scale}"
+    );
+    // What was held did not move.
+    held.iter().for_each(|&dof| {
+        assert_eq!(found[dof], current[dof / 3][dof % 3].value());
+    });
 }
 
 /// The device, if there is one: nothing to test without it.
@@ -411,7 +572,7 @@ fn run_on_the_device_follows_the_run_on_the_calling_thread() {
     let dt = 1e-8;
     let time = [Time::seconds(0.0), Time::seconds(20.0 * dt)];
     let integrator = VelocityVerlet::new(Time::seconds(dt));
-    let conditions = BoundaryConditions::<Solid<3>>::new();
+    let conditions = fixed_dofs(&[]);
     let run = |execution| {
         model
             .integrate(
@@ -432,14 +593,37 @@ fn run_on_the_device_follows_the_run_on_the_calling_thread() {
     let serial = run(Execution::Serial);
     let device = run(Execution::Gpu(GpuOptions::default()));
     let last = |history: &crate::fem::NodalCoordinatesHistory<3>| {
-        history
-            .iter()
-            .last()
-            .unwrap()
-            .iter()
-            .flat_map(|coordinate| coordinate.iter().map(|component| component.value()))
-            .collect::<Vec<_>>()
+        components(history.iter().last().unwrap())
     };
     let (difference, scale) = largest_difference(&last(&device.1), &last(&serial.1));
     assert!(difference < 1e-9 * scale.max(1.0), "{difference}");
+}
+
+#[test]
+fn run_that_stays_on_the_device_follows_the_run_on_the_calling_thread() {
+    let cells = 4;
+    let (model, coordinates) = grid(cells);
+    let current = deformed(&coordinates);
+    let velocities = initial_velocities(&coordinates);
+    let held = held(cells);
+    let Some(_) = resident(&model, GpuPrecision::F64) else {
+        return;
+    };
+    let (expected_coordinates, expected_velocities) =
+        serial_run(&model, &current, &velocities, &held);
+    let (found_coordinates, found_velocities) = model
+        .integrate_on_device(
+            GpuOptions::default(),
+            Time::seconds(STEP),
+            STEPS,
+            (current.clone(), velocities.clone()),
+            &fixed_dofs(&held),
+        )
+        .unwrap();
+    let (difference, scale) =
+        largest_difference(&components(&found_coordinates), &expected_coordinates);
+    assert!(difference < 1e-12 * scale.max(1.0), "{difference}");
+    let (difference, scale) =
+        largest_difference(&components(&found_velocities), &expected_velocities);
+    assert!(scale > 1e-3 && difference < 1e-9 * scale, "{difference}");
 }

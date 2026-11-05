@@ -96,6 +96,11 @@ where
         motion.apply(initial_time, coordinates);
         Ok((inverse, velocities, motion))
     }
+    /// Whether any degrees of freedom are moved, rather than only held where they are.
+    #[cfg(feature = "gpu")]
+    pub(super) fn moves(&self) -> bool {
+        !self.moving.is_empty()
+    }
     /// The constraints at a time, with what is held at a distance from where it starts held at
     /// that distance from the coordinates the motion starts at.
     pub(super) fn constraint_at(&self, time: Quantity<Time>) -> EqualityConstraints {

@@ -11,7 +11,10 @@ use crate::{
 };
 
 const KERNELS: &str = include_str!("kernel.cu");
+const DYNAMICS: &str = include_str!("dynamics.cu");
 const THREADS_PER_BLOCK: usize = 128;
+/// How many steps of a run on the device are taken between looks for an inverted element.
+const CHECK_EVERY: usize = 1024;
 
 /// A floating-point type that a device computes with.
 pub(crate) trait Real: Argument + Copy + Default {
@@ -69,6 +72,23 @@ impl Resident {
         match self {
             Self::Single(state) => state.device.name(),
             Self::Double(state) => state.device.name(),
+        }
+    }
+    /// Takes `steps` steps of velocity Verlet of size `dt` entirely on the device, from the
+    /// coordinates and velocities as `3 * node + component`, with the masses of each of those
+    /// degrees of freedom, which are infinite for those that are held. Only the coordinates and
+    /// velocities at the end come back, so nothing is copied between steps.
+    pub(crate) fn integrate(
+        &mut self,
+        masses: &[f64],
+        coordinates: &[f64],
+        velocities: &[f64],
+        dt: f64,
+        steps: usize,
+    ) -> Result<(Vec<f64>, Vec<f64>), GpuError> {
+        match self {
+            Self::Single(state) => state.integrate(masses, coordinates, velocities, dt, steps),
+            Self::Double(state) => state.integrate(masses, coordinates, velocities, dt, steps),
         }
     }
     /// Adds the nodal forces to `nodal_forces`, in the order of the elements for each node.
@@ -169,31 +189,16 @@ impl<R: Real> State<R> {
             device,
         })
     }
-    fn nodal_forces_into(
-        &mut self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        nodal_forces: &mut NodalForcesSolid<3>,
-    ) -> Result<(), GpuError> {
-        if nodal_coordinates.len() != self.nodes {
-            return Err(GpuError::Unsupported(format!(
-                "{} nodal coordinates were given to a run of {} nodes",
-                nodal_coordinates.len(),
-                self.nodes
-            )));
-        }
-        self.device.bind()?;
-        nodal_coordinates
+    /// Marks that no element has failed.
+    fn reset_failures(&self) -> Result<(), GpuError> {
+        self.blocks
             .iter()
-            .zip(self.host.as_chunks_mut::<3>().0)
-            .for_each(|(coordinate, host)| {
-                host.iter_mut()
-                    .zip(coordinate.iter())
-                    .for_each(|(host, component)| *host = R::from_f64(component.value()))
-            });
-        self.coordinates.upload(&self.host)?;
-        self.forces.fill(0)?;
+            .try_for_each(|block| block.failure.fill(u32::MAX))
+    }
+    /// Launches the passes that add the nodal forces of the coordinates on the device to the
+    /// forces on the device, without waiting for them.
+    fn launch_forces(&self) -> Result<(), GpuError> {
         for block in &self.blocks {
-            block.failure.fill(u32::MAX)?;
             self.device.launch(
                 &block.forces_kernel,
                 block.items as usize,
@@ -222,7 +227,11 @@ impl<R: Real> State<R> {
                 ],
             )?;
         }
-        self.device.synchronize()?;
+        Ok(())
+    }
+    /// Fails with the first element that was found to be inverted since the failures were reset.
+    /// Reading the marks waits for what was launched.
+    fn check_failures(&self) -> Result<(), GpuError> {
         for (index, block) in self.blocks.iter().enumerate() {
             let mut failure = [u32::MAX];
             block.failure.download(&mut failure)?;
@@ -233,6 +242,121 @@ impl<R: Real> State<R> {
                 });
             }
         }
+        Ok(())
+    }
+    /// Takes `steps` steps of velocity Verlet on the device, and returns the coordinates and
+    /// velocities at the end, which are all that comes back.
+    ///
+    /// The masses are those of each degree of freedom, infinite for those held. Nothing is
+    /// copied between the device and the host during the run, and the elements are checked
+    /// every `CHECK_EVERY` steps.
+    fn integrate(
+        &mut self,
+        masses: &[f64],
+        coordinates: &[f64],
+        velocities: &[f64],
+        dt: f64,
+        steps: usize,
+    ) -> Result<(Vec<f64>, Vec<f64>), GpuError> {
+        let count = 3 * self.nodes;
+        if [masses.len(), coordinates.len(), velocities.len()] != [count; 3] {
+            return Err(GpuError::Unsupported(format!(
+                "the masses, coordinates and velocities are not each {count} values"
+            )));
+        }
+        self.device.bind()?;
+        let to_device = |values: &[f64]| values.iter().map(|&x| R::from_f64(x)).collect::<Vec<_>>();
+        let masses = self.device.buffer_of(&to_device(masses))?;
+        let velocities = self.device.buffer_of(&to_device(velocities))?;
+        let accelerations = self.device.buffer::<R>(count)?;
+        self.coordinates.upload(&to_device(coordinates))?;
+        self.forces.fill(0)?;
+        self.reset_failures()?;
+        let module = self
+            .device
+            .module(DYNAMICS, &[format!("REAL={}", R::NAME)], R::FUSED)?;
+        let kick_drift = module.function("kick_drift")?;
+        let accelerate = module.function("accelerate")?;
+        let (count, dt) = (count as u32, R::from_f64(dt));
+        let (first, kick) = (0_u32, 1_u32);
+        // The accelerations at the start, which do not change the velocities.
+        self.launch_forces()?;
+        self.device.launch(
+            &accelerate,
+            count as usize,
+            THREADS_PER_BLOCK,
+            &[
+                &count,
+                &self.forces,
+                &masses,
+                &accelerations,
+                &velocities,
+                &dt,
+                &first,
+            ],
+        )?;
+        for step in 0..steps {
+            self.device.launch(
+                &kick_drift,
+                count as usize,
+                THREADS_PER_BLOCK,
+                &[&count, &self.coordinates, &velocities, &accelerations, &dt],
+            )?;
+            self.launch_forces()?;
+            self.device.launch(
+                &accelerate,
+                count as usize,
+                THREADS_PER_BLOCK,
+                &[
+                    &count,
+                    &self.forces,
+                    &masses,
+                    &accelerations,
+                    &velocities,
+                    &dt,
+                    &kick,
+                ],
+            )?;
+            if (step + 1) % CHECK_EVERY == 0 {
+                self.check_failures()?;
+            }
+        }
+        self.device.synchronize()?;
+        self.check_failures()?;
+        let mut final_coordinates = vec![R::default(); count as usize];
+        let mut final_velocities = vec![R::default(); count as usize];
+        self.coordinates.download(&mut final_coordinates)?;
+        velocities.download(&mut final_velocities)?;
+        let to_host = |values: Vec<R>| values.into_iter().map(Real::to_f64).collect();
+        Ok((to_host(final_coordinates), to_host(final_velocities)))
+    }
+    fn nodal_forces_into(
+        &mut self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_forces: &mut NodalForcesSolid<3>,
+    ) -> Result<(), GpuError> {
+        if nodal_coordinates.len() != self.nodes {
+            return Err(GpuError::Unsupported(format!(
+                "{} nodal coordinates were given to a run of {} nodes",
+                nodal_coordinates.len(),
+                self.nodes
+            )));
+        }
+        self.device.bind()?;
+        nodal_coordinates
+            .iter()
+            .zip(self.host.as_chunks_mut::<3>().0)
+            .for_each(|(coordinate, host)| {
+                host.iter_mut()
+                    .zip(coordinate.iter())
+                    .for_each(|(host, component)| *host = R::from_f64(component.value()))
+            });
+        self.coordinates.upload(&self.host)?;
+        self.forces.fill(0)?;
+        self.reset_failures()?;
+        self.launch_forces()?;
+        self.device.synchronize()?;
+        self.check_failures()?;
         self.forces.download(&mut self.host)?;
         nodal_forces
             .iter_mut()
