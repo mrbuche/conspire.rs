@@ -130,14 +130,26 @@ extern "C" __global__ void item_forces(
             }
             const REAL determinant = J[0][0] * cofactor_of_J[0][0] + J[0][1] * cofactor_of_J[0][1] + J[0][2] * cofactor_of_J[0][2];
             weight = determinant * parametric_weights[g];
+            // The inverse transpose of J is the cofactors over the determinant, which is one
+            // division for all of them, since a division in double precision takes a long
+            // sequence of instructions.
+            const REAL inverse_determinant = 1 / determinant;
+#pragma unroll
+            for (int i = 0; i < 3; ++i)
+            {
+#pragma unroll
+                for (int K = 0; K < 3; ++K)
+                {
+                    cofactor_of_J[i][K] *= inverse_determinant;
+                }
+            }
 #pragma unroll
             for (int a = 0; a < NODES; ++a)
             {
 #pragma unroll
                 for (int i = 0; i < 3; ++i)
                 {
-                    // The inverse transpose of J is the cofactors over the determinant.
-                    gradient[a][i] = (cofactor_of_J[i][0] / determinant) * derivatives[(g * NODES + a) * 3] + (cofactor_of_J[i][1] / determinant) * derivatives[(g * NODES + a) * 3 + 1] + (cofactor_of_J[i][2] / determinant) * derivatives[(g * NODES + a) * 3 + 2];
+                    gradient[a][i] = cofactor_of_J[i][0] * derivatives[(g * NODES + a) * 3] + cofactor_of_J[i][1] * derivatives[(g * NODES + a) * 3 + 1] + cofactor_of_J[i][2] * derivatives[(g * NODES + a) * 3 + 2];
                 }
             }
         }
@@ -192,29 +204,37 @@ extern "C" __global__ void item_forces(
             valid = false;
             break;
         }
-        // The Cauchy stress.
+        // The Cauchy stress, which is symmetric, like the left Cauchy-Green deformation that it
+        // is made from, so half of each is made and the rest copied. In double precision a
+        // power and a division each take a long sequence of instructions, so J^(-5/3) is made
+        // as J^(-1) times the reciprocal cube root squared, with one division, and the third of
+        // the trace is a product.
         REAL b[3][3];
 #pragma unroll
         for (int i = 0; i < 3; ++i)
         {
 #pragma unroll
-            for (int j = 0; j < 3; ++j)
+            for (int j = i; j < 3; ++j)
             {
                 b[i][j] = F[i][0] * F[j][0] + F[i][1] * F[j][1] + F[i][2] * F[j][2];
+                b[j][i] = b[i][j];
             }
         }
-        const REAL third_of_trace = (b[0][0] + b[1][1] + b[2][2]) / 3;
-        const REAL scaling = shear_modulus / pow(jacobian, (REAL)(5.0 / 3.0));
-        const REAL pressure = bulk_modulus * (REAL)0.5 * (jacobian - 1 / jacobian);
+        const REAL inverse_jacobian = 1 / jacobian;
+        const REAL inverse_cube_root = rcbrt(jacobian);
+        const REAL third_of_trace = (b[0][0] + b[1][1] + b[2][2]) * (REAL)(1.0 / 3.0);
+        const REAL scaling = shear_modulus * inverse_jacobian * inverse_cube_root * inverse_cube_root;
+        const REAL pressure = bulk_modulus * (REAL)0.5 * (jacobian - inverse_jacobian);
         REAL sigma[3][3];
 #pragma unroll
         for (int i = 0; i < 3; ++i)
         {
 #pragma unroll
-            for (int j = 0; j < 3; ++j)
+            for (int j = i; j < 3; ++j)
             {
                 const REAL deviatoric = b[i][j] - (i == j ? third_of_trace : 0);
                 sigma[i][j] = deviatoric * scaling + (i == j ? pressure : 0);
+                sigma[j][i] = sigma[i][j];
             }
         }
         // The first Piola-Kirchhoff stress, the Cauchy stress times the cofactors.

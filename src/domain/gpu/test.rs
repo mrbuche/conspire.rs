@@ -27,6 +27,12 @@ const SHIM: &str = r#"
 #include <cmath>
 #include <cstddef>
 #define __global__
+// The reciprocal of the cube root, which CUDA has and the host does not.
+template <class T>
+static T rcbrt(T x)
+{
+    return 1 / std::cbrt(x);
+}
 struct Index { unsigned int x; };
 static Index blockIdx, blockDim, threadIdx;
 static unsigned int atomicMin(unsigned int *address, unsigned int value)
