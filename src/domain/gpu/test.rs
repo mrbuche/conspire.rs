@@ -462,11 +462,15 @@ fn steps_on_the_host_are_the_steps_of_the_library() {
         .per_degree_of_freedom::<3>();
     let (expected_coordinates, expected_velocities) =
         serial_run(&model, &current, &velocities, &held);
+    // The library gives no velocity to what is held before a run, and the kernels are given
+    // the same.
+    let mut held_velocities = components(&velocities);
+    held.iter().for_each(|&dof| held_velocities[dof] = 0.0);
     let Some((failure, found)) = run_on_host(
         "steps",
         &model,
         &current,
-        &components(&velocities),
+        &held_velocities,
         &masses,
         STEP,
         STEPS,
