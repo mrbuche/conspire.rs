@@ -199,7 +199,10 @@ impl Device {
         let api = Arc::new(Api::load()?);
         // SAFETY: the calls are those of the driver API, with pointers to locals.
         unsafe {
-            api.check((api.init)(0), "cuInit")?;
+            // That the driver does not start is that this node has no device to offer, or a driver
+            // that is not for it, and either way there is no device to use.
+            api.check((api.init)(0), "cuInit")
+                .map_err(|error| GpuError::Unavailable(error.to_string()))?;
             let mut count = 0;
             api.check((api.device_count)(&mut count), "cuDeviceGetCount")?;
             if ordinal >= count as usize {

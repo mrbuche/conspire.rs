@@ -1,4 +1,4 @@
-use super::{GpuError, GpuOptions, GpuPrecision, Resident};
+use super::{GpuError, GpuGradients, GpuOptions, GpuPrecision, Resident};
 use crate::{
     constitutive::solid::{elastic::GpuModel, hyperelastic::NeoHookean},
     domain::solid::{dynamics::test::fixed_dofs, mass::MassMatrix},
@@ -87,7 +87,13 @@ int main(int, char **argv)
     const auto connectivity = read<uint32_t>(input, (size_t)items * NODES);
     const auto offsets = read<uint32_t>(input, gathered + 1);
     const auto contributions = read<uint32_t>(input, offsets[gathered]);
+#ifdef ON_THE_FLY
+    const auto derivatives = read<REAL>(input, POINTS * NODES * 3);
+    const auto parametric_weights = read<REAL>(input, POINTS);
+    const auto reference_coordinates = read<REAL>(input, 3 * (size_t)nodes);
+#else
     const auto reference = read<REAL>(input, (size_t)items * REFERENCE_SIZE);
+#endif
     auto coordinates = read<REAL>(input, 3 * (size_t)nodes);
     const auto moduli = read<REAL>(input, 2);
     const REAL dt = read<REAL>(input, 1)[0];
@@ -100,8 +106,13 @@ int main(int, char **argv)
     auto evaluate = [&]()
     {
         launch(items, [&]()
-               { item_forces(items, connectivity.data(), reference.data(), coordinates.data(),
-                             per_item.data(), &failure, moduli[0], moduli[1]); });
+               { item_forces(items, connectivity.data(),
+#ifdef ON_THE_FLY
+                             reference_coordinates.data(), derivatives.data(), parametric_weights.data(),
+#else
+                             reference.data(),
+#endif
+                             coordinates.data(), per_item.data(), &failure, moduli[0], moduli[1]); });
         launch(gathered, [&]()
                { gather(gathered, items, offsets.data(), contributions.data(), per_item.data(), forces.data()); });
     };
@@ -321,8 +332,10 @@ fn device_layout_puts_the_element_last() {
 /// the coordinates and then the velocities at the end.
 ///
 /// Nothing is returned when there is no C++ compiler.
+#[expect(clippy::too_many_arguments)]
 fn run_on_host(
     name: &str,
+    gradients: GpuGradients,
     model: &Model<Grid, 3>,
     coordinates: &NodalCoordinates<3>,
     velocities: &[f64],
@@ -339,12 +352,12 @@ fn run_on_host(
     fs::write(directory.join("kernel.cu"), include_str!("kernel.cu")).unwrap();
     fs::write(directory.join("dynamics.cu"), include_str!("dynamics.cu")).unwrap();
     fs::write(directory.join("harness.cpp"), HARNESS).unwrap();
+    let on_the_fly = gradients == GpuGradients::OnTheFly;
     let compiled = Command::new("c++")
         .current_dir(&directory)
+        .args(["-O2", "-ffp-contract=off", "-DREAL=double"])
+        .args(on_the_fly.then_some("-DON_THE_FLY"))
         .args([
-            "-O2",
-            "-ffp-contract=off",
-            "-DREAL=double",
             &format!("-DNODES={NODES}"),
             &format!("-DPOINTS={POINTS}"),
             "-o",
@@ -378,7 +391,19 @@ fn run_on_host(
         .contributions
         .iter()
         .for_each(|x| push(&x.to_le_bytes()));
-    layout.reference.iter().for_each(|x| push(&x.to_le_bytes()));
+    if on_the_fly {
+        let shape = block.shape.as_ref().expect("the shape functions");
+        shape
+            .derivatives
+            .iter()
+            .chain(&shape.weights)
+            .for_each(|x| push(&x.to_le_bytes()));
+        components(&model.coordinates)
+            .iter()
+            .for_each(|x| push(&x.to_le_bytes()));
+    } else {
+        layout.reference.iter().for_each(|x| push(&x.to_le_bytes()));
+    }
     components(coordinates)
         .iter()
         .for_each(|x| push(&x.to_le_bytes()));
@@ -420,18 +445,24 @@ fn kernels_on_the_host_give_the_forces_of_the_library() {
     let current = deformed(&coordinates);
     let zeros = vec![0.0; 3 * current.len()];
     let ones = vec![1.0; 3 * current.len()];
-    let Some((failure, found)) = run_on_host("forces", &model, &current, &zeros, &ones, 0.0, 0)
-    else {
-        return;
-    };
-    assert_eq!(failure, u32::MAX, "an element was found to be inverted");
     let expected = components(&model.nodal_forces(&current).unwrap());
-    let (difference, scale) = largest_difference(&found, &expected);
-    assert!(scale > 1e3, "the forces are not small enough to be nothing");
-    assert!(
-        difference < 1e-10 * scale,
-        "the largest difference is {difference} of forces up to {scale}"
-    );
+    for (name, gradients) in [
+        ("forces-stored", GpuGradients::Stored),
+        ("forces-fly", GpuGradients::OnTheFly),
+    ] {
+        let Some((failure, found)) =
+            run_on_host(name, gradients, &model, &current, &zeros, &ones, 0.0, 0)
+        else {
+            return;
+        };
+        assert_eq!(failure, u32::MAX, "an element was found to be inverted");
+        let (difference, scale) = largest_difference(&found, &expected);
+        assert!(scale > 1e3, "the forces are not small enough to be nothing");
+        assert!(
+            difference < 1e-10 * scale,
+            "{gradients:?}: the largest difference is {difference} of forces up to {scale}"
+        );
+    }
 }
 
 /// The degrees of freedom held in the runs below: the bottom layer of nodes of the grid in
@@ -504,46 +535,57 @@ fn steps_on_the_host_are_the_steps_of_the_library() {
     // the same.
     let mut held_velocities = components(&velocities);
     held.iter().for_each(|&dof| held_velocities[dof] = 0.0);
-    let Some((failure, found)) = run_on_host(
-        "steps",
-        &model,
-        &current,
-        &held_velocities,
-        &masses,
-        STEP,
-        STEPS,
-    ) else {
-        return;
-    };
-    assert_eq!(failure, u32::MAX, "an element was found to be inverted");
-    let count = 3 * current.len();
-    let (difference, scale) = largest_difference(&found[..count], &expected_coordinates);
-    assert!(
-        difference < 1e-12 * scale.max(1.0),
-        "the coordinates differ by {difference}"
-    );
-    let (difference, scale) = largest_difference(&found[count..], &expected_velocities);
-    assert!(
-        scale > 1e-3 && difference < 1e-9 * scale,
-        "the velocities differ by {difference} of up to {scale}"
-    );
-    // What was held did not move.
-    held.iter().for_each(|&dof| {
-        assert_eq!(found[dof], current[dof / 3][dof % 3].value());
-    });
+    for (name, gradients) in [
+        ("steps-stored", GpuGradients::Stored),
+        ("steps-fly", GpuGradients::OnTheFly),
+    ] {
+        let Some((failure, found)) = run_on_host(
+            name,
+            gradients,
+            &model,
+            &current,
+            &held_velocities,
+            &masses,
+            STEP,
+            STEPS,
+        ) else {
+            return;
+        };
+        assert_eq!(failure, u32::MAX, "an element was found to be inverted");
+        let count = 3 * current.len();
+        let (difference, scale) = largest_difference(&found[..count], &expected_coordinates);
+        assert!(
+            difference < 1e-12 * scale.max(1.0),
+            "{gradients:?}: the coordinates differ by {difference}"
+        );
+        let (difference, scale) = largest_difference(&found[count..], &expected_velocities);
+        assert!(
+            scale > 1e-3 && difference < 1e-9 * scale,
+            "{gradients:?}: the velocities differ by {difference} of up to {scale}"
+        );
+        // What was held did not move.
+        held.iter().for_each(|&dof| {
+            assert_eq!(found[dof], current[dof / 3][dof % 3].value());
+        });
+    }
 }
 
 /// The device, if there is one: nothing to test without it.
-fn resident(model: &Model<Grid, 3>, precision: GpuPrecision) -> Option<Resident> {
+fn resident(
+    model: &Model<Grid, 3>,
+    precision: GpuPrecision,
+    gradients: GpuGradients,
+) -> Option<Resident> {
     let mut blocks = Vec::new();
     model.gpu_blocks(&mut blocks).unwrap();
     match Resident::new(
         GpuOptions {
             precision,
+            gradients,
             ..GpuOptions::default()
         },
         &blocks,
-        model.coordinates.len(),
+        &model.coordinates,
     ) {
         Ok(resident) => {
             println!("device: {}", resident.device_name());
@@ -562,8 +604,13 @@ fn device_forces_are_those_of_the_library() {
     let (model, coordinates) = grid(6);
     let current = deformed(&coordinates);
     let expected = components(&model.nodal_forces(&current).unwrap());
-    for (precision, tolerance) in [(GpuPrecision::F64, 1e-10), (GpuPrecision::F32, 1e-4)] {
-        let Some(mut resident) = resident(&model, precision) else {
+    for (precision, gradients, tolerance) in [
+        (GpuPrecision::F64, GpuGradients::Stored, 1e-10),
+        (GpuPrecision::F64, GpuGradients::OnTheFly, 1e-10),
+        (GpuPrecision::F32, GpuGradients::Stored, 1e-4),
+        (GpuPrecision::F32, GpuGradients::OnTheFly, 1e-4),
+    ] {
+        let Some(mut resident) = resident(&model, precision, gradients) else {
             return;
         };
         let mut forces = NodalForcesSolid::<3>::zero(current.len());
@@ -577,7 +624,7 @@ fn device_forces_are_those_of_the_library() {
         let (difference, scale) = largest_difference(&found, &expected);
         assert!(
             difference < tolerance * scale,
-            "{precision:?}: the largest difference is {difference} of forces up to {scale}"
+            "{precision:?} {gradients:?}: the largest difference is {difference} of forces up to {scale}"
         );
     }
 }
@@ -592,7 +639,7 @@ fn device_reports_the_first_inverted_element() {
     inverted
         .iter()
         .for_each(|&node| current[node] = point.clone());
-    let Some(mut resident) = resident(&model, GpuPrecision::F64) else {
+    let Some(mut resident) = resident(&model, GpuPrecision::F64, GpuGradients::Stored) else {
         return;
     };
     let mut forces = NodalForcesSolid::<3>::zero(current.len());
@@ -608,7 +655,7 @@ fn device_reports_the_first_inverted_element() {
 fn run_on_the_device_follows_the_run_on_the_calling_thread() {
     let (model, coordinates) = grid(5);
     let current = deformed(&coordinates);
-    let Some(_) = resident(&model, GpuPrecision::F64) else {
+    let Some(_) = resident(&model, GpuPrecision::F64, GpuGradients::Stored) else {
         return;
     };
     let dt = 1e-8;
@@ -633,12 +680,20 @@ fn run_on_the_device_follows_the_run_on_the_calling_thread() {
             .unwrap()
     };
     let serial = run(Execution::Serial);
-    let device = run(Execution::Gpu(GpuOptions::default()));
     let last = |history: &crate::fem::NodalCoordinatesHistory<3>| {
         components(history.iter().last().unwrap())
     };
-    let (difference, scale) = largest_difference(&last(&device.1), &last(&serial.1));
-    assert!(difference < 1e-9 * scale.max(1.0), "{difference}");
+    for gradients in [GpuGradients::Stored, GpuGradients::OnTheFly] {
+        let device = run(Execution::Gpu(GpuOptions {
+            gradients,
+            ..GpuOptions::default()
+        }));
+        let (difference, scale) = largest_difference(&last(&device.1), &last(&serial.1));
+        assert!(
+            difference < 1e-9 * scale.max(1.0),
+            "{gradients:?}: {difference}"
+        );
+    }
 }
 
 #[test]
@@ -648,24 +703,35 @@ fn run_that_stays_on_the_device_follows_the_run_on_the_calling_thread() {
     let current = deformed(&coordinates);
     let velocities = initial_velocities(&coordinates);
     let held = held(cells);
-    let Some(_) = resident(&model, GpuPrecision::F64) else {
+    let Some(_) = resident(&model, GpuPrecision::F64, GpuGradients::Stored) else {
         return;
     };
     let (expected_coordinates, expected_velocities) =
         serial_run(&model, &current, &velocities, &held);
-    let (found_coordinates, found_velocities) = model
-        .integrate_on_device(
-            GpuOptions::default(),
-            Time::seconds(STEP),
-            STEPS,
-            (current.clone(), velocities.clone()),
-            &fixed_dofs(&held),
-        )
-        .unwrap();
-    let (difference, scale) =
-        largest_difference(&components(&found_coordinates), &expected_coordinates);
-    assert!(difference < 1e-12 * scale.max(1.0), "{difference}");
-    let (difference, scale) =
-        largest_difference(&components(&found_velocities), &expected_velocities);
-    assert!(scale > 1e-3 && difference < 1e-9 * scale, "{difference}");
+    for gradients in [GpuGradients::Stored, GpuGradients::OnTheFly] {
+        let (found_coordinates, found_velocities) = model
+            .integrate_on_device(
+                GpuOptions {
+                    gradients,
+                    ..GpuOptions::default()
+                },
+                Time::seconds(STEP),
+                STEPS,
+                (current.clone(), velocities.clone()),
+                &fixed_dofs(&held),
+            )
+            .unwrap();
+        let (difference, scale) =
+            largest_difference(&components(&found_coordinates), &expected_coordinates);
+        assert!(
+            difference < 1e-12 * scale.max(1.0),
+            "{gradients:?}: {difference}"
+        );
+        let (difference, scale) =
+            largest_difference(&components(&found_velocities), &expected_velocities);
+        assert!(
+            scale > 1e-3 && difference < 1e-9 * scale,
+            "{gradients:?}: {difference}"
+        );
+    }
 }

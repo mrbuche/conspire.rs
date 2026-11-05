@@ -1,12 +1,12 @@
 //! What a run keeps on the device, and the two passes that compute the nodal forces with it.
 
 use super::{
-    GpuError, GpuItems, GpuOptions, GpuPrecision,
+    GpuError, GpuGradients, GpuItems, GpuOptions, GpuPrecision,
     cuda::{Argument, Buffer, Device, Function, Module},
 };
 use crate::{
     constitutive::solid::elastic::GpuModel,
-    domain::{NodalCoordinates, solid::NodalForcesSolid},
+    domain::{NodalCoordinates, NodalReferenceCoordinates, solid::NodalForcesSolid},
     math::{Quantity, Tensor},
 };
 
@@ -55,15 +55,24 @@ pub(crate) enum Resident {
 }
 
 impl Resident {
-    /// Opens the device and puts the blocks on it, for a model of `number_of_nodes` nodes.
+    /// Opens the device and puts the blocks on it, for a model with the given reference
+    /// coordinates of its nodes.
     pub(crate) fn new(
         options: GpuOptions,
         blocks: &[GpuItems],
-        number_of_nodes: usize,
+        reference_coordinates: &NodalReferenceCoordinates<3>,
     ) -> Result<Self, GpuError> {
+        let reference_coordinates = reference_coordinates
+            .iter()
+            .flat_map(|coordinate| coordinate.iter().map(|component| component.value()))
+            .collect::<Vec<f64>>();
         match options.precision {
-            GpuPrecision::F32 => State::new(options, blocks, number_of_nodes).map(Self::Single),
-            GpuPrecision::F64 => State::new(options, blocks, number_of_nodes).map(Self::Double),
+            GpuPrecision::F32 => {
+                State::new(options, blocks, &reference_coordinates).map(Self::Single)
+            }
+            GpuPrecision::F64 => {
+                State::new(options, blocks, &reference_coordinates).map(Self::Double)
+            }
         }
     }
     /// The name of the device.
@@ -113,7 +122,7 @@ struct BlockState<R> {
     shear_modulus: R,
     bulk_modulus: R,
     connectivity: Buffer<u32>,
-    reference: Buffer<R>,
+    geometry: Geometry<R>,
     offsets: Buffer<u32>,
     contributions: Buffer<u32>,
     item_forces: Buffer<R>,
@@ -122,10 +131,23 @@ struct BlockState<R> {
     gather_kernel: Function,
 }
 
+/// What the kernel of a block is given to get the gradient vectors from.
+enum Geometry<R> {
+    /// The gradient vectors and weights of each element.
+    Stored { reference: Buffer<R> },
+    /// The derivatives of the shape functions and the weights of the parametric element, which
+    /// are shared by the elements.
+    OnTheFly {
+        derivatives: Buffer<R>,
+        weights: Buffer<R>,
+    },
+}
+
 /// The fields are dropped in order, so the buffers go before the kernels and the device.
 pub(crate) struct State<R: Real> {
     blocks: Vec<BlockState<R>>,
     coordinates: Buffer<R>,
+    reference_coordinates: Option<Buffer<R>>,
     forces: Buffer<R>,
     host: Vec<R>,
     nodes: usize,
@@ -137,10 +159,13 @@ impl<R: Real> State<R> {
     fn new(
         options: GpuOptions,
         blocks: &[GpuItems],
-        number_of_nodes: usize,
+        reference_coordinates: &[f64],
     ) -> Result<Self, GpuError> {
+        let number_of_nodes = reference_coordinates.len() / 3;
+        let on_the_fly = options.gradients == GpuGradients::OnTheFly;
         let device = Device::new(options.device)?;
         device.bind()?;
+        let to_device = |values: &[f64]| values.iter().map(|&x| R::from_f64(x)).collect::<Vec<_>>();
         let mut modules = Vec::with_capacity(blocks.len());
         let mut states = Vec::with_capacity(blocks.len());
         for block in blocks {
@@ -148,29 +173,39 @@ impl<R: Real> State<R> {
                 shear_modulus,
                 bulk_modulus,
             } = block.model;
-            let module = device.module(
-                KERNELS,
-                &[
-                    format!("REAL={}", R::NAME),
-                    format!("NODES={}", block.nodes_per_item),
-                    format!("POINTS={}", block.points_per_item),
-                ],
-                R::FUSED,
-            )?;
+            let mut definitions = vec![
+                format!("REAL={}", R::NAME),
+                format!("NODES={}", block.nodes_per_item),
+                format!("POINTS={}", block.points_per_item),
+            ];
+            if on_the_fly {
+                definitions.push("ON_THE_FLY".to_string());
+            }
+            let module = device.module(KERNELS, &definitions, R::FUSED)?;
             let items = block.number_of_items();
             let layout = block.device_layout();
-            let reference = layout
-                .reference
-                .iter()
-                .map(|&x| R::from_f64(x))
-                .collect::<Vec<_>>();
+            let geometry = if on_the_fly {
+                let shape = block.shape.as_ref().ok_or_else(|| {
+                    GpuError::Unsupported(
+                        "the elements cannot make their gradient vectors on the fly".to_string(),
+                    )
+                })?;
+                Geometry::OnTheFly {
+                    derivatives: device.buffer_of(&to_device(&shape.derivatives))?,
+                    weights: device.buffer_of(&to_device(&shape.weights))?,
+                }
+            } else {
+                Geometry::Stored {
+                    reference: device.buffer_of(&to_device(&layout.reference))?,
+                }
+            };
             states.push(BlockState {
                 items: items as u32,
                 nodes: (block.offsets.len() - 1) as u32,
                 shear_modulus: R::from_f64(shear_modulus),
                 bulk_modulus: R::from_f64(bulk_modulus),
                 connectivity: device.buffer_of(&layout.connectivity)?,
-                reference: device.buffer_of(&reference)?,
+                geometry,
                 offsets: device.buffer_of(&block.offsets)?,
                 contributions: device.buffer_of(&layout.contributions)?,
                 item_forces: device.buffer(items * block.nodes_per_item * 3)?,
@@ -183,6 +218,11 @@ impl<R: Real> State<R> {
         Ok(Self {
             blocks: states,
             coordinates: device.buffer(3 * number_of_nodes)?,
+            reference_coordinates: if on_the_fly {
+                Some(device.buffer_of(&to_device(reference_coordinates))?)
+            } else {
+                None
+            },
             forces: device.buffer(3 * number_of_nodes)?,
             host: vec![R::default(); 3 * number_of_nodes],
             nodes: number_of_nodes,
@@ -200,21 +240,49 @@ impl<R: Real> State<R> {
     /// forces on the device, without waiting for them.
     fn launch_forces(&self) -> Result<(), GpuError> {
         for block in &self.blocks {
-            self.device.launch(
-                &block.forces_kernel,
-                block.items as usize,
-                THREADS_PER_BLOCK,
-                &[
-                    &block.items,
-                    &block.connectivity,
-                    &block.reference,
-                    &self.coordinates,
-                    &block.item_forces,
-                    &block.failure,
-                    &block.shear_modulus,
-                    &block.bulk_modulus,
-                ],
-            )?;
+            match (&block.geometry, &self.reference_coordinates) {
+                (Geometry::Stored { reference }, _) => self.device.launch(
+                    &block.forces_kernel,
+                    block.items as usize,
+                    THREADS_PER_BLOCK,
+                    &[
+                        &block.items,
+                        &block.connectivity,
+                        reference,
+                        &self.coordinates,
+                        &block.item_forces,
+                        &block.failure,
+                        &block.shear_modulus,
+                        &block.bulk_modulus,
+                    ],
+                ),
+                (
+                    Geometry::OnTheFly {
+                        derivatives,
+                        weights,
+                    },
+                    Some(reference_coordinates),
+                ) => self.device.launch(
+                    &block.forces_kernel,
+                    block.items as usize,
+                    THREADS_PER_BLOCK,
+                    &[
+                        &block.items,
+                        &block.connectivity,
+                        reference_coordinates,
+                        derivatives,
+                        weights,
+                        &self.coordinates,
+                        &block.item_forces,
+                        &block.failure,
+                        &block.shear_modulus,
+                        &block.bulk_modulus,
+                    ],
+                ),
+                (Geometry::OnTheFly { .. }, None) => Err(GpuError::Unsupported(
+                    "the reference coordinates are not on the device".to_string(),
+                )),
+            }?;
             self.device.launch(
                 &block.gather_kernel,
                 block.nodes as usize,

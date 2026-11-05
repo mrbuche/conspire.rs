@@ -20,13 +20,38 @@
 
 #define REFERENCE_SIZE (POINTS * NODES * 3 + POINTS)
 
+// Where the gradient vectors of the nodes, and the weights of the integration points, come from.
+//
+// Stored (the default): each element has them, in `reference`, as above.
+//
+// ON_THE_FLY: they are made from the reference coordinates of the nodes of the element and
+// a table of the derivatives of the shape functions at the integration points, the way an
+// element of the library makes them when it is made: with J the sum over the nodes of the
+// outer products of the reference coordinates and the derivatives, the gradient vector of a
+// node is the inverse transpose of J times its derivatives, and the weight is the determinant
+// of J times the weight of the point in the parametric element. That is a few hundred bytes
+// shared by every element in place of REFERENCE_SIZE values apiece, for more arithmetic.
+//   reference_coordinates[3 * node + component]
+//   derivatives[(point * NODES + node) * 3 + component]
+//   parametric_weights[point]
+#ifdef ON_THE_FLY
+#define GRADIENT(a, j) gradient[a][j]
+#else
 // A value of the reference data of the element of the thread.
 #define REFERENCE(value) reference[(size_t)(value) * items + item]
+#define GRADIENT(a, j) REFERENCE((g * NODES + a) * 3 + (j))
+#endif
 
 extern "C" __global__ void item_forces(
     const unsigned int items,
     const unsigned int *__restrict__ connectivity,
+#ifdef ON_THE_FLY
+    const REAL *__restrict__ reference_coordinates,
+    const REAL *__restrict__ derivatives,
+    const REAL *__restrict__ parametric_weights,
+#else
     const REAL *__restrict__ reference,
+#endif
     const REAL *__restrict__ coordinates,
     REAL *__restrict__ forces,
     unsigned int *__restrict__ failure,
@@ -40,10 +65,16 @@ extern "C" __global__ void item_forces(
     }
     REAL x[NODES][3];
     REAL f[NODES][3];
+#ifdef ON_THE_FLY
+    unsigned int nodes_of[NODES];
+#endif
 #pragma unroll
     for (int a = 0; a < NODES; ++a)
     {
         const size_t node = connectivity[(size_t)a * items + item];
+#ifdef ON_THE_FLY
+        nodes_of[a] = (unsigned int)node;
+#endif
 #pragma unroll
         for (int i = 0; i < 3; ++i)
         {
@@ -54,6 +85,65 @@ extern "C" __global__ void item_forces(
     bool valid = true;
     for (int g = 0; g < POINTS && valid; ++g)
     {
+#ifdef ON_THE_FLY
+        // The gradient vectors and the weight of the point, from the reference coordinates.
+        REAL gradient[NODES][3];
+        REAL weight;
+        {
+            REAL J[3][3];
+#pragma unroll
+            for (int i = 0; i < 3; ++i)
+            {
+#pragma unroll
+                for (int K = 0; K < 3; ++K)
+                {
+                    J[i][K] = 0;
+                }
+            }
+#pragma unroll
+            for (int a = 0; a < NODES; ++a)
+            {
+#pragma unroll
+                for (int i = 0; i < 3; ++i)
+                {
+                    const REAL coordinate = reference_coordinates[3 * (size_t)nodes_of[a] + i];
+#pragma unroll
+                    for (int K = 0; K < 3; ++K)
+                    {
+                        J[i][K] += coordinate * derivatives[(g * NODES + a) * 3 + K];
+                    }
+                }
+            }
+            REAL cofactor_of_J[3][3];
+#pragma unroll
+            for (int i = 0; i < 3; ++i)
+            {
+                const int i1 = (i + 1) % 3;
+                const int i2 = (i + 2) % 3;
+#pragma unroll
+                for (int K = 0; K < 3; ++K)
+                {
+                    const int K1 = (K + 1) % 3;
+                    const int K2 = (K + 2) % 3;
+                    cofactor_of_J[i][K] = J[i1][K1] * J[i2][K2] - J[i1][K2] * J[i2][K1];
+                }
+            }
+            const REAL determinant = J[0][0] * cofactor_of_J[0][0] + J[0][1] * cofactor_of_J[0][1] + J[0][2] * cofactor_of_J[0][2];
+            weight = determinant * parametric_weights[g];
+#pragma unroll
+            for (int a = 0; a < NODES; ++a)
+            {
+#pragma unroll
+                for (int i = 0; i < 3; ++i)
+                {
+                    // The inverse transpose of J is the cofactors over the determinant.
+                    gradient[a][i] = (cofactor_of_J[i][0] / determinant) * derivatives[(g * NODES + a) * 3] + (cofactor_of_J[i][1] / determinant) * derivatives[(g * NODES + a) * 3 + 1] + (cofactor_of_J[i][2] / determinant) * derivatives[(g * NODES + a) * 3 + 2];
+                }
+            }
+        }
+#else
+        const REAL weight = REFERENCE(POINTS * NODES * 3 + g);
+#endif
         // The deformation gradient, the sum of the outer products of the coordinates and the
         // gradient vectors of the nodes.
         REAL F[3][3];
@@ -75,7 +165,7 @@ extern "C" __global__ void item_forces(
 #pragma unroll
                 for (int j = 0; j < 3; ++j)
                 {
-                    F[i][j] += x[a][i] * REFERENCE((g * NODES + a) * 3 + j);
+                    F[i][j] += x[a][i] * GRADIENT(a, j);
                 }
             }
         }
@@ -138,15 +228,13 @@ extern "C" __global__ void item_forces(
                 P[i][j] = sigma[i][0] * cofactor[0][j] + sigma[i][1] * cofactor[1][j] + sigma[i][2] * cofactor[2][j];
             }
         }
-        const REAL weight = REFERENCE(POINTS * NODES * 3 + g);
 #pragma unroll
         for (int a = 0; a < NODES; ++a)
         {
-            const int gradient = (g * NODES + a) * 3;
 #pragma unroll
             for (int i = 0; i < 3; ++i)
             {
-                f[a][i] += (P[i][0] * REFERENCE(gradient) + P[i][1] * REFERENCE(gradient + 1) + P[i][2] * REFERENCE(gradient + 2)) * weight;
+                f[a][i] += (P[i][0] * GRADIENT(a, 0) + P[i][1] * GRADIENT(a, 1) + P[i][2] * GRADIENT(a, 2)) * weight;
             }
         }
     }

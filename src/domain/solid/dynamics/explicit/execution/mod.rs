@@ -66,7 +66,7 @@ impl Execution {
                 let mut blocks = Vec::new();
                 return model
                     .gpu_blocks(&mut blocks)
-                    .and_then(|()| Resident::new(options, &blocks, model.coordinates.len()))
+                    .and_then(|()| Resident::new(options, &blocks, &model.coordinates))
                     .map(Run::Gpu)
                     .map_err(|error| IntegrationError::Intermediate(error.to_string()));
             }

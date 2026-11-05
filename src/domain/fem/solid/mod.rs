@@ -21,7 +21,7 @@ pub use crate::domain::solid::dynamics::{
 };
 
 #[cfg(feature = "gpu")]
-pub use crate::domain::gpu::{GpuOptions, GpuPrecision};
+pub use crate::domain::gpu::{GpuGradients, GpuOptions, GpuPrecision};
 
 pub use crate::domain::solid::{
     NodalDampingsSolid, NodalDampingsSolidSymmetric, NodalForcesSolid, NodalStiffnessesSolid,

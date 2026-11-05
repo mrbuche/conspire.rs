@@ -27,6 +27,22 @@ pub enum GpuPrecision {
     F32,
 }
 
+/// Where the device gets the gradient vectors of the shape functions of the elements.
+///
+/// Reading them costs memory traffic, and making them costs arithmetic, so which is faster
+/// depends on the device and the precision: a device that is limited by its memory does better to
+/// make them, and one that is limited by its arithmetic, as many are in `f64`, to read them.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum GpuGradients {
+    /// Each element keeps its own, which are read at every step.
+    #[default]
+    Stored,
+    /// They are made at every step from the reference coordinates of the nodes of the element,
+    /// as an element makes them when it is made. Only elements of the three dimensions whose
+    /// shape functions are those of their nodes can do this.
+    OnTheFly,
+}
+
 /// How a device is used for a run.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct GpuOptions {
@@ -34,6 +50,8 @@ pub struct GpuOptions {
     pub device: usize,
     /// The precision that the device computes with.
     pub precision: GpuPrecision,
+    /// Where the device gets the gradient vectors.
+    pub gradients: GpuGradients,
 }
 
 /// What can go wrong on a device.
@@ -89,6 +107,18 @@ pub struct GpuItems {
     /// These arrays are by element, and [`device_layout`](Self::device_layout) puts the
     /// element last for the kernels.
     pub contributions: Vec<u32>,
+    /// What makes the gradient vectors from the reference coordinates, if the elements can.
+    pub shape: Option<ShapeTables>,
+}
+
+/// The shape functions of the elements of a block, at the integration points of its parametric
+/// element, from which gradient vectors are made on the fly.
+pub struct ShapeTables {
+    /// The derivatives of the shape functions with respect to the parametric coordinates, as
+    /// point, then node, then component.
+    pub derivatives: Vec<f64>,
+    /// The weights of the integration points of the parametric element.
+    pub weights: Vec<f64>,
 }
 
 impl GpuItems {

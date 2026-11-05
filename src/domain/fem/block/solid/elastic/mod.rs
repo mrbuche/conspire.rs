@@ -21,7 +21,10 @@ use crate::{
 };
 #[cfg(feature = "gpu")]
 use crate::{
-    domain::{gpu::GpuItems, parallel::ItemIndex},
+    domain::{
+        gpu::{GpuItems, ShapeTables},
+        parallel::ItemIndex,
+    },
     fem::block::element::ElementNodalCoordinates,
     math::{Quantity, Tensor},
 };
@@ -102,7 +105,24 @@ where
             );
         }
         let (offsets, contributions) = ItemIndex::new(self).flattened(N);
+        // An element makes its gradient vectors from the derivatives of its shape functions at
+        // its integration points when it is made, if it has a shape function for each node.
+        let shape = (P == N).then(|| {
+            let derivatives = F::shape_functions_gradients_at_integration_points();
+            ShapeTables {
+                derivatives: derivatives
+                    .iter()
+                    .flat_map(|point| {
+                        point
+                            .iter()
+                            .flat_map(|node| node.iter().map(|component| component.value()))
+                    })
+                    .collect(),
+                weights: F::parametric_weights().iter().copied().collect(),
+            }
+        });
         Some(GpuItems {
+            shape,
             model,
             nodes_per_item: N,
             points_per_item: G,

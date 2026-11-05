@@ -78,8 +78,7 @@ where
             |error: crate::domain::gpu::GpuError| IntegrationError::Intermediate(error.to_string());
         let mut blocks = Vec::new();
         self.gpu_blocks(&mut blocks).map_err(error)?;
-        let mut resident =
-            Resident::new(options, &blocks, self.coordinates.len()).map_err(error)?;
+        let mut resident = Resident::new(options, &blocks, &self.coordinates).map_err(error)?;
         let (coordinates, velocities) = resident
             .integrate(
                 &inverse.per_degree_of_freedom::<3>(),

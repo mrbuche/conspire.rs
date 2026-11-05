@@ -27,8 +27,8 @@ use conspire::{
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
-            DeviceExplicitDynamics, ElasticExplicitDynamics, Execution, GpuOptions, GpuPrecision,
-            Lumped, Unchecked,
+            DeviceExplicitDynamics, ElasticExplicitDynamics, Execution, GpuGradients, GpuOptions,
+            GpuPrecision, Lumped, Unchecked,
         },
     },
     math::{Quantity, Tensor, integrate::VelocityVerlet},
@@ -179,10 +179,11 @@ fn no_device(error: &impl std::fmt::Debug) -> bool {
     format!("{error:?}").contains("No CUDA device is available")
 }
 
-fn options(precision: GpuPrecision) -> GpuOptions {
+fn options(precision: GpuPrecision, gradients: GpuGradients) -> GpuOptions {
     GpuOptions {
         device: variable("DEVICE").unwrap_or(0),
         precision,
+        gradients,
     }
 }
 
@@ -210,48 +211,54 @@ fn compare(cells: usize) -> bool {
             )
             .unwrap()
     };
-    let device = |precision: GpuPrecision, steps: usize| {
+    let device = |precision: GpuPrecision, gradients: GpuGradients, steps: usize| {
         model.integrate_on_device(
-            options(precision),
+            options(precision, gradients),
             Time::seconds(STEP),
             steps,
             (current.clone(), velocities()),
             &conditions,
         )
     };
-    // Whether there is a device, and whether it agrees with the calling thread.
+    // Whether there is a device, and whether it agrees with the calling thread, whichever
+    // way it gets the gradient vectors.
     let (short, long) = history_steps(nodes);
     let expected = components(history(Execution::Serial, short).1.iter().last().unwrap());
-    match device(GpuPrecision::F64, short) {
-        Ok((found, _)) => {
-            let found = components(&found);
-            let gap = found
-                .iter()
-                .zip(&expected)
-                .map(|(found, expected)| (found - expected).abs())
-                .fold(0.0, f64::max);
-            assert!(
-                gap < 1e-9,
-                "the device differs from the calling thread by {gap}"
-            );
+    for gradients in [GpuGradients::Stored, GpuGradients::OnTheFly] {
+        match device(GpuPrecision::F64, gradients, short) {
+            Ok((found, _)) => {
+                let found = components(&found);
+                let gap = found
+                    .iter()
+                    .zip(&expected)
+                    .map(|(found, expected)| (found - expected).abs())
+                    .fold(0.0, f64::max);
+                assert!(
+                    gap < 1e-9,
+                    "{gradients:?}: the device differs from the calling thread by {gap}"
+                );
+            }
+            Err(error) if no_device(&error) => {
+                println!("skipped: {error:?}");
+                return false;
+            }
+            Err(error) => panic!("{error:?}"),
         }
-        Err(error) if no_device(&error) => {
-            println!("skipped: {error:?}");
-            return false;
-        }
-        Err(error) => panic!("{error:?}"),
     }
     let (serial, serial_setup) =
         marginal(short, long, |steps| drop(history(Execution::Serial, steps)));
     let (threaded, threaded_setup) = marginal(short, long, |steps| {
         drop(history(Execution::Threads(threads()), steps))
     });
-    let (double, double_setup) = marginal(50, 550, |steps| {
-        device(GpuPrecision::F64, steps).unwrap();
-    });
-    let (single, single_setup) = marginal(50, 550, |steps| {
-        device(GpuPrecision::F32, steps).unwrap();
-    });
+    let timed = |precision, gradients| {
+        marginal(50, 550, |steps| {
+            device(precision, gradients, steps).unwrap();
+        })
+    };
+    let (double, double_setup) = timed(GpuPrecision::F64, GpuGradients::Stored);
+    let (single, single_setup) = timed(GpuPrecision::F32, GpuGradients::Stored);
+    let (double_fly, double_fly_setup) = timed(GpuPrecision::F64, GpuGradients::OnTheFly);
+    let (single_fly, single_fly_setup) = timed(GpuPrecision::F32, GpuGradients::OnTheFly);
     let rate = |step: f64| elements as f64 / step / 1e3;
     println!(
         "\n{elements} elements, {nodes} nodes ({cells}^3), {} threads",
@@ -266,6 +273,8 @@ fn compare(cells: usize) -> bool {
         ("threads", threaded, threaded_setup),
         ("device f64", double, double_setup),
         ("device f32", single, single_setup),
+        ("device f64 fly", double_fly, double_fly_setup),
+        ("device f32 fly", single_fly, single_fly_setup),
     ] {
         println!(
             "{label:>16} {step:>11.3} {:>14.1} {:>9.2}x {setup:>12.1}",
