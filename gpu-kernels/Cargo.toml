@@ -1,0 +1,17 @@
+[package]
+description = "conspire's own code, compiled for a CUDA device"
+edition = "2024"
+name = "conspire-gpu-kernels"
+publish = false
+version = "0.0.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"

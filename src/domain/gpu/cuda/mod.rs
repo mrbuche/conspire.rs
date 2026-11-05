@@ -370,6 +370,22 @@ impl Device {
             module,
         })
     }
+    /// Loads kernels that are already PTX, such as those that Rust code is built to, which the
+    /// driver compiles for this device when they are loaded, with no need of NVRTC.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn module_from_ptx(&self, ptx: &str) -> Result<Module> {
+        let image = CString::new(ptx).expect("PTX without nul");
+        let mut module = null_mut();
+        // SAFETY: the image is a C string of PTX, which the driver compiles and loads.
+        self.api.check(
+            unsafe { (self.api.module_load)(&mut module, image.as_ptr().cast()) },
+            "cuModuleLoadData",
+        )?;
+        Ok(Module {
+            api: self.api.clone(),
+            module,
+        })
+    }
     /// Launches `threads` threads of a kernel in blocks of `block`, and returns without waiting.
     pub fn launch(
         &self,

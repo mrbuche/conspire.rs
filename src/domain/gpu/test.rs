@@ -746,3 +746,34 @@ fn run_that_stays_on_the_device_follows_the_run_on_the_calling_thread() {
         );
     }
 }
+
+/// Code made from Rust, as PTX, runs on the device. The PTX is that of `gpu-kernels`, which is
+/// built with `gpu-kernels/build.sh`, and the driver compiles it when it is loaded.
+#[test]
+fn ptx_made_from_rust_runs_on_the_device() {
+    let device = match super::cuda::Device::new(0) {
+        Ok(device) => device,
+        Err(GpuError::Unavailable(message)) => {
+            println!("skipped: no device ({message})");
+            return;
+        }
+        Err(error) => panic!("{error}"),
+    };
+    device.bind().unwrap();
+    let module = device
+        .module_from_ptx(include_str!("../../../gpu-kernels/kernels.ptx"))
+        .unwrap();
+    let squares = module.function("squares").unwrap();
+    let count = 1000_u32;
+    let output = device.buffer::<f64>(count as usize).unwrap();
+    device
+        .launch(&squares, count as usize, 128, &[&output, &count])
+        .unwrap();
+    device.synchronize().unwrap();
+    let mut found = vec![0.0; count as usize];
+    output.download(&mut found).unwrap();
+    found
+        .iter()
+        .enumerate()
+        .for_each(|(index, &value)| assert_eq!(value, ((index + 1) as f64).powi(2)));
+}
