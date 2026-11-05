@@ -3,6 +3,7 @@ pub mod test;
 
 mod base;
 mod buffer;
+mod classify;
 mod connectivity;
 mod decomposition;
 pub(crate) mod differential;
@@ -22,6 +23,7 @@ pub use from::Dualization;
 pub use sets::{NodeSet, NodeSets, SideSet, SideSets};
 
 pub use self::{
+    classify::NodeClass,
     connectivity::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,
