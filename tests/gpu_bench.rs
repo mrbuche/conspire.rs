@@ -168,6 +168,33 @@ fn marginal(short: usize, long: usize, mut run: impl FnMut(usize)) -> (f64, f64)
     (step, short_time - short as f64 * step)
 }
 
+/// The cost of a step and of the setup of a run on a device, in milliseconds.
+///
+/// The setup is the time of a run of no steps. A run is then made long enough that its steps
+/// take about a second or more, so that the jitter of the setup, which is tens of milliseconds,
+/// is a few percent of what is timed whatever the cost of a step, which is a few microseconds
+/// for a fast kernel on a small grid.
+fn device_cost(mut run: impl FnMut(usize)) -> (f64, f64) {
+    let mut median_of =
+        |steps| median((0..repetitions()).map(|_| time_of(|| run(steps))).collect());
+    let setup = median_of(0);
+    let mut steps = 200;
+    loop {
+        let stepping = median_of(steps) - setup;
+        if stepping >= 1000.0 || steps >= 4_000_000 {
+            return (stepping / steps as f64, setup);
+        }
+        // Ten times the steps if what is timed is lost in the jitter, and otherwise as many as
+        // take about two seconds.
+        steps = if stepping < 50.0 {
+            steps * 10
+        } else {
+            (steps as f64 * 2000.0 / stepping) as usize
+        }
+        .min(4_000_000);
+    }
+}
+
 /// The steps of the runs that keep a history, which is large, so fewer for larger grids.
 fn history_steps(nodes: usize) -> (usize, usize) {
     let short = (400_000 / nodes).clamp(1, 20);
@@ -251,7 +278,7 @@ fn compare(cells: usize) -> bool {
         drop(history(Execution::Threads(threads()), steps))
     });
     let timed = |precision, gradients| {
-        marginal(50, 550, |steps| {
+        device_cost(|steps| {
             device(precision, gradients, steps).unwrap();
         })
     };
