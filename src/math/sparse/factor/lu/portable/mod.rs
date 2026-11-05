@@ -1,5 +1,5 @@
 use super::{CHUNK, Scalar};
-use std::simd::{
+use core::simd::{
     Simd, StdFloat,
     num::{SimdFloat, SimdUint},
 };
@@ -30,7 +30,7 @@ unsafe fn st(tile: &mut [Scalar], r: usize, l: usize, v: Half) {
     }
 }
 
-/// `std::simd` port of [`super::avx::trisolve`], structurally identical: pivot
+/// `core::simd` port of [`super::avx::trisolve`], structurally identical: pivot
 /// columns are fused 4 / 2 / 1 at a time so each trailing tile row is streamed
 /// once per group, a group whose pivot rows are all `+0.0` is skipped, and each
 /// `CHUNK`-wide row is carried as `LANES` quarter-vectors so the codegen matches

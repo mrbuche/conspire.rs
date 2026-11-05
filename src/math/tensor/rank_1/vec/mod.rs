@@ -8,7 +8,7 @@ use crate::math::{
     TensorRank2SparseVec2D, TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
     tensor::vec::TensorVector,
 };
-use std::{
+use core::{
     array::from_fn,
     mem::forget,
     ops::{Div, Sub},

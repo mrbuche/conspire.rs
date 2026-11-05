@@ -23,14 +23,14 @@ pub use quantity::{Is, Quantity};
 use super::{SquareMatrix, Vector};
 use crate::math::{Style, StyledError, styled_error};
 use crate::units::{Dimensionless, Time, UnitMul};
-use rank_0::{
-    TensorRank0,
-    list::{TensorRank0List, vec::TensorRank0ListVec},
-};
-use std::{
+use core::{
     fmt::{Debug, Display},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+};
+use rank_0::{
+    TensorRank0,
+    list::{TensorRank0List, vec::TensorRank0ListVec},
 };
 
 /// A scalar.

@@ -7,7 +7,7 @@ use crate::math::{
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
 };
 use crate::units::Time;
-use std::ops::Mul;
+use core::ops::Mul;
 
 /// The `Point` type of a [`StateEvolution`] model's field.
 pub type EvolvedState<M, T = Time, Y = Quantity> =

@@ -19,7 +19,10 @@ fn model() -> Linear {
 
 #[test]
 fn size() {
-    assert_eq!(std::mem::size_of::<Linear>(), std::mem::size_of::<Scalar>())
+    assert_eq!(
+        core::mem::size_of::<Linear>(),
+        core::mem::size_of::<Scalar>()
+    )
 }
 
 #[test]

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use std::convert::Infallible;
+use core::convert::Infallible;
 
 use crate::math::{
     Norm, Scalar, SquareMatrix, Tensor, Vector,

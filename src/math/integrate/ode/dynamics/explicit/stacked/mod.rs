@@ -12,7 +12,7 @@ use crate::{
     },
     units::Time,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 type Stack<X, T> = TensorTuple<X, Derivative<X, T>>;
 type Stacks<X, T> = TensorVector<Stack<X, T>>;

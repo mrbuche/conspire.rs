@@ -4,7 +4,7 @@ mod test;
 use crate::math::{
     Hessian, HessianBlock, Scalar, SquareMatrix, Tensor, TensorRank0, tensor::vec::TensorVector,
 };
-use std::{
+use core::{
     fmt::{self, Debug, Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},

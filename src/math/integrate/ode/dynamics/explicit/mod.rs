@@ -8,7 +8,7 @@ use crate::{
     },
     units::Time,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Explicit integrators for dynamics.
 /// ```math

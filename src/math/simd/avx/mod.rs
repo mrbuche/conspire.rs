@@ -1,5 +1,5 @@
 use crate::math::Scalar;
-use std::arch::x86_64::{
+use core::arch::x86_64::{
     _mm256_fmadd_pd, _mm256_fnmadd_pd, _mm256_loadu_pd, _mm256_set1_pd, _mm256_storeu_pd,
 };
 

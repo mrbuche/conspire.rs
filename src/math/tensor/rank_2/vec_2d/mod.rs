@@ -1,6 +1,6 @@
 use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2Vec, tensor::vec::TensorVector};
 use crate::units::{Dimensionless, UnitMul};
-use std::ops::Mul;
+use core::ops::Mul;
 
 use crate::math::assert::FiniteDifference;
 

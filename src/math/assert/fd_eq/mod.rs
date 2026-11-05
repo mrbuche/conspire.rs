@@ -2,7 +2,7 @@ mod owned;
 
 use super::{Assert, AssertionError, FiniteDifference};
 use crate::math::Tensor;
-use std::fmt::Display;
+use core::fmt::Display;
 
 /// Finite-difference equality assertions, overloaded across owned and borrowed operands.
 pub trait AssertFd<Rhs = Self> {
@@ -24,6 +24,7 @@ pub(super) fn eq_within_fd_tol_impl<T: Display + FiniteDifference + Tensor>(
                 ),
             })
         } else {
+            #[cfg(feature = "std")]
             println!(
                 "Warning: \n\x1b[1;93mAssertion `left ≈= right` was weak in {count} places.\x1b[0m"
             );

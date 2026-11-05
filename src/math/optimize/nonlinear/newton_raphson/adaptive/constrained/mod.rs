@@ -12,7 +12,7 @@ use crate::math::{
     },
     sparse::SparseSolver,
 };
-use std::{fmt::Display, ops::Mul};
+use core::{fmt::Display, ops::Mul};
 
 /// One step of a constrained minimization within an adaptive trust region.
 ///

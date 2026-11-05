@@ -36,7 +36,7 @@ use crate::{
     },
     units::Stress,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 impl<C> Constitutive for C where C: Solid {}
 

@@ -8,7 +8,9 @@
 #[cfg(test)]
 mod test;
 
+#[cfg(feature = "std")]
 use super::random::random_u8;
+#[cfg(feature = "std")]
 use std::{
     env::var_os,
     io::{IsTerminal, stderr},
@@ -33,8 +35,14 @@ pub(crate) struct Style {
 
 impl Style {
     /// Returns colored tokens for a terminal, or empty tokens otherwise.
+    #[cfg(feature = "std")]
     pub(crate) fn detect() -> Self {
         Self::detect_inner(var_os("NO_COLOR").is_none(), stderr().is_terminal())
+    }
+    /// Without the standard library there is no terminal to ask about.
+    #[cfg(not(feature = "std"))]
+    pub(crate) fn detect() -> Self {
+        Self::detect_inner(false, false)
     }
     fn detect_inner(no_color_unset: bool, is_terminal: bool) -> Self {
         if no_color_unset && is_terminal {
@@ -66,8 +74,8 @@ pub(crate) trait StyledError {
 
 macro_rules! styled_error {
     (<$($generic:ident),*> $ty:ty) => {
-        impl<$($generic),*> std::fmt::Debug for $ty {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl<$($generic),*> core::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 let style = $crate::math::Style::detect();
                 write!(
                     f,
@@ -79,8 +87,8 @@ macro_rules! styled_error {
                 )
             }
         }
-        impl<$($generic),*> std::fmt::Display for $ty {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl<$($generic),*> core::fmt::Display for $ty {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 let style = $crate::math::Style::detect();
                 write!(
                     f,
@@ -90,7 +98,7 @@ macro_rules! styled_error {
                 )
             }
         }
-        impl<$($generic),*> std::error::Error for $ty {}
+        impl<$($generic),*> core::error::Error for $ty {}
     };
     ($ty:ty) => {
         styled_error!(<> $ty);
@@ -98,8 +106,15 @@ macro_rules! styled_error {
 }
 pub(crate) use styled_error;
 
+#[cfg(feature = "std")]
 pub(crate) fn defeat_message<'a>() -> &'a str {
     defeat_message_inner(random_u8(14))
+}
+
+/// Without the standard library there is no source of randomness to choose from.
+#[cfg(not(feature = "std"))]
+pub(crate) fn defeat_message<'a>() -> &'a str {
+    defeat_message_inner(0)
 }
 
 fn defeat_message_inner<'a>(n: u8) -> &'a str {

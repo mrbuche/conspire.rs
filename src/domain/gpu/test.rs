@@ -777,3 +777,115 @@ fn ptx_made_from_rust_runs_on_the_device() {
         .enumerate()
         .for_each(|(index, &value)| assert_eq!(value, ((index + 1) as f64).powi(2)));
 }
+
+/// The code of the library, for a constitutive model, runs on the device: the stress of the
+/// Neo-Hookean model that the library computes on the calling thread is that which the device
+/// computes with the same code, built for the device by `gpu-kernels`.
+#[test]
+fn library_stress_on_the_device_is_the_stress_of_the_library() {
+    use crate::{constitutive::solid::elastic::Elastic, mechanics::DeformationGradient};
+    let device = match super::cuda::Device::new(0) {
+        Ok(device) => device,
+        Err(GpuError::Unavailable(message)) => {
+            println!("skipped: no device ({message})");
+            return;
+        }
+        Err(error) => panic!("{error}"),
+    };
+    device.bind().unwrap();
+    let module = device
+        .module_from_ptx(include_str!("../../../gpu-kernels/kernels.ptx"))
+        .unwrap();
+    let stress = module.function("neo_hookean_stress").unwrap();
+    let (shear_modulus, bulk_modulus) = (3.0e9, 13.0e9);
+    let model = NeoHookean {
+        shear_modulus: Stress::pascals(shear_modulus),
+        bulk_modulus: Stress::pascals(bulk_modulus),
+    };
+    // Deformation gradients of every size of stretch and shear, and one that is inverted.
+    let count = 1000;
+    let mut deformation_gradients = (0..count)
+        .map(|index| {
+            let x = index as f64 / count as f64;
+            [
+                [
+                    1.0 + 0.4 * (7.0 * x).sin(),
+                    0.3 * (5.0 * x).cos(),
+                    0.2 * (3.0 * x).sin(),
+                ],
+                [
+                    0.25 * (11.0 * x).sin(),
+                    1.0 + 0.3 * (13.0 * x).cos(),
+                    0.1 * (2.0 * x).cos(),
+                ],
+                [
+                    0.15 * (17.0 * x).cos(),
+                    0.35 * (4.0 * x).sin(),
+                    1.0 + 0.5 * (9.0 * x).sin(),
+                ],
+            ]
+        })
+        .collect::<Vec<_>>();
+    deformation_gradients[7] = [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+    let input = deformation_gradients
+        .iter()
+        .flatten()
+        .flatten()
+        .copied()
+        .collect::<Vec<f64>>();
+    let input_buffer = device.buffer_of(&input).unwrap();
+    let output = device.buffer::<f64>(9 * count).unwrap();
+    let failures = device.buffer::<u32>(count).unwrap();
+    let launched = count as u32;
+    device
+        .launch(
+            &stress,
+            count,
+            128,
+            &[
+                &input_buffer,
+                &output,
+                &failures,
+                &launched,
+                &shear_modulus,
+                &bulk_modulus,
+            ],
+        )
+        .unwrap();
+    device.synchronize().unwrap();
+    let mut found = vec![0.0; 9 * count];
+    let mut failed = vec![0_u32; count];
+    output.download(&mut found).unwrap();
+    failures.download(&mut failed).unwrap();
+    let mut largest = 0.0_f64;
+    let mut worst = 0.0_f64;
+    for (index, deformation_gradient) in deformation_gradients.iter().enumerate() {
+        match model.first_piola_kirchhoff_stress(&DeformationGradient::from(*deformation_gradient))
+        {
+            Ok(expected) => {
+                assert_eq!(failed[index], 0, "{index}");
+                let expected = expected
+                    .iter()
+                    .flat_map(|row| row.iter().map(|component| component.value()))
+                    .collect::<Vec<_>>();
+                expected.iter().enumerate().for_each(|(k, &value)| {
+                    largest = largest.max(value.abs());
+                    worst = worst.max((found[9 * index + k] - value).abs());
+                });
+            }
+            Err(_) => {
+                assert_eq!(failed[index], 1, "{index}");
+                assert!(found[9 * index..9 * index + 9].iter().all(|&x| x == 0.0));
+            }
+        }
+    }
+    assert_eq!(failed[7], 1, "the inverted deformation gradient must fail");
+    assert!(
+        largest > 1e6,
+        "the stresses are not small enough to be nothing"
+    );
+    assert!(
+        worst < 1e-12 * largest,
+        "the largest difference is {worst} of stresses up to {largest}"
+    );
+}

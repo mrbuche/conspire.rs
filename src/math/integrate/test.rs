@@ -1,6 +1,6 @@
 use crate::math::{Quantity, Tensor, TensorRank0, integrate::fixed_step_times};
 use crate::units::Time;
-use std::array::from_fn;
+use core::array::from_fn;
 pub const LENGTH: usize = 33;
 
 pub fn zero_to_one<const W: usize>() -> [Quantity<Time>; W] {
@@ -21,7 +21,7 @@ fn grid(t_0: f64, t_f: f64, dt: f64) -> Vec<f64> {
 #[test]
 fn a_span_that_rounds_up_to_one_more_step_does_not_repeat_its_final_time() {
     let times = grid(0.0, 2000.0 * 1e-6, 1e-6);
-    let dt = std::hint::black_box(1e-6_f64);
+    let dt = core::hint::black_box(1e-6_f64);
     assert!((2000.0 * dt) / dt > 2000.0);
     assert_eq!(times.len(), 2001);
     assert!(times[2000] > times[1999]);

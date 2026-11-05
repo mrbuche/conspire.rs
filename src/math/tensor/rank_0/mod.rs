@@ -12,7 +12,7 @@ use super::{
     ContractWith, Hessian, HessianBlock, Jacobian, Solution, SquareMatrix, Tensor, TensorArray,
     Vector,
 };
-use std::{
+use core::{
     ops::{IndexMut, Sub},
     slice::from_ref,
 };

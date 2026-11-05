@@ -9,8 +9,8 @@ use crate::{
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<Fourier>(),
-        std::mem::size_of::<Scalar>()
+        core::mem::size_of::<Fourier>(),
+        core::mem::size_of::<Scalar>()
     )
 }
 

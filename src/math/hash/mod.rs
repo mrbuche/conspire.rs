@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use std::{
-    collections::{HashMap, HashSet},
-    hash::{BuildHasherDefault, Hasher},
+use core::hash::Hasher;
+#[cfg(feature = "std")]
+use {
+    core::hash::BuildHasherDefault,
+    std::collections::{HashMap, HashSet},
 };
 
 const SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
@@ -13,11 +15,13 @@ const ROTATE: u32 = 5;
 ///
 /// Much faster for the small integer keys (node indices, `(usize, usize)` edges)
 /// the mesh code hashes in tight loops.
+#[cfg(feature = "std")]
 pub type FxHashMap<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
 
 /// A [`HashSet`] using [`FxHasher`].
 ///
 ///  See [`FxHashMap`] for more information.
+#[cfg(feature = "std")]
 pub type FxHashSet<T> = HashSet<T, BuildHasherDefault<FxHasher>>;
 
 /// A non-cryptographic hasher (the FxHash algorithm).

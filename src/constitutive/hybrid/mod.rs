@@ -14,7 +14,7 @@ pub use self::{
 
 pub use crate::constitutive::canonical::Canonical as ElasticMultiplicativeViscoplastic;
 
-use std::{
+use core::{
     any::type_name,
     fmt::{self, Debug, Formatter},
 };

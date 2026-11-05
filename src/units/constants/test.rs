@@ -72,7 +72,7 @@ fn stefan_boltzmann_constant() -> Result<(), AssertionError> {
         PLANCK_CONSTANT.value(),
         LIGHT_SPEED.value(),
     );
-    let expected = 2.0 * std::f64::consts::PI.powi(5) * k.powi(4) / (15.0 * h.powi(3) * c * c);
+    let expected = 2.0 * core::f64::consts::PI.powi(5) * k.powi(4) / (15.0 * h.powi(3) * c * c);
     Assert {
         rel_tol: 1e-8,
         ..Default::default()

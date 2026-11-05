@@ -15,7 +15,7 @@ use crate::{
     ABS_TOL, EPSILON, REL_TOL,
     math::{Scalar, Tensor},
 };
-use std::fmt::Display;
+use core::fmt::Display;
 
 /// Specifies tolerances used by [`AssertEq`] functionalities.
 pub struct Assert {

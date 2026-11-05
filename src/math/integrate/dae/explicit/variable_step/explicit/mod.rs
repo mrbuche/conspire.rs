@@ -11,7 +11,7 @@ use crate::{
     },
     units::Time,
 };
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 /// Variable-step explicit integrators for explicit differential-algebraic equations.
 pub trait ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T = Time>

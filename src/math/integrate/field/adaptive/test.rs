@@ -88,7 +88,7 @@ fn rkmk_adaptive_keeps_the_group_state_unimodular() {
 
 #[test]
 fn rkmk_adaptive_retries_with_a_smaller_step_after_a_rate_failure() {
-    use std::cell::Cell;
+    use core::cell::Cell;
     let rate = trace_free_rate();
     let calls = Cell::new(0_usize);
     let (_, points): (Times, TensorVector<Fp>) =

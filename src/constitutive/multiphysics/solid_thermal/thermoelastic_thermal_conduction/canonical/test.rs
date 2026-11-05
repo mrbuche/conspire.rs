@@ -135,13 +135,13 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         // #[test]
         // fn size() {
         //     assert_eq!(
-        //         std::mem::size_of::<
+        //         core::mem::size_of::<
         //             Canonical<
         //                 $thermoelastic_constitutive_model,
         //                 $thermal_conduction_constitutive_model,
         //             >,
         //         >(),
-        //         2 * std::mem::size_of::<&[Scalar; 1]>()
+        //         2 * core::mem::size_of::<&[Scalar; 1]>()
         //     )
         // }
     };

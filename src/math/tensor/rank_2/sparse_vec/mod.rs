@@ -4,7 +4,7 @@ mod test;
 use super::TensorRank2;
 use crate::math::{Tensor, TensorArray, TensorRank0};
 use crate::units::Dimensionless;
-use std::{
+use core::{
     fmt::{self, Debug, Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},

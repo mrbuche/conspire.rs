@@ -1,6 +1,6 @@
 use super::{LineSearchError, ResidualMerit, exhausted};
 use crate::math::Scalar;
-use std::fmt::{self, Display, Formatter};
+use core::fmt::{self, Display, Formatter};
 
 /// The Armijo condition on half the squared norm of the residual.
 #[derive(Clone, Debug)]

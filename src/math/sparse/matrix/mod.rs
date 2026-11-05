@@ -7,7 +7,7 @@ use crate::math::{
     HessianBlock, Quantity, QuantityVector, Scalar, TensorRank1, TensorRank1Vec, TensorRank2,
     TensorTuple, TensorTupleVec, Vector,
 };
-use std::ops::{IndexMut, Mul};
+use core::ops::{IndexMut, Mul};
 
 /// A sparse matrix in compressed sparse column format.
 #[derive(Clone, Debug, PartialEq)]

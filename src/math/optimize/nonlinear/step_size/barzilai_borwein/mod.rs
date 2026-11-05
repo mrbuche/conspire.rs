@@ -1,5 +1,5 @@
 use super::StepEstimator;
-use std::{
+use core::{
     fmt::{self, Display, Formatter},
     ops::Div,
 };

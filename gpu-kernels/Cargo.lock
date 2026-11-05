@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "conspire"
+version = "0.9.0"
+
+[[package]]
 name = "conspire-gpu-kernels"
 version = "0.0.0"
+dependencies = [
+ "conspire",
+]

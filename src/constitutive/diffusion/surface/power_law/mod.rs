@@ -7,7 +7,7 @@ use crate::{
     math::{Quantity, Scalar},
     units::{Area, Dimensionless},
 };
-use std::ops::{Div, Mul};
+use core::ops::{Div, Mul};
 
 /// A power law, where the flux is the coefficient times the difference between the field and its
 /// ambient value, times that difference over a reference difference, in magnitude, to a power

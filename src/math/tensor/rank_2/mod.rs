@@ -23,7 +23,7 @@ pub(crate) mod sparse_vec_2d;
 pub(crate) mod vec;
 pub(crate) mod vec_2d;
 
-use std::{
+use core::{
     array::{IntoIter, from_fn},
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,

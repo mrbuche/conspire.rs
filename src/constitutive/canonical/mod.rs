@@ -1,6 +1,6 @@
 //! Constitutive models created through canonical compositions.
 
-use std::{
+use core::{
     any::type_name,
     fmt::{self, Debug, Formatter},
 };

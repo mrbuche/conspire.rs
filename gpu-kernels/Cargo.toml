@@ -5,6 +5,9 @@ name = "conspire-gpu-kernels"
 publish = false
 version = "0.0.0"
 
+[dependencies]
+conspire = { path = "..", default-features = false, features = ["constitutive"] }
+
 [lib]
 crate-type = ["cdylib"]
 

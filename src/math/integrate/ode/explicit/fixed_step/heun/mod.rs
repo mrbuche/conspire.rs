@@ -8,7 +8,7 @@ use crate::math::{
         Spectrum, Times,
     },
 };
-use std::ops::{Add, Mul};
+use core::ops::{Add, Mul};
 
 /// The Heun (explicit trapezoidal) tableau.
 #[derive(Debug)]

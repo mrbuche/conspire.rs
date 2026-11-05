@@ -35,7 +35,7 @@ use crate::{
     },
     units::{EnergyDensity, Time},
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 /// Required methods for hyperelastic-viscoplastic solid constitutive models.
 pub trait HyperelasticViscoplastic<Y>

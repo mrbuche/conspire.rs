@@ -8,7 +8,7 @@ use crate::math::{
         Spectrum, Times,
     },
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 /// The explicit midpoint tableau.
 #[derive(Debug)]

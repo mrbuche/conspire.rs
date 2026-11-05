@@ -1,7 +1,7 @@
 mod elastic;
 
 use crate::constitutive::{hybrid::Additive, solid::elastic::Elastic};
-use std::ops::Deref;
+use core::ops::Deref;
 
 /// A hybrid elastic constitutive model based on the additive decomposition.
 #[derive(Clone, Debug)]

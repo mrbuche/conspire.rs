@@ -13,6 +13,7 @@ pub mod interpolate;
 pub mod optimize;
 
 /// Random number generation.
+#[cfg(feature = "std")]
 pub mod random;
 
 /// Sparse data types.
@@ -23,6 +24,7 @@ pub mod special;
 
 mod graph;
 mod hash;
+#[cfg(feature = "std")]
 mod labels;
 mod matrix;
 mod simd;
@@ -32,7 +34,10 @@ mod tensor;
 pub(crate) use style::{Style, StyledError, defeat_message, styled_error};
 
 pub use graph::{Graph, Incidence};
-pub use hash::{FxHashMap, FxHashSet, FxHasher};
+pub use hash::FxHasher;
+#[cfg(feature = "std")]
+pub use hash::{FxHashMap, FxHashSet};
+#[cfg(feature = "std")]
 pub use labels::Labels;
 pub use matrix::{
     Matrix,
@@ -80,7 +85,7 @@ pub use tensor::{
     vec::{TensorRank1RefVec, TensorVector},
 };
 
-use std::fmt;
+use core::fmt;
 
 fn write_tensor_rank_0(f: &mut fmt::Formatter, tensor_rank_0: &TensorRank0) -> fmt::Result {
     let num = if tensor_rank_0.abs() > 1e-1 {

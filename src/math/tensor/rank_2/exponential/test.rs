@@ -45,7 +45,7 @@ const TIGHT: Assert = Assert {
 fn expm_identity_is_e() -> Result<(), AssertionError> {
     TIGHT.eq_within_tols(
         &TensorRank2::<3, Current, Current>::identity().expm()?,
-        &(TensorRank2::<3, Current, Current>::identity() * std::f64::consts::E),
+        &(TensorRank2::<3, Current, Current>::identity() * core::f64::consts::E),
     )
 }
 

@@ -18,7 +18,7 @@ pub mod solid;
 pub mod thermal;
 
 use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 /// Required methods for constitutive models.
 pub trait Constitutive
@@ -35,6 +35,23 @@ pub enum ConstitutiveError {
     Upstream(String, String),
 }
 
+/// Without the standard library, which is how the library is built as code for a device, there
+/// is no heap to make the text of an error in, so an error is its kind and its number, and
+/// whatever runs the code on the host can say more.
+#[cfg(not(feature = "std"))]
+impl ConstitutiveError {
+    pub fn custom(_: impl Display, _: &(impl Debug + ?Sized)) -> Self {
+        Self::Custom(String::new(), String::new())
+    }
+    pub fn invalid_jacobian(jacobian: Scalar, _: &(impl Debug + ?Sized)) -> Self {
+        Self::InvalidJacobian(jacobian, String::new())
+    }
+    pub fn upstream(_: impl Display, _: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(String::new(), String::new())
+    }
+}
+
+#[cfg(feature = "std")]
 impl ConstitutiveError {
     pub fn custom(message: impl Display, context: &(impl Debug + ?Sized)) -> Self {
         Self::Custom(format!("{message}"), format!("{context:?}"))

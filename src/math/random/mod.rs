@@ -126,7 +126,7 @@ pub fn random_normal(mean: f64, std: f64) -> f64 {
 
 use crate::math::special::erf;
 
-use std::f64::consts::{PI, SQRT_2};
+use core::f64::consts::{PI, SQRT_2};
 
 fn x2_normal_primitive(lambda: f64, mean: f64, std: f64) -> f64 {
     let t = (lambda - mean) / (std * SQRT_2);

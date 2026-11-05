@@ -6,7 +6,7 @@ use super::{
     integrate::{IntegrationError, Times},
 };
 use crate::units::Time;
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 /// Linear interpolation schemes.
 pub struct LinearInterpolation {}

@@ -3,14 +3,14 @@ use crate::math::{
     TensorRank1List, TensorVec,
 };
 use crate::units::Dimensionless;
-use std::{
-    collections::VecDeque,
+use alloc::{collections::VecDeque, vec};
+use core::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
     mem::forget,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
     ptr::read,
-    slice, vec,
+    slice,
 };
 
 /// A resizable collection of tensors.

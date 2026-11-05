@@ -15,7 +15,7 @@ use crate::{
     math::{ContractWith, Quantity, Solution, optimize::OptimizationError},
     units::UnitMul,
 };
-use std::{fmt::Debug, ops::Mul};
+use core::{fmt::Debug, ops::Mul};
 
 pub(super) trait BacktrackingLineSearch<J, X>
 where

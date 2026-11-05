@@ -123,7 +123,7 @@ mod stability {
         let s = bogacki_shampine::Tableau::stability();
         assert_eq!(s.extent(-0.4), s.extent(0.4));
         assert_eq!(s.extent(0.0), s.real());
-        assert_eq!(s.extent(std::f64::consts::FRAC_PI_2), s.imaginary());
+        assert_eq!(s.extent(core::f64::consts::FRAC_PI_2), s.imaginary());
         [1.6, 2.0, f64::INFINITY, f64::NAN]
             .iter()
             .for_each(|&angle| {

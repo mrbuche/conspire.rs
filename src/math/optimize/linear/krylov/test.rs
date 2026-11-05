@@ -494,7 +494,7 @@ mod typed {
     }
     #[test]
     fn minres_refuses_a_preconditioner_that_stops_being_positive_definite() {
-        let calls = std::cell::Cell::new(0);
+        let calls = core::cell::Cell::new(0);
         let fading = move |load: &Load| {
             calls.set(calls.get() + 1);
             let sign = if calls.get() == 1 { 1.0 } else { -1.0 };

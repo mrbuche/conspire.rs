@@ -8,7 +8,7 @@ use crate::math::{
         ode::explicit::variable_step::verner_9::Tableau as Verner9Tableau,
     },
 };
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug, Default)]

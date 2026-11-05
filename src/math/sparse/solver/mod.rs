@@ -7,10 +7,8 @@ use super::{
     matrix::CscMatrix,
 };
 use crate::math::{Scalar, Vector};
-use std::{
-    cell::{Ref, RefCell},
-    rc::Rc,
-};
+use alloc::rc::Rc;
+use core::cell::{Ref, RefCell};
 
 /// A sparse direct solver for repeated solves on a fixed sparsity pattern.
 ///

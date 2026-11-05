@@ -2,7 +2,7 @@ mod owned;
 
 use super::{Assert, AssertionError};
 use crate::math::Tensor;
-use std::fmt::Display;
+use core::fmt::Display;
 
 /// Equality assertions, overloaded across owned and borrowed operands.
 pub trait AssertEq<Rhs = Self> {

@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 /// Possible errors encountered when integrating.
 pub enum IntegrationError {

@@ -9,7 +9,7 @@ use crate::{
     },
     units::{Time, UnitInv},
 };
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 /// Variable-step explicit integrators for implicit differential-algebraic equations.
 pub trait ImplicitDaeVariableStepExplicit<Y, U, V, T = Time>

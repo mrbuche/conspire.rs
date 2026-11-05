@@ -11,7 +11,7 @@ use crate::math::{
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 pub(crate) const P_1_0: Scalar = 1.0;
 pub(crate) const P_1_1: Scalar = -8048581381.0 / 2820520608.0;

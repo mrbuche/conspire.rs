@@ -68,7 +68,7 @@ fn rkmk_bogacki_shampine_is_third_order() {
 
 #[test]
 fn rkmk_reuses_the_fsal_stage_across_steps() {
-    use std::cell::Cell;
+    use core::cell::Cell;
     let a = FpRate::from(constant_exponent());
     let evaluations = Cell::new(0_usize);
     let steps = 8;
@@ -91,7 +91,7 @@ fn rkmk_reuses_the_fsal_stage_across_steps() {
 
 #[test]
 fn rkmk_dae_reuses_the_fsal_stage_across_steps() {
-    use std::cell::Cell;
+    use core::cell::Cell;
     let rate = trace_free_rate();
     let rate_evaluations = Cell::new(0_usize);
     let solve_evaluations = Cell::new(0_usize);
@@ -180,7 +180,7 @@ fn rkmk_on_a_field_whose_increment_is_not_its_point() {
 
 #[test]
 fn rkmk_step_makes_one_rate_evaluation_per_stage_and_reuses_its_scratch() {
-    use std::cell::Cell;
+    use core::cell::Cell;
     let a = FpRate::from(constant_exponent());
     let evaluations = Cell::new(0_usize);
     let mut rate = |t: Quantity<Time>, _: &Fp| {

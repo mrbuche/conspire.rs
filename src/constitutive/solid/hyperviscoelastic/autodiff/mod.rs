@@ -7,7 +7,7 @@ use crate::constitutive::{
         hyperviscoelastic::Hyperviscoelastic,
     },
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 pub trait AutodiffHyperviscoelastic
 where

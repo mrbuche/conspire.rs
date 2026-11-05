@@ -6,7 +6,7 @@ use crate::{
     },
     units::{Acceleration, Length, RateSquared, Time, Velocity},
 };
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 type Solution = (
     Times,
@@ -45,7 +45,7 @@ fn max_error(dt: Scalar) -> Scalar {
 
 #[test]
 fn a_state_is_given_at_every_time_when_the_span_rounds_up_to_one_more_step() {
-    let dt = std::hint::black_box(1e-6_f64);
+    let dt = core::hint::black_box(1e-6_f64);
     assert!((2000.0 * dt) / dt > 2000.0);
     let (times, positions, velocities, accelerations) =
         oscillate(&VelocityVerlet { dt }, 2000.0 * dt).unwrap();

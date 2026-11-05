@@ -6,7 +6,7 @@ use crate::math::{
     Hessian, HessianAccumulate, Rank2, Scalar, SquareMatrix, Tensor, TensorRank0, Vector,
 };
 use crate::units::Dimensionless;
-use std::{
+use core::{
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},

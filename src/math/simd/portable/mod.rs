@@ -1,5 +1,5 @@
 use crate::math::Scalar;
-use std::simd::{Simd, StdFloat};
+use core::simd::{Simd, StdFloat};
 
 type F64x4 = Simd<Scalar, 4>;
 type F64x8 = Simd<Scalar, 8>;
