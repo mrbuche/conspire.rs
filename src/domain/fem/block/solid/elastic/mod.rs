@@ -21,11 +21,12 @@ use crate::{
 };
 #[cfg(feature = "gpu")]
 use crate::{
+    constitutive::solid::elastic::GpuModel,
     domain::{
-        gpu::{GpuItems, ShapeTables},
+        gpu::{GpuItems, LibraryBlock, ShapeTables},
         parallel::ItemIndex,
     },
-    fem::block::element::ElementNodalCoordinates,
+    fem::block::element::{ElementNodalCoordinates, linear::Hexahedron},
     math::{Quantity, Tensor},
 };
 
@@ -121,7 +122,26 @@ where
                 weights: F::parametric_weights().iter().copied().collect(),
             }
         });
+        // The kernels of the library are for the elements that they were built for, which are
+        // known by their types, and their elements are the bytes that they are.
+        let library = (core::any::type_name::<F>() == core::any::type_name::<Hexahedron>()
+            && matches!(model, GpuModel::NeoHookean { .. }))
+        .then(|| {
+            let elements = self.elements();
+            // SAFETY: the elements are plain numbers, which the device reads as bytes.
+            let bytes = unsafe {
+                core::slice::from_raw_parts(
+                    elements.as_ptr().cast::<u8>(),
+                    core::mem::size_of_val(elements),
+                )
+            };
+            LibraryBlock {
+                elements: bytes.to_vec(),
+                forces_kernel: "block_forces",
+            }
+        });
         Some(GpuItems {
+            library,
             shape,
             model,
             nodes_per_item: N,

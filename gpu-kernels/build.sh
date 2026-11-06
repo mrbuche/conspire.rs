@@ -4,4 +4,4 @@
 set -e
 cd "$(dirname "$0")"
 cargo build --release
-cp target/nvptx64-nvidia-cuda/release/conspire_gpu_kernels.ptx kernels.ptx
+cp target/nvptx64-nvidia-cuda/release/conspire_gpu_kernels.ptx ../src/domain/gpu/kernels.ptx

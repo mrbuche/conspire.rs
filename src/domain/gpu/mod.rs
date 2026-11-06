@@ -43,6 +43,19 @@ pub enum GpuGradients {
     OnTheFly,
 }
 
+/// Which kernels run the forces and the steps on the device.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum GpuKernels {
+    /// Kernels written for the device in CUDA, which are compiled when the run starts, in either
+    /// precision.
+    #[default]
+    Handwritten,
+    /// The code of the library itself, built to PTX in advance, which the driver compiles when
+    /// the run starts. It is double precision, with the stored gradient vectors of the elements,
+    /// and only for the models and elements that it has kernels for.
+    Library,
+}
+
 /// How a device is used for a run.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct GpuOptions {
@@ -52,6 +65,8 @@ pub struct GpuOptions {
     pub precision: GpuPrecision,
     /// Where the device gets the gradient vectors.
     pub gradients: GpuGradients,
+    /// Which kernels run on the device.
+    pub kernels: GpuKernels,
 }
 
 /// What can go wrong on a device.
@@ -109,6 +124,16 @@ pub struct GpuItems {
     pub contributions: Vec<u32>,
     /// What makes the gradient vectors from the reference coordinates, if the elements can.
     pub shape: Option<ShapeTables>,
+    /// The elements as the bytes that they are, for the kernels of the library, if it has them.
+    pub library: Option<LibraryBlock>,
+}
+
+/// A block as the kernels of the library take it: its elements, as they are on the host.
+pub struct LibraryBlock {
+    /// The elements, one after another.
+    pub elements: Vec<u8>,
+    /// The name of the kernel that computes the forces of the elements.
+    pub forces_kernel: &'static str,
 }
 
 /// The shape functions of the elements of a block, at the integration points of its parametric

@@ -1,7 +1,7 @@
 //! What a run keeps on the device, and the two passes that compute the nodal forces with it.
 
 use super::{
-    GpuError, GpuGradients, GpuItems, GpuOptions, GpuPrecision,
+    GpuError, GpuGradients, GpuItems, GpuKernels, GpuOptions, GpuPrecision,
     cuda::{Argument, Buffer, Device, Function, Module},
 };
 use crate::{
@@ -14,6 +14,8 @@ use std::time::{Duration, Instant};
 
 const KERNELS: &str = include_str!("kernel.cu");
 const DYNAMICS: &str = include_str!("dynamics.cu");
+/// The code of the library for the device, built by `gpu-kernels/build.sh`.
+const LIBRARY: &str = include_str!("kernels.ptx");
 const THREADS_PER_BLOCK: usize = 128;
 /// How many steps of a run on the device are taken between looks for an inverted element.
 const CHECK_EVERY: usize = 1024;
@@ -147,6 +149,8 @@ enum Geometry<R> {
         derivatives: Buffer<R>,
         weights: Buffer<R>,
     },
+    /// The elements themselves, as the bytes that the kernels of the library take them in.
+    Library { elements: Buffer<u8> },
 }
 
 /// The fields are dropped in order, so the buffers go before the kernels and the device.
@@ -157,6 +161,7 @@ pub(crate) struct State<R: Real> {
     forces: Buffer<R>,
     host: Vec<R>,
     nodes: usize,
+    library: bool,
     _modules: Vec<Module>,
     device: Device,
 }
@@ -169,6 +174,13 @@ impl<R: Real> State<R> {
     ) -> Result<Self, GpuError> {
         let number_of_nodes = reference_coordinates.len() / 3;
         let on_the_fly = options.gradients == GpuGradients::OnTheFly;
+        let library = options.kernels == GpuKernels::Library;
+        if library && (!R::DOUBLE || on_the_fly) {
+            return Err(GpuError::Unsupported(
+                "the kernels of the library are in double precision, with stored gradient vectors"
+                    .to_string(),
+            ));
+        }
         let device = Device::new(options.device)?;
         device.bind()?;
         let to_device = |values: &[f64]| values.iter().map(|&x| R::from_f64(x)).collect::<Vec<_>>();
@@ -179,34 +191,51 @@ impl<R: Real> State<R> {
                 shear_modulus,
                 bulk_modulus,
             } = block.model;
-            let mut definitions = vec![
-                format!("REAL={}", R::NAME),
-                format!("NODES={}", block.nodes_per_item),
-                format!("POINTS={}", block.points_per_item),
-            ];
-            if on_the_fly {
-                definitions.push("ON_THE_FLY".to_string());
-            }
-            if R::DOUBLE {
-                definitions.push("DOUBLE_PRECISION".to_string());
-            }
-            let module = device.module(KERNELS, &definitions, R::FUSED)?;
             let items = block.number_of_items();
             let layout = block.device_layout();
-            let geometry = if on_the_fly {
-                let shape = block.shape.as_ref().ok_or_else(|| {
+            let (module, geometry, forces_name) = if library {
+                let blocks_kernels = block.library.as_ref().ok_or_else(|| {
                     GpuError::Unsupported(
-                        "the elements cannot make their gradient vectors on the fly".to_string(),
+                        "the library has no kernels for this model and element".to_string(),
                     )
                 })?;
-                Geometry::OnTheFly {
-                    derivatives: device.buffer_of(&to_device(&shape.derivatives))?,
-                    weights: device.buffer_of(&to_device(&shape.weights))?,
-                }
+                (
+                    device.module_from_ptx(LIBRARY)?,
+                    Geometry::Library {
+                        elements: device.buffer_of(&blocks_kernels.elements)?,
+                    },
+                    blocks_kernels.forces_kernel,
+                )
             } else {
-                Geometry::Stored {
-                    reference: device.buffer_of(&to_device(&layout.reference))?,
+                let mut definitions = vec![
+                    format!("REAL={}", R::NAME),
+                    format!("NODES={}", block.nodes_per_item),
+                    format!("POINTS={}", block.points_per_item),
+                ];
+                if on_the_fly {
+                    definitions.push("ON_THE_FLY".to_string());
                 }
+                if R::DOUBLE {
+                    definitions.push("DOUBLE_PRECISION".to_string());
+                }
+                let module = device.module(KERNELS, &definitions, R::FUSED)?;
+                let geometry = if on_the_fly {
+                    let shape = block.shape.as_ref().ok_or_else(|| {
+                        GpuError::Unsupported(
+                            "the elements cannot make their gradient vectors on the fly"
+                                .to_string(),
+                        )
+                    })?;
+                    Geometry::OnTheFly {
+                        derivatives: device.buffer_of(&to_device(&shape.derivatives))?,
+                        weights: device.buffer_of(&to_device(&shape.weights))?,
+                    }
+                } else {
+                    Geometry::Stored {
+                        reference: device.buffer_of(&to_device(&layout.reference))?,
+                    }
+                };
+                (module, geometry, "item_forces")
             };
             states.push(BlockState {
                 items: items as u32,
@@ -219,7 +248,7 @@ impl<R: Real> State<R> {
                 contributions: device.buffer_of(&layout.contributions)?,
                 item_forces: device.buffer(items * block.nodes_per_item * 3)?,
                 failure: device.buffer::<u32>(1)?,
-                forces_kernel: module.function("item_forces")?,
+                forces_kernel: module.function(forces_name)?,
                 gather_kernel: module.function("gather")?,
             });
             modules.push(module);
@@ -235,6 +264,7 @@ impl<R: Real> State<R> {
             forces: device.buffer(3 * number_of_nodes)?,
             host: vec![R::default(); 3 * number_of_nodes],
             nodes: number_of_nodes,
+            library,
             _modules: modules,
             device,
         })
@@ -281,6 +311,21 @@ impl<R: Real> State<R> {
                         reference_coordinates,
                         derivatives,
                         weights,
+                        &self.coordinates,
+                        &block.item_forces,
+                        &block.failure,
+                        &block.shear_modulus,
+                        &block.bulk_modulus,
+                    ],
+                ),
+                (Geometry::Library { elements }, _) => self.device.launch(
+                    &block.forces_kernel,
+                    block.items as usize,
+                    THREADS_PER_BLOCK,
+                    &[
+                        &block.items,
+                        elements,
+                        &block.connectivity,
                         &self.coordinates,
                         &block.item_forces,
                         &block.failure,
@@ -351,9 +396,12 @@ impl<R: Real> State<R> {
         self.coordinates.upload(&to_device(coordinates))?;
         self.forces.fill(0)?;
         self.reset_failures()?;
-        let module = self
-            .device
-            .module(DYNAMICS, &[format!("REAL={}", R::NAME)], R::FUSED)?;
+        let module = if self.library {
+            self.device.module_from_ptx(LIBRARY)?
+        } else {
+            self.device
+                .module(DYNAMICS, &[format!("REAL={}", R::NAME)], R::FUSED)?
+        };
         let kick_drift = module.function("kick_drift")?;
         let accelerate = module.function("accelerate")?;
         let (count, dt) = (count as u32, R::from_f64(dt));

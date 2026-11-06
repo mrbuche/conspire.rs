@@ -1,4 +1,4 @@
-use super::{GpuError, GpuGradients, GpuOptions, GpuPrecision, Resident};
+use super::{GpuError, GpuGradients, GpuKernels, GpuOptions, GpuPrecision, Resident};
 use crate::{
     constitutive::solid::{elastic::GpuModel, hyperelastic::NeoHookean},
     domain::solid::{dynamics::test::fixed_dofs, mass::MassMatrix},
@@ -694,15 +694,20 @@ fn run_on_the_device_follows_the_run_on_the_calling_thread() {
     let last = |history: &crate::fem::NodalCoordinatesHistory<3>| {
         components(history.iter().last().unwrap())
     };
-    for gradients in [GpuGradients::Stored, GpuGradients::OnTheFly] {
+    for (gradients, kernels) in [
+        (GpuGradients::Stored, GpuKernels::Handwritten),
+        (GpuGradients::OnTheFly, GpuKernels::Handwritten),
+        (GpuGradients::Stored, GpuKernels::Library),
+    ] {
         let device = run(Execution::Gpu(GpuOptions {
             gradients,
+            kernels,
             ..GpuOptions::default()
         }));
         let (difference, scale) = largest_difference(&last(&device.1), &last(&serial.1));
         assert!(
             difference < 1e-9 * scale.max(1.0),
-            "{gradients:?}: {difference}"
+            "{gradients:?} {kernels:?}: {difference}"
         );
     }
 }
@@ -719,11 +724,16 @@ fn run_that_stays_on_the_device_follows_the_run_on_the_calling_thread() {
     };
     let (expected_coordinates, expected_velocities) =
         serial_run(&model, &current, &velocities, &held);
-    for gradients in [GpuGradients::Stored, GpuGradients::OnTheFly] {
+    for (gradients, kernels) in [
+        (GpuGradients::Stored, GpuKernels::Handwritten),
+        (GpuGradients::OnTheFly, GpuKernels::Handwritten),
+        (GpuGradients::Stored, GpuKernels::Library),
+    ] {
         let (found_coordinates, found_velocities) = model
             .integrate_on_device(
                 GpuOptions {
                     gradients,
+                    kernels,
                     ..GpuOptions::default()
                 },
                 Time::seconds(STEP),
@@ -736,13 +746,13 @@ fn run_that_stays_on_the_device_follows_the_run_on_the_calling_thread() {
             largest_difference(&components(&found_coordinates), &expected_coordinates);
         assert!(
             difference < 1e-12 * scale.max(1.0),
-            "{gradients:?}: {difference}"
+            "{gradients:?} {kernels:?}: {difference}"
         );
         let (difference, scale) =
             largest_difference(&components(&found_velocities), &expected_velocities);
         assert!(
             scale > 1e-3 && difference < 1e-9 * scale,
-            "{gradients:?}: {difference}"
+            "{gradients:?} {kernels:?}: {difference}"
         );
     }
 }
@@ -760,9 +770,7 @@ fn ptx_made_from_rust_runs_on_the_device() {
         Err(error) => panic!("{error}"),
     };
     device.bind().unwrap();
-    let module = device
-        .module_from_ptx(include_str!("../../../gpu-kernels/kernels.ptx"))
-        .unwrap();
+    let module = device.module_from_ptx(include_str!("kernels.ptx")).unwrap();
     let squares = module.function("squares").unwrap();
     let count = 1000_u32;
     let output = device.buffer::<f64>(count as usize).unwrap();
@@ -793,9 +801,7 @@ fn library_stress_on_the_device_is_the_stress_of_the_library() {
         Err(error) => panic!("{error}"),
     };
     device.bind().unwrap();
-    let module = device
-        .module_from_ptx(include_str!("../../../gpu-kernels/kernels.ptx"))
-        .unwrap();
+    let module = device.module_from_ptx(include_str!("kernels.ptx")).unwrap();
     let stress = module.function("neo_hookean_stress").unwrap();
     let (shear_modulus, bulk_modulus) = (3.0e9, 13.0e9);
     let model = NeoHookean {
@@ -905,9 +911,7 @@ fn library_element_forces_on_the_device_are_the_forces_of_the_library() {
         Err(error) => panic!("{error}"),
     };
     device.bind().unwrap();
-    let module = device
-        .module_from_ptx(include_str!("../../../gpu-kernels/kernels.ptx"))
-        .unwrap();
+    let module = device.module_from_ptx(include_str!("kernels.ptx")).unwrap();
     let kernel = module.function("neo_hookean_hexahedron_forces").unwrap();
     let cells = 4;
     let (model, reference) = grid(cells);

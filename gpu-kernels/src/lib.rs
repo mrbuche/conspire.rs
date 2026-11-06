@@ -20,6 +20,7 @@ use core::{
     alloc::{GlobalAlloc, Layout},
     arch::nvptx,
     panic::PanicInfo,
+    sync::atomic::{AtomicU32, Ordering},
 };
 
 #[panic_handler]
@@ -182,6 +183,173 @@ pub unsafe extern "ptx-kernel" fn neo_hookean_hexahedron_forces(
             Err(_) => {
                 output.iter_mut().for_each(|value| *value = 0.0);
                 *failure = 1;
+            }
+        }
+    }
+}
+
+// What follows is a block of hexahedra of a Neo-Hookean solid as the run of dynamics on a device
+// takes it: the forces of the elements, which are the code of the library, then the forces on the
+// nodes, and the steps of velocity Verlet. The data of the elements and the forces are laid out
+// with the element last, so that consecutive threads, which are consecutive elements, read
+// and write consecutive addresses:
+//   connectivity[position * items + item]
+//   forces[(component * 8 + position) * items + item]
+
+/// The nodal forces of each of `items` hexahedra of a block, by the code of the library, one to a
+/// thread. The first element whose Jacobian is not positive is put in `failure`, which is
+/// all ones when none is, and its forces are zeros.
+///
+/// # Safety
+///
+/// `elements` must be `items` hexahedra, `connectivity` must be `8 * items` nodes that
+/// `coordinates` has, `forces` must have `24 * items` values, and `failure` must be one.
+#[unsafe(no_mangle)]
+pub unsafe extern "ptx-kernel" fn block_forces(
+    items: u32,
+    elements: *const Hexahedron,
+    connectivity: *const u32,
+    coordinates: *const f64,
+    forces: *mut f64,
+    failure: *mut u32,
+    shear_modulus: f64,
+    bulk_modulus: f64,
+) {
+    let item = thread();
+    let items = items as usize;
+    if item < items {
+        // SAFETY: the item is within the elements that there are.
+        let element = unsafe { &*elements.add(item) };
+        let mut positions = [[0.0; 3]; 8];
+        positions.iter_mut().enumerate().for_each(|(a, position)| {
+            // SAFETY: the node is one that `coordinates` has.
+            let node = unsafe { *connectivity.add(a * items + item) } as usize;
+            (0..3).for_each(|i| position[i] = unsafe { *coordinates.add(3 * node + i) });
+        });
+        let model = NeoHookean {
+            bulk_modulus: Stress::pascals(bulk_modulus),
+            shear_modulus: Stress::pascals(shear_modulus),
+        };
+        let mut nodal_forces = [[0.0; 3]; 8];
+        match element.nodal_forces(&model, &ElementNodalCoordinates::<8>::from(positions)) {
+            Ok(computed) => computed.iter().enumerate().for_each(|(a, force)| {
+                force
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, component)| nodal_forces[a][i] = component.value())
+            }),
+            Err(_) => {
+                // SAFETY: `failure` is one value, which the threads only take the least of.
+                unsafe { &*(failure as *const AtomicU32) }
+                    .fetch_min(item as u32, Ordering::Relaxed);
+            }
+        }
+        nodal_forces.iter().enumerate().for_each(|(a, force)| {
+            force.iter().enumerate().for_each(|(i, &component)| {
+                // SAFETY: the index is within the forces that there are.
+                unsafe { *forces.add((i * 8 + a) * items + item) = component }
+            })
+        });
+    }
+}
+
+/// The forces on `nodes` nodes, each the sum of the forces of the elements that have it, in the
+/// order of the elements, added to the forces that it has.
+///
+/// A contribution is `position * items + item`, which is where the force of an element on a
+/// node is in each plane of components.
+///
+/// # Safety
+///
+/// The offsets must be `nodes + 1` and the contributions what they say, within the forces of
+/// the elements, which are `24 * items`.
+#[unsafe(no_mangle)]
+pub unsafe extern "ptx-kernel" fn gather(
+    nodes: u32,
+    items: u32,
+    offsets: *const u32,
+    contributions: *const u32,
+    forces: *const f64,
+    nodal_forces: *mut f64,
+) {
+    let node = thread();
+    if node < nodes as usize {
+        let plane = 8 * items as usize;
+        // SAFETY: the node is within the nodes that there are.
+        let (first, last, mut sum) = unsafe {
+            (
+                *offsets.add(node),
+                *offsets.add(node + 1),
+                [
+                    *nodal_forces.add(3 * node),
+                    *nodal_forces.add(3 * node + 1),
+                    *nodal_forces.add(3 * node + 2),
+                ],
+            )
+        };
+        for k in first..last {
+            // SAFETY: the contribution is within the forces of the elements.
+            let contribution = unsafe { *contributions.add(k as usize) } as usize;
+            sum.iter_mut()
+                .enumerate()
+                .for_each(|(i, value)| *value += unsafe { *forces.add(i * plane + contribution) });
+        }
+        sum.iter()
+            .enumerate()
+            .for_each(|(i, &value)| unsafe { *nodal_forces.add(3 * node + i) = value });
+    }
+}
+
+/// The first half of a step of velocity Verlet: the velocity a half step on, and the coordinates
+/// a step on with it.
+///
+/// # Safety
+///
+/// Each of the arrays must have `count` values.
+#[unsafe(no_mangle)]
+pub unsafe extern "ptx-kernel" fn kick_drift(
+    count: u32,
+    coordinates: *mut f64,
+    velocities: *mut f64,
+    accelerations: *const f64,
+    dt: f64,
+) {
+    let index = thread();
+    if index < count as usize {
+        // SAFETY: the index is within the values that there are.
+        unsafe {
+            let half_velocity = *accelerations.add(index) * (dt * 0.5) + *velocities.add(index);
+            *velocities.add(index) = half_velocity;
+            *coordinates.add(index) = half_velocity * dt + *coordinates.add(index);
+        }
+    }
+}
+
+/// The accelerations that balance the forces, which are then cleared for the next step, and the
+/// velocity another half step on when `kick` is not zero.
+///
+/// # Safety
+///
+/// Each of the arrays must have `count` values.
+#[unsafe(no_mangle)]
+pub unsafe extern "ptx-kernel" fn accelerate(
+    count: u32,
+    forces: *mut f64,
+    masses: *const f64,
+    accelerations: *mut f64,
+    velocities: *mut f64,
+    dt: f64,
+    kick: u32,
+) {
+    let index = thread();
+    if index < count as usize {
+        // SAFETY: the index is within the values that there are.
+        unsafe {
+            let acceleration = -*forces.add(index) / *masses.add(index);
+            *forces.add(index) = 0.0;
+            *accelerations.add(index) = acceleration;
+            if kick != 0 {
+                *velocities.add(index) = acceleration * (dt * 0.5) + *velocities.add(index);
             }
         }
     }

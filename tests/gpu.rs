@@ -13,8 +13,8 @@ use conspire::{
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
-            DeviceExplicitDynamics, ElasticExplicitDynamics, Execution, GpuOptions, GpuPrecision,
-            Lumped, Unchecked,
+            DeviceExplicitDynamics, ElasticExplicitDynamics, Execution, GpuKernels, GpuOptions,
+            GpuPrecision, Lumped, Unchecked,
         },
     },
     math::{Quantity, Tensor, integrate::VelocityVerlet},
@@ -234,4 +234,38 @@ fn run_on_the_device_follows_the_run_on_the_calling_thread() {
             "{precision:?}: the velocities differ by {gap}"
         );
     }
+}
+
+/// The run that stays on the device, with the code of the library in place of the kernels written
+/// for it: the forces of the elements, the sums on the nodes and the steps, in double precision.
+#[test]
+fn run_with_the_code_of_the_library_follows_the_run_on_the_calling_thread() {
+    let (model, reference) = model();
+    let (coordinates, velocities) = (deformed(&reference), velocities(&reference));
+    let expected = serial(&model, &coordinates, &velocities);
+    let run = model.integrate_on_device(
+        GpuOptions {
+            kernels: GpuKernels::Library,
+            ..GpuOptions::default()
+        },
+        Time::seconds(STEP),
+        STEPS,
+        (coordinates.clone(), velocities.clone()),
+        &BoundaryConditions::<Solid<3>>::new(),
+    );
+    let (found_coordinates, found_velocities) = match run {
+        Ok(run) => run,
+        Err(error) if no_device(&error) => return println!("skipped: {error:?}"),
+        Err(error) => panic!("{error:?}"),
+    };
+    let (gap, scale) = difference(&components(&found_coordinates), &expected.0);
+    assert!(
+        gap < 1e-9 * scale.max(1.0),
+        "the coordinates differ by {gap}"
+    );
+    let (gap, scale) = difference(&components(&found_velocities), &expected.1);
+    assert!(
+        gap < 1e-9 * scale.max(1.0),
+        "the velocities differ by {gap}"
+    );
 }
