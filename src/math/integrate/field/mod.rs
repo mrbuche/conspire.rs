@@ -10,7 +10,7 @@ use crate::math::{
     Tensor, TensorError, TensorRank2, TensorTuple, TensorVector, integrate::IntegrationError,
 };
 use crate::units::Dimensionless;
-use std::{
+use core::{
     marker::PhantomData,
     ops::{Add, Mul},
 };

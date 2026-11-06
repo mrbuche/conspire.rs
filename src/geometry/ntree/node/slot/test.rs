@@ -15,7 +15,7 @@ fn a_slot_counts_itself_back() {
 
 #[test]
 fn a_nonzero_slot_hides_its_offset() {
-    use std::num::NonZeroU32;
+    use core::num::NonZeroU32;
     assert_eq!(NonZeroU32::at(0).unwrap().slot(), 0);
     assert_eq!(NonZeroU32::at(4294967294).unwrap().slot(), 4294967294);
     assert_eq!(NonZeroU32::at(4294967295), None);
@@ -23,7 +23,7 @@ fn a_nonzero_slot_hides_its_offset() {
 
 #[test]
 fn a_nonzero_slot_leaves_room_in_an_option() {
-    use std::num::NonZeroU32;
+    use core::num::NonZeroU32;
     assert_eq!(size_of::<Option<NonZeroU32>>(), size_of::<NonZeroU32>());
     assert!(size_of::<Option<NonZeroU32>>() < size_of::<Option<u32>>());
 }

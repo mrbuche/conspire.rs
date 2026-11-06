@@ -17,7 +17,7 @@ use crate::{
         },
     },
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 impl<C, F, R> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C, F, R>
 where

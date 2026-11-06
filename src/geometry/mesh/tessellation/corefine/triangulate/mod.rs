@@ -17,7 +17,7 @@ mod recover;
 mod test;
 
 use crate::{geometry::predicates::orient2d_planar, math::FxHashSet};
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 /// The points to triangulate, and the segments between them that must be edges.
 #[derive(Clone)]

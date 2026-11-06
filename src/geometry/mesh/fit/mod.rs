@@ -11,17 +11,14 @@ use crate::{
         },
     },
     math::{
-        ContractWith, CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1,
+        ContractWith, CrossProduct, FxHashSet, Quantity, Reference, Scalar, Tensor, TensorRank1,
         TensorRank1List, TensorRank1Vec,
     },
     units::{Area, Dimensionless, Length, ReciprocalLength},
 };
-use std::{
-    array::from_fn,
-    collections::{HashSet, VecDeque},
-    mem::replace,
-    thread::{available_parallelism, scope},
-};
+use alloc::collections::VecDeque;
+use core::{array::from_fn, mem::replace};
+use std::thread::{available_parallelism, scope};
 
 type EdgeList = TensorRank1List<3, Reference, 3>;
 type Slope = TensorRank1<3, Reference, ReciprocalLength>;
@@ -128,7 +125,7 @@ impl Mesh<3> {
         self.fit(free, target)?;
         if let Fitting::Snap = fitting {
             self.project(target, boundary)?;
-            let pinned: HashSet<usize> = boundary.iter().copied().collect();
+            let pinned: FxHashSet<usize> = boundary.iter().copied().collect();
             let interior: Vec<usize> = free
                 .iter()
                 .copied()

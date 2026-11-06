@@ -4,11 +4,9 @@ use crate::geometry::ntree::node::slot::Slot;
 mod test;
 
 use crate::geometry::ntree::{Orthotree, node::Kind, subdivide::insert_bit};
-use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap, HashSet},
-    hash::Hash,
-};
+use crate::math::{FxHashMap, FxHashSet};
+use alloc::collections::BinaryHeap;
+use core::{cmp::Reverse, hash::Hash};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
@@ -28,7 +26,7 @@ where
     }
     fn reduce_protrusions(&mut self) -> bool {
         let (leaves, pairs) = self.leaf_pairs();
-        let mut differing: HashMap<usize, HashMap<V, usize>> = HashMap::new();
+        let mut differing: FxHashMap<usize, FxHashMap<V, usize>> = FxHashMap::default();
         for (a, b, weight) in pairs {
             let (value_a, value_b) = (self.nodes[a].value.unwrap(), self.nodes[b].value.unwrap());
             if value_a != value_b {
@@ -67,8 +65,8 @@ where
                 edges.push((a, b, weight));
             }
         }
-        let mut volume: HashMap<usize, usize> = HashMap::new();
-        let mut value: HashMap<usize, V> = HashMap::new();
+        let mut volume: FxHashMap<usize, usize> = FxHashMap::default();
+        let mut value: FxHashMap<usize, V> = FxHashMap::default();
         for &leaf in &leaves {
             let root = find(&mut parent, leaf);
             let length: usize = self.nodes[leaf].length.cells();
@@ -77,7 +75,7 @@ where
                 .entry(root)
                 .or_insert_with(|| self.nodes[leaf].value.unwrap());
         }
-        let mut adjacency: HashMap<usize, HashMap<usize, usize>> = HashMap::new();
+        let mut adjacency: FxHashMap<usize, FxHashMap<usize, usize>> = FxHashMap::default();
         for (leaf, other, span) in edges {
             let (a, b) = (find(&mut parent, leaf), find(&mut parent, other));
             if a != b {
@@ -100,7 +98,7 @@ where
                 _ => continue,
             };
             changed = true;
-            let mut by_value: HashMap<V, usize> = HashMap::new();
+            let mut by_value: FxHashMap<V, usize> = FxHashMap::default();
             for (other, &span) in neighbors {
                 *by_value.entry(value[other]).or_default() += span;
             }
@@ -116,7 +114,7 @@ where
                 .for_each(|&other| union(&mut parent, root, other));
             let root = find(&mut parent, root);
             let merged_volume = group.iter().map(|node| volume[node]).sum();
-            let mut merged: HashMap<usize, usize> = HashMap::new();
+            let mut merged: FxHashMap<usize, usize> = FxHashMap::default();
             for node in &group {
                 if let Some(map) = adjacency.remove(node) {
                     for (other, span) in map {
@@ -152,7 +150,7 @@ where
         let leaves: Vec<usize> = (0..self.len())
             .filter(|&i| self.nodes[i].is_leaf() && self.nodes[i].value.is_some())
             .collect();
-        let mut visited: HashSet<(usize, usize)> = HashSet::new();
+        let mut visited: FxHashSet<(usize, usize)> = FxHashSet::default();
         let mut pairs: Vec<(usize, usize, usize)> = Vec::new();
         for &leaf in &leaves {
             let length: usize = self.nodes[leaf].length.cells();

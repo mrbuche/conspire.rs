@@ -7,7 +7,7 @@ pub(crate) mod rigid_projector;
 mod test;
 
 use crate::geometry::mesh::Decomposition;
-use std::collections::HashSet;
+use crate::math::FxHashSet;
 
 pub(crate) use corner::{CornerDofs, CornerSelection};
 
@@ -20,7 +20,7 @@ pub(crate) use corner::{CornerDofs, CornerSelection};
 /// zero prescribed displacement, and needs no force-correction term the way
 /// a nonzero prescribed value would.
 pub struct BoundaryConditions {
-    fixed: HashSet<(usize, usize)>,
+    fixed: FxHashSet<(usize, usize)>,
 }
 
 impl BoundaryConditions {
@@ -31,7 +31,7 @@ impl BoundaryConditions {
     }
     pub fn none() -> Self {
         Self {
-            fixed: HashSet::new(),
+            fixed: FxHashSet::default(),
         }
     }
     fn is_fixed(&self, node: usize, component: usize) -> bool {

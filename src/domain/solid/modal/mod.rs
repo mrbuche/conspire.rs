@@ -21,7 +21,7 @@ use crate::{
     },
     units::Rate,
 };
-use std::fmt::Display;
+use core::fmt::Display;
 
 /// The natural frequencies of a solid and the shapes it vibrates in.
 #[derive(Clone, Debug)]

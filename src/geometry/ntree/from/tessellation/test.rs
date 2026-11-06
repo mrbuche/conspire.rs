@@ -5,10 +5,10 @@ use crate::{
         ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, Sizing},
     },
-    math::{Quantity, Scalar, Tensor},
+    math::{FxHashMap, Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::{array::from_fn, collections::HashMap};
+use core::array::from_fn;
 
 fn curvature(tolerance: Quantity<Length>) -> CurvatureSizing {
     CurvatureSizing {
@@ -68,7 +68,7 @@ fn tessellate(points: Vec<[f64; 3]>, faces: Vec<[usize; 3]>) -> Tessellation {
 
 fn cube(divisions: usize) -> (Vec<[f64; 3]>, Vec<[usize; 3]>) {
     let mut points: Vec<[f64; 3]> = Vec::new();
-    let mut lookup = HashMap::<[usize; 3], usize>::new();
+    let mut lookup = FxHashMap::<[usize; 3], usize>::default();
     let mut faces: Vec<[usize; 3]> = Vec::new();
     let mut node = |grid: [usize; 3]| {
         *lookup.entry(grid).or_insert_with(|| {
@@ -264,7 +264,7 @@ fn a_leaner_index_builds_the_same_tree() {
 
 #[test]
 fn a_niched_index_builds_the_same_tree() {
-    use std::num::NonZeroU32;
+    use core::num::NonZeroU32;
     let tessellation = sphere(4, 8, 2.0);
     let sizing = Sizing::new(&tessellation, 4.0, CurvatureSizing::default(), 0);
     let mut wide = Octree::<u16, usize>::refine(&sizing).unwrap();

@@ -14,13 +14,11 @@ use crate::{
         predicates::orient2d,
         solid::SolidOracle,
     },
-    math::{CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1},
+    math::{CrossProduct, FxHashMap, FxHashSet, Quantity, Reference, Scalar, Tensor, TensorRank1},
     units::{Area, Length},
 };
-use std::{
-    cmp::Ordering,
-    collections::{BTreeSet, HashMap, HashSet},
-};
+use alloc::collections::BTreeSet;
+use core::cmp::Ordering;
 
 /// How far a point can be from a surface, as a fraction of `reach`, before it cannot be told to be
 /// off it. It is a few thousand times the rounding of the coordinates it is found from.
@@ -92,8 +90,8 @@ impl Watertight {
 }
 
 /// For each triangle of one tessellation, the triangles of the other in its plane.
-pub(super) fn coplanar(contacts: &Contacts, side: Side) -> HashMap<usize, Vec<usize>> {
-    let mut found = HashMap::<usize, Vec<usize>>::new();
+pub(super) fn coplanar(contacts: &Contacts, side: Side) -> FxHashMap<usize, Vec<usize>> {
+    let mut found = FxHashMap::<usize, Vec<usize>>::default();
     contacts.coplanar.iter().for_each(|&[first, second]| {
         let (own, other) = match side {
             Side::First => (first, second),
@@ -108,7 +106,7 @@ fn regions(
     split: &Split,
     other: &Tessellation,
     solid: &Watertight,
-    coplanar: &HashMap<usize, Vec<usize>>,
+    coplanar: &FxHashMap<usize, Vec<usize>>,
 ) -> Result<Vec<Region>, &'static str> {
     let coordinates = split.tessellation.mesh().coordinates();
     let faces: Vec<[usize; 3]> = split
@@ -131,8 +129,8 @@ fn regions(
 }
 
 /// The groups of triangles that are connected across every edge that is not one of the `curves`.
-pub(super) fn patches(faces: &[[usize; 3]], curves: &HashSet<[usize; 2]>) -> Vec<Vec<usize>> {
-    let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
+pub(super) fn patches(faces: &[[usize; 3]], curves: &FxHashSet<[usize; 2]>) -> Vec<Vec<usize>> {
+    let mut around = FxHashMap::<[usize; 2], Vec<usize>>::default();
     for (index, nodes) in faces.iter().enumerate() {
         (0..3).for_each(|edge| {
             let (a, b) = (nodes[edge], nodes[(edge + 1) % 3]);
@@ -182,7 +180,7 @@ pub(super) fn relate<'c>(
     patches: &[Vec<usize>],
     other: &Tessellation,
     solid: &Watertight,
-    coplanar: &HashMap<usize, Vec<usize>>,
+    coplanar: &FxHashMap<usize, Vec<usize>>,
 ) -> Result<Vec<Region>, &'static str> {
     let corners = |face: usize| faces[face].map(&position);
     let other_coordinates = other.mesh().coordinates();

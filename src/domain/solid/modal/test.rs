@@ -27,7 +27,7 @@ use crate::{
     },
     units::{Density, Rate, Stress, Viscosity},
 };
-use std::{array::from_fn, f64::consts::PI};
+use core::{array::from_fn, f64::consts::PI};
 
 pub(crate) const ELEMENTS: usize = 40;
 pub(crate) const LENGTH: f64 = 1.0;

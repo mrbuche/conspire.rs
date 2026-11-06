@@ -20,7 +20,7 @@ use crate::{
     },
     units::Time,
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// How degrees of freedom are held.
 #[derive(Clone, Copy, Debug, PartialEq)]

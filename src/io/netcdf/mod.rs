@@ -8,9 +8,10 @@ pub(super) mod variable;
 
 pub use from::NetCdfError;
 
+use alloc::ffi::CString;
+use alloc::ffi::NulError;
 use format::{Attribute, DimSpec, Parsed, VarSpec};
 use std::{
-    ffi::{CString, NulError},
     fs::File,
     sync::{Mutex, MutexGuard},
 };

@@ -11,7 +11,7 @@ use crate::math::{
     sparse::SparseSolver,
 };
 use crate::units::{Dimensionless, UnitDiv, UnitMul};
-use std::{
+use core::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
 };

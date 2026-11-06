@@ -6,7 +6,7 @@ use crate::units::{Dimensionless, UnitMul};
 use crate::math::{
     CrossProduct, Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::TensorList,
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 use crate::math::assert::FiniteDifference;
 

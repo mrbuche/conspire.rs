@@ -1,4 +1,5 @@
 use super::super::test::{octree, quadtree};
+use crate::math::{FxHashMap, FxHashSet};
 use crate::{
     geometry::{
         mesh::{Connectivity, Mesh},
@@ -6,10 +7,7 @@ use crate::{
     },
     math::Tensor,
 };
-use std::{
-    array::from_fn,
-    collections::{HashMap, HashSet},
-};
+use core::array::from_fn;
 
 fn polytopal<const D: usize>(mesh: &Mesh<D>) -> (&[Vec<usize>], &[Vec<usize>]) {
     match &mesh.connectivities()[0] {
@@ -38,7 +36,7 @@ fn conformal<const D: usize>(mesh: &Mesh<D>) {
         .iter()
         .enumerate()
         .for_each(|(face, &count)| assert!(count == 1 || count == 2, "face {face}: {count} refs"));
-    let mut sets = HashSet::new();
+    let mut sets = FxHashSet::default();
     faces_nodes.iter().for_each(|face| {
         let mut sorted = face.clone();
         sorted.sort_unstable();
@@ -60,7 +58,7 @@ fn volume(mesh: &Mesh<3>) -> f64 {
         let nodes = element_faces
             .iter()
             .flat_map(|&face| faces_nodes[face].iter().copied())
-            .collect::<HashSet<_>>();
+            .collect::<FxHashSet<_>>();
         let mut centroid = [0.0; 3];
         nodes.iter().for_each(|&node| {
             let x = point(mesh, node);
@@ -105,7 +103,7 @@ fn area(mesh: &Mesh<2>) -> f64 {
         let nodes = element_faces
             .iter()
             .flat_map(|&face| faces_nodes[face].iter().copied())
-            .collect::<HashSet<_>>();
+            .collect::<FxHashSet<_>>();
         let mut centroid = [0.0; 2];
         nodes.iter().for_each(|&node| {
             let x = point(mesh, node);
@@ -186,7 +184,7 @@ fn strict_signed_volumes(mesh: &Mesh<3>) -> Vec<f64> {
         ]
     };
     let (elements_faces, faces_nodes) = polytopal(mesh);
-    let mut owner = HashMap::new();
+    let mut owner = FxHashMap::default();
     elements_faces.iter().enumerate().for_each(|(cell, faces)| {
         faces.iter().for_each(|&face| {
             owner.entry(face).or_insert(cell);
@@ -196,7 +194,7 @@ fn strict_signed_volumes(mesh: &Mesh<3>) -> Vec<f64> {
         .iter()
         .enumerate()
         .map(|(cell, faces)| {
-            let nodes: HashSet<usize> = faces
+            let nodes: FxHashSet<usize> = faces
                 .iter()
                 .flat_map(|&face| faces_nodes[face].iter().copied())
                 .collect();

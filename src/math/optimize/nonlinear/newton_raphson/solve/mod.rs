@@ -10,7 +10,7 @@ use crate::math::{
     sparse::{CscMatrix, SparseSolver},
 };
 use crate::units::{Dimensionless, UnitMul, UnitRatio, UnitSum};
-use std::{
+use core::{
     fmt::Display,
     ops::{Div, Mul},
 };

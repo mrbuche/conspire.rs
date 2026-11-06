@@ -4,7 +4,7 @@ use crate::math::{
     tensor::vec::TensorVector,
 };
 use crate::units::{Dimensionless, UnitDiv};
-use std::ops::{Div, Sub};
+use core::ops::{Div, Sub};
 
 use super::sparse_vec_2d::QuantitySparseVec2D;
 

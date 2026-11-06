@@ -15,7 +15,7 @@ use crate::{
         Stress, Temperature,
     },
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Potential models.
 pub trait Potential

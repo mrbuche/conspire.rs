@@ -15,7 +15,7 @@ use crate::{
     },
     units::Length,
 };
-use std::f64::consts::{PI, TAU};
+use core::f64::consts::{PI, TAU};
 
 /// The freely-jointed chain model.
 #[derive(Clone, Debug)]

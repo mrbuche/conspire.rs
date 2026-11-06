@@ -2,7 +2,7 @@
 mod test;
 
 use super::{EDGES_X, EDGES_Y, EDGES_Z, lut::Lut};
-use std::array::from_fn;
+use core::array::from_fn;
 
 const EPSILON: f64 = f64::EPSILON;
 

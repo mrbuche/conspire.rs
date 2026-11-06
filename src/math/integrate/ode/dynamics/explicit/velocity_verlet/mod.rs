@@ -5,7 +5,7 @@ use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{ExplicitDynamics, FixedStep, IntegrationError, Times, fixed_step_times},
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 /// The extent of the stability region of the method along the imaginary axis.
 const EXTENT: Scalar = 2.0;

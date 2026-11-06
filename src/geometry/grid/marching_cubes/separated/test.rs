@@ -1,3 +1,4 @@
+use crate::math::FxHashMap;
 use crate::{
     geometry::{
         Coordinate,
@@ -6,7 +7,7 @@ use crate::{
     math::Tensor,
     units::Length,
 };
-use std::{array::from_fn, collections::HashMap, f64::consts::PI};
+use core::{array::from_fn, f64::consts::PI};
 
 pub(crate) fn sample(nel: [usize; 3], mut field: impl FnMut([usize; 3]) -> f64) -> Voxels<f64> {
     let mut data = Vec::with_capacity(nel.iter().product());
@@ -85,7 +86,7 @@ fn area(surface: &Isosurface) -> f64 {
 }
 
 fn closed_and_oriented(surface: &Isosurface) {
-    let mut edges = HashMap::<(usize, usize), usize>::new();
+    let mut edges = FxHashMap::<(usize, usize), usize>::default();
     for &[a, b, c] in &surface.faces {
         for edge in [(a, b), (b, c), (c, a)] {
             *edges.entry(edge).or_default() += 1

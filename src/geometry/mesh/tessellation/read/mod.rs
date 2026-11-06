@@ -10,15 +10,13 @@ use crate::{
         },
     },
     io::invalid,
-    math::{Tensor, TensorVec},
+    math::{FxHashMap, Tensor, TensorVec},
 };
+use core::{cell::OnceCell, str::SplitWhitespace};
 use std::{
-    cell::OnceCell,
-    collections::HashMap,
     fs::File,
     io::{BufReader, Error as ErrorIO, Read, Seek, SeekFrom},
     path::Path,
-    str::SplitWhitespace,
 };
 
 impl TryFrom<&Path> for Tessellation {
@@ -130,7 +128,7 @@ fn read_f32<R: Read>(reader: &mut R) -> Result<f64, ErrorIO> {
 struct Builder {
     connectivity: Vec<[usize; D]>,
     normals: Directions<D>,
-    vertex_map: HashMap<[u64; D], usize>,
+    vertex_map: FxHashMap<[u64; D], usize>,
     vertices: Coordinates<D>,
 }
 
@@ -139,7 +137,7 @@ impl Builder {
         Self {
             connectivity: Vec::with_capacity(triangle_count),
             normals: Directions::with_capacity(triangle_count),
-            vertex_map: HashMap::with_capacity(D * triangle_count),
+            vertex_map: FxHashMap::with_capacity_and_hasher(D * triangle_count, Default::default()),
             vertices: Coordinates::with_capacity(D * triangle_count),
         }
     }

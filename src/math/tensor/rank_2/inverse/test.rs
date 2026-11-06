@@ -1,7 +1,7 @@
 use crate::math::Current;
 use crate::math::assert::Assert;
 use crate::math::{Rank2, Tensor, TensorArray, TensorRank0, TensorRank2, assert::AssertionError};
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 fn get_array_dim_2() -> [[TensorRank0; 2]; 2] {
     [[1.0, 2.0], [3.0, 4.0]]

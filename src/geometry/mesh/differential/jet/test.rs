@@ -57,7 +57,7 @@ fn sphere_has_uniform_curvature() {
     let mut points = Vec::new();
     for theta in [0.15_f64, 0.3] {
         for k in 0..5 {
-            let phi = k as f64 * std::f64::consts::TAU / 5.0;
+            let phi = k as f64 * core::f64::consts::TAU / 5.0;
             points.push([
                 r * theta.sin() * phi.cos(),
                 r * theta.sin() * phi.sin(),

@@ -16,13 +16,12 @@ use crate::{
         subdomain::{DirichletLocal, Subdomain},
     },
     geometry::mesh::Decomposition,
-    math::{Quantity, SquareMatrix, Tensor, Vector},
+    math::{FxHashSet, Quantity, SquareMatrix, Tensor, Vector},
 };
+use core::time::Duration;
 use std::{
-    collections::HashSet,
     sync::Mutex,
     thread::{available_parallelism, current, sleep},
-    time::Duration,
 };
 
 fn stiffness(entries: [[f64; 2]; 2]) -> SquareMatrix {
@@ -197,7 +196,7 @@ fn dual_reduce_parallel_path_matches_serial_reference() {
 fn dual_reduce_uses_no_more_than_the_thread_cap() {
     let setup = chain_setup(16);
     let lambda: Vector = (0..setup.num_multipliers).map(|i| 1.0 + i as f64).collect();
-    let threads = Mutex::new(HashSet::new());
+    let threads = Mutex::new(FxHashSet::default());
     let max_threads = 4;
     dual_reduce(
         &setup.subdomains,

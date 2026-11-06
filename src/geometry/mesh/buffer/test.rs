@@ -8,9 +8,8 @@ use crate::{
         },
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
-    math::{Quantity, Scalar, Tensor, assert::AssertionError},
+    math::{FxHashMap, FxHashSet, Quantity, Scalar, Tensor, assert::AssertionError},
 };
-use std::collections::{HashMap, HashSet};
 
 fn core() -> Mesh<3> {
     let coordinates = Coordinates::from(vec![
@@ -36,7 +35,7 @@ fn buffer_captures_corners() -> Result<(), AssertionError> {
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert_eq!(mesh.iter().flatten().count(), 7);
     let coordinates = mesh.coordinates();
-    let corners: HashSet<[u8; 3]> = (8..16)
+    let corners: FxHashSet<[u8; 3]> = (8..16)
         .map(|node| {
             let point = &coordinates[node];
             point.iter().for_each(|&entry| {
@@ -124,7 +123,7 @@ fn buffer_tets_raises_three_tetrahedra_per_boundary_triangle() {
     let (tessellation, trimmed) = trimmed_tets(0.3);
     let (elements, nodes) = (trimmed.number_of_elements(), trimmed.number_of_nodes());
     let faces = trimmed.exterior_faces().len();
-    let boundary: HashSet<usize> = trimmed.exterior_faces().into_iter().flatten().collect();
+    let boundary: FxHashSet<usize> = trimmed.exterior_faces().into_iter().flatten().collect();
     let mesh = trimmed.buffer_tets(&tessellation, Fitting::Soft).unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert!(matches!(
@@ -135,7 +134,7 @@ fn buffer_tets_raises_three_tetrahedra_per_boundary_triangle() {
     assert_eq!(mesh.number_of_elements(), elements + 3 * faces);
     assert_eq!(mesh.number_of_nodes(), nodes + boundary.len());
     assert!(worst_scaled_jacobian(&mesh) > 0.0);
-    let mut counts = HashMap::<[usize; 3], usize>::new();
+    let mut counts = FxHashMap::<[usize; 3], usize>::default();
     mesh.iter().flatten().for_each(|tet| {
         [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
             .iter()
@@ -215,7 +214,7 @@ fn bar() -> Tessellation {
 }
 
 fn assert_manifold_boundary(mesh: &Mesh<3>) {
-    let mut edges: HashMap<[usize; 2], u32> = HashMap::new();
+    let mut edges: FxHashMap<[usize; 2], u32> = FxHashMap::default();
     for face in mesh.exterior_faces() {
         for i in 0..face.len() {
             let mut edge = [face[i], face[(i + 1) % face.len()]];

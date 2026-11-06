@@ -3,7 +3,7 @@ use crate::{
     math::{Quantity, Scalar},
     units::UnitMul,
 };
-use std::{
+use core::{
     fmt::{self, Display, Formatter},
     ops::Mul,
 };

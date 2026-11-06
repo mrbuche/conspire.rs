@@ -8,12 +8,12 @@ use crate::units::{Dimensionless, UnitDiv, UnitMul};
 
 use crate::math::assert::FiniteDifference;
 
-use std::{
+use core::{
     array::from_fn,
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,
     marker::PhantomData,
-    mem::transmute,
+    mem::{transmute, transmute_copy},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -89,26 +89,34 @@ impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
     fn canonical(
         &self,
     ) -> &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
         unsafe {
-            &*(self as *const Self
-                as *const TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>)
+            transmute::<
+                &Self,
+                &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+            >(self)
         }
     }
     fn canonical_mut(
         &mut self,
     ) -> &mut TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
         unsafe {
-            &mut *(self as *mut Self
-                as *mut TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>)
+            transmute::<
+                &mut Self,
+                &mut TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+            >(self)
         }
     }
     fn into_canonical(
         self,
     ) -> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
         unsafe {
-            (&self as *const Self)
-                .cast::<TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>>()
-                .read()
+            transmute_copy::<
+                Self,
+                TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+            >(&self)
         }
     }
 }
@@ -116,11 +124,12 @@ impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
 fn relabel<const D: usize, I, J, K, L, U>(
     tensor: TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
 ) -> TensorRank4<D, I, J, K, L, U> {
+    // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
     unsafe {
-        (&tensor
-            as *const TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>)
-            .cast::<TensorRank4<D, I, J, K, L, U>>()
-            .read()
+        transmute_copy::<
+            TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+            TensorRank4<D, I, J, K, L, U>,
+        >(&tensor)
     }
 }
 
@@ -570,7 +579,7 @@ impl<const D: usize, I, J, K, L, U> Tensor for TensorRank4<D, I, J, K, L, U> {
 
 impl<const D: usize, I, J, K, L, U> IntoIterator for TensorRank4<D, I, J, K, L, U> {
     type Item = TensorRank3<D, J, K, L, U>;
-    type IntoIter = std::array::IntoIter<Self::Item, D>;
+    type IntoIter = core::array::IntoIter<Self::Item, D>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }

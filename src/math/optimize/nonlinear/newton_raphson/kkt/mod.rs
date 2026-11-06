@@ -3,7 +3,8 @@ use crate::math::{
     optimize::{Direct, OptimizationError, ResidualMerit},
     sparse::{CscMatrix, SparseSolver},
 };
-use std::{collections::BTreeMap, ops::Mul};
+use alloc::collections::BTreeMap;
+use core::ops::Mul;
 
 use super::NewtonRaphson;
 use super::backtrack::{Backtrack, Residually, half_square, residual_step};

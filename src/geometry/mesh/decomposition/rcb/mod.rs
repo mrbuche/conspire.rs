@@ -3,7 +3,7 @@ mod test;
 
 use super::Decomposition;
 use crate::geometry::mesh::Mesh;
-use std::{array::from_fn, cmp::Ordering};
+use core::{array::from_fn, cmp::Ordering};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Bisection {

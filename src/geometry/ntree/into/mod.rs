@@ -1,15 +1,15 @@
 use crate::geometry::ntree::node::cell::Cell;
 use crate::{
     geometry::{Coordinates, grid::Grid, mesh::Connectivity, ntree::Orthotree},
-    math::{Tensor, TensorVec},
+    math::{FxHashMap, Tensor, TensorVec},
 };
-use std::{array::from_fn, collections::HashMap};
+use core::array::from_fn;
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, U>
     From<Orthotree<D, L, M, N, u16, U>> for (Vec<[usize; N]>, Coordinates<D>)
 {
     fn from(orthotree: Orthotree<D, L, M, N, u16, U>) -> Self {
-        let mut coord_map: HashMap<u64, usize> = HashMap::new();
+        let mut coord_map: FxHashMap<u64, usize> = FxHashMap::default();
         let mut coords = Coordinates::<D>::new();
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
         let connectivity: Vec<[usize; N]> = orthotree

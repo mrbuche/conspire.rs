@@ -3,12 +3,10 @@ use super::{
 };
 use crate::{
     geometry::Coordinate,
-    math::{Tensor, assert::Assert},
+    math::{FxHashMap, FxHashSet, Tensor, assert::Assert},
 };
-use std::{
-    array::from_fn,
-    collections::{BTreeMap, HashMap, HashSet},
-};
+use alloc::collections::BTreeMap;
+use core::array::from_fn;
 
 type Triangle = [Coordinate<3>; 3];
 
@@ -114,14 +112,14 @@ fn junctions_come_from_triangles_that_cross_pairwise() {
     };
     let mut pairs = BTreeMap::new();
     for pair in [[0, 1], [0, 2], [1, 2]] {
-        pairs.insert(pair, HashSet::from([[0, 0]]));
+        pairs.insert(pair, FxHashSet::from_iter([[0, 0]]));
     }
     let found = junctions(&pairs, 3, corners).unwrap();
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].triangles, [(0, 0), (1, 0), (2, 0)]);
     pairs.remove(&[1, 2]);
     assert!(junctions(&pairs, 3, corners).unwrap().is_empty());
-    pairs.insert([1, 2], HashSet::from([[1, 0]]));
+    pairs.insert([1, 2], FxHashSet::from_iter([[1, 0]]));
     assert!(junctions(&pairs, 3, corners).unwrap().is_empty());
 }
 
@@ -140,9 +138,9 @@ fn points_on_a_curve_are_put_in_order_from_its_start() {
         [&triangle[0], &triangle[1], &triangle[2]]
     };
     let mut pairs = BTreeMap::new();
-    pairs.insert([0, 1], HashSet::from([[0, 0]]));
-    pairs.insert([0, 2], HashSet::from([[0, 0], [0, 1]]));
-    pairs.insert([1, 2], HashSet::from([[0, 0], [0, 1]]));
+    pairs.insert([0, 1], FxHashSet::from_iter([[0, 0]]));
+    pairs.insert([0, 2], FxHashSet::from_iter([[0, 0], [0, 1]]));
+    pairs.insert([1, 2], FxHashSet::from_iter([[0, 0], [0, 1]]));
     let found = junctions(&pairs, 3, corners).unwrap();
     assert_eq!(found.len(), 2);
     let (low, high) = (
@@ -155,14 +153,15 @@ fn points_on_a_curve_are_put_in_order_from_its_start() {
         } else {
             [low.clone(), high.clone()]
         };
-        let curves: HashMap<Curve, Ends> = [
+        let curves: FxHashMap<Curve, Ends> = [
             (([0, 1], 0, 0), away(ends.clone())),
             (([0, 2], 0, 0), away(ends.clone())),
             (([0, 2], 0, 1), away(ends.clone())),
             (([1, 2], 0, 0), away(ends.clone())),
             (([1, 2], 0, 1), away(ends.clone())),
         ]
-        .into();
+        .into_iter()
+        .collect();
         let (points, arranged, _) = arrange(&found, &curves, named, corners).unwrap();
         assert_eq!(points.len(), 2);
         let heights: Vec<f64> = arranged[&([0, 1], 0, 0)]
@@ -189,12 +188,12 @@ fn four_surfaces_through_one_point_are_one_point() {
     let mut pairs = BTreeMap::new();
     for i in 0..4 {
         for j in i + 1..4 {
-            pairs.insert([i, j], HashSet::from([[0, 0]]));
+            pairs.insert([i, j], FxHashSet::from_iter([[0, 0]]));
         }
     }
     let found = junctions(&pairs, 4, corners).unwrap();
     assert_eq!(found.len(), 4);
-    let curves: HashMap<Curve, Ends> = pairs
+    let curves: FxHashMap<Curve, Ends> = pairs
         .keys()
         .map(|&pair| {
             let ends = [Coordinate::from([0.0; 3]), Coordinate::from([1.0; 3])];
@@ -225,8 +224,8 @@ fn the_edges_of_a_triangle_in_the_plane_of_another_meet_a_third_where_it_crosses
         [&triangle[0], &triangle[1], &triangle[2]]
     };
     let mut pairs = BTreeMap::new();
-    pairs.insert([0, 1], HashSet::from([[0, 0]]));
-    pairs.insert([0, 2], HashSet::from([[0, 0]]));
+    pairs.insert([0, 1], FxHashSet::from_iter([[0, 0]]));
+    pairs.insert([0, 2], FxHashSet::from_iter([[0, 0]]));
     let coplanar = BTreeMap::from([([1, 2], vec![[0, 0]])]);
     assert!(junctions(&pairs, 3, corners).unwrap().is_empty());
     let found = edge_junctions(&coplanar, &pairs, 3, corners).unwrap();
@@ -256,8 +255,8 @@ fn an_edge_that_meets_the_plane_outside_the_other_triangle_is_not_a_junction() {
         [&triangle[0], &triangle[1], &triangle[2]]
     };
     let mut pairs = BTreeMap::new();
-    pairs.insert([0, 1], HashSet::from([[0, 0]]));
-    pairs.insert([0, 2], HashSet::from([[0, 0]]));
+    pairs.insert([0, 1], FxHashSet::from_iter([[0, 0]]));
+    pairs.insert([0, 2], FxHashSet::from_iter([[0, 0]]));
     let coplanar = BTreeMap::from([([1, 2], vec![[0, 0]])]);
     assert!(
         edge_junctions(&coplanar, &pairs, 3, corners)
@@ -274,8 +273,8 @@ fn points_defined_by_edges_are_put_in_order_along_a_curve() {
         [&triangle[0], &triangle[1], &triangle[2]]
     };
     let mut pairs = BTreeMap::new();
-    pairs.insert([0, 1], HashSet::from([[0, 0]]));
-    pairs.insert([0, 2], HashSet::from([[0, 0]]));
+    pairs.insert([0, 1], FxHashSet::from_iter([[0, 0]]));
+    pairs.insert([0, 2], FxHashSet::from_iter([[0, 0]]));
     let coplanar = BTreeMap::from([([1, 2], vec![[0, 0]])]);
     let found = edge_junctions(&coplanar, &pairs, 3, corners).unwrap();
     for reversed in [false, true] {
@@ -288,11 +287,12 @@ fn points_defined_by_edges_are_put_in_order_along_a_curve() {
         } else {
             ends
         };
-        let curves: HashMap<Curve, Ends> = [
+        let curves: FxHashMap<Curve, Ends> = [
             (([0, 1], 0, 0), away(ends.clone())),
             (([0, 2], 0, 0), away(ends)),
         ]
-        .into();
+        .into_iter()
+        .collect();
         let (points, arranged, _) = arrange(&found, &curves, named, corners).unwrap();
         assert_eq!(points.len(), 2);
         let heights: Vec<f64> = arranged[&([0, 1], 0, 0)]

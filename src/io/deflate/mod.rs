@@ -256,15 +256,15 @@ fn read_dynamic_tables(reader: &mut BitReader) -> Result<(Huffman, Huffman)> {
                 let previous = *lengths
                     .last()
                     .ok_or_else(|| invalid("repeat code 16 with no previous length"))?;
-                lengths.extend(std::iter::repeat_n(previous, repeat as usize));
+                lengths.extend(core::iter::repeat_n(previous, repeat as usize));
             }
             17 => {
                 let repeat = reader.read_bits(3)? + 3;
-                lengths.extend(std::iter::repeat_n(0, repeat as usize));
+                lengths.extend(core::iter::repeat_n(0, repeat as usize));
             }
             _ => {
                 let repeat = reader.read_bits(7)? + 11;
-                lengths.extend(std::iter::repeat_n(0, repeat as usize));
+                lengths.extend(core::iter::repeat_n(0, repeat as usize));
             }
         }
     }

@@ -2,7 +2,7 @@ use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{ExplicitDaeVariableStepExplicit, ode::explicit::variable_step::verner_8::*},
 };
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T> for Verner8
 where

@@ -3,7 +3,8 @@
 //! [^1]: S. W. Sloan, [Comput. Struct. **47**, 441 (1993)](https://doi.org/10.1016/0045-7949(93)90239-A).
 
 use super::{Across, Triangulation};
-use std::{cmp::Ordering, collections::VecDeque};
+use alloc::collections::VecDeque;
+use core::cmp::Ordering;
 
 /// How far a segment gets before it meets a point, or the edges it crosses.
 enum Walk {

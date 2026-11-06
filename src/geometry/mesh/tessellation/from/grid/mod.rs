@@ -7,12 +7,9 @@ use crate::{
         grid::Voxels,
         mesh::{Connectivity, Mesh, tessellation::Tessellation},
     },
-    math::{Tensor, TensorVec},
+    math::{FxHashMap, FxHashSet, Tensor, TensorVec},
 };
-use std::{
-    array::from_fn,
-    collections::{HashMap, HashSet},
-};
+use core::array::from_fn;
 
 const DELTAS: [[isize; 3]; 6] = [
     [1, 0, 0],
@@ -54,8 +51,8 @@ where
             }
         };
         let mut quads = Vec::new();
-        let mut facemap = HashMap::new();
-        let mut edges = HashSet::new();
+        let mut facemap = FxHashMap::default();
+        let mut edges = FxHashSet::default();
         for k in 0..nel[2] {
             for j in 0..ny {
                 for i in 0..nx {
@@ -121,7 +118,7 @@ where
             }
         }
         let mut coordinates = Coordinates::new();
-        let mut remap = HashMap::new();
+        let mut remap = FxHashMap::default();
         let mut triangles = Vec::with_capacity(2 * quads.len());
         for (q, corners) in quads.iter().enumerate() {
             let ids: [usize; 4] = from_fn(|l| {
@@ -142,8 +139,8 @@ where
 }
 
 fn resolve_pinches(triangles: &[[usize; 3]], coordinates: &mut Coordinates<3>) -> Vec<[usize; 3]> {
-    let mut vertex_faces: HashMap<usize, Vec<usize>> = HashMap::new();
-    let mut edge_faces: HashMap<[usize; 2], Vec<usize>> = HashMap::new();
+    let mut vertex_faces: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
+    let mut edge_faces: FxHashMap<[usize; 2], Vec<usize>> = FxHashMap::default();
     for (f, tri) in triangles.iter().enumerate() {
         for i in 0..3 {
             let (v, w) = (tri[i], tri[(i + 1) % 3]);
@@ -153,7 +150,7 @@ fn resolve_pinches(triangles: &[[usize; 3]], coordinates: &mut Coordinates<3>) -
     }
     let mut assignment = triangles.to_vec();
     for (&v, incident) in &vertex_faces {
-        let index: HashMap<usize, usize> =
+        let index: FxHashMap<usize, usize> =
             incident.iter().enumerate().map(|(i, &f)| (f, i)).collect();
         let mut parent: Vec<usize> = (0..incident.len()).collect();
         for &f in incident {
@@ -167,7 +164,7 @@ fn resolve_pinches(triangles: &[[usize; 3]], coordinates: &mut Coordinates<3>) -
                 }
             }
         }
-        let mut fan: HashMap<usize, usize> = HashMap::new();
+        let mut fan: FxHashMap<usize, usize> = FxHashMap::default();
         for i in 0..incident.len() {
             let root = find(&mut parent, i);
             let next = fan.len();
@@ -176,7 +173,7 @@ fn resolve_pinches(triangles: &[[usize; 3]], coordinates: &mut Coordinates<3>) -
         if fan.len() < 2 {
             continue;
         }
-        let mut copies: HashMap<usize, usize> = HashMap::new();
+        let mut copies: FxHashMap<usize, usize> = FxHashMap::default();
         for (i, &f) in incident.iter().enumerate() {
             let root = find(&mut parent, i);
             if fan[&root] == 0 {

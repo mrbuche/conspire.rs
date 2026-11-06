@@ -1,6 +1,6 @@
 use super::{collinear, exact, filtered, orient3d};
 use crate::geometry::predicates::test::Lcg;
-use std::{array::from_fn, cmp::Ordering};
+use core::{array::from_fn, cmp::Ordering};
 
 fn floats(p: [i64; 3]) -> [f64; 3] {
     p.map(|x| x as f64)

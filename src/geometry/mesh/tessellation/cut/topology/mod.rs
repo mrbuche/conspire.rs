@@ -1,5 +1,5 @@
 use crate::geometry::mesh::Connectivity;
-use std::collections::HashSet;
+use crate::math::FxHashSet;
 
 pub(super) fn element_faces(block: &Connectivity, element: &[usize]) -> Vec<Vec<usize>> {
     block.element_faces(element)
@@ -48,7 +48,7 @@ pub(super) fn oriented_element_faces(
 }
 
 pub(super) fn element_edges(faces: &[Vec<usize>]) -> Vec<[usize; 2]> {
-    let mut edges = HashSet::new();
+    let mut edges = FxHashSet::default();
     faces.iter().for_each(|face| {
         let n = face.len();
         (0..n).for_each(|i| {

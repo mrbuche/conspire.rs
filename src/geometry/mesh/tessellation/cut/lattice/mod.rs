@@ -15,7 +15,8 @@ use crate::{
     math::{FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::{array::from_fn, iter::repeat_n, vec::IntoIter};
+use alloc::vec::IntoIter;
+use core::{array::from_fn, iter::repeat_n};
 
 const TETS_PER_CELL: usize = 6;
 

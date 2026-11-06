@@ -12,7 +12,7 @@ use crate::{
     },
     units::Time,
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 pub(crate) mod bogacki_shampine;
 pub(crate) mod dormand_prince;

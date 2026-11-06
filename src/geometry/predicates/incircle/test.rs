@@ -1,6 +1,6 @@
 use super::{exact, filtered, incircle, incircle_metric};
 use crate::geometry::{Coordinate, predicates::test::Lcg};
-use std::{array::from_fn, cmp::Ordering, f64::consts::TAU};
+use core::{array::from_fn, cmp::Ordering, f64::consts::TAU};
 
 fn circle() -> Vec<[i64; 2]> {
     (-65..=65)

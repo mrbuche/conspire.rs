@@ -14,7 +14,7 @@ use super::{
     orient3d::{self, orient3d},
 };
 use crate::geometry::Coordinate;
-use std::{array::from_fn, cmp::Ordering};
+use core::{array::from_fn, cmp::Ordering};
 
 /// A point defined by points that are given.
 pub enum Derived<'a> {

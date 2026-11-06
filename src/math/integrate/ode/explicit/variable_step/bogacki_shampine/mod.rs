@@ -12,7 +12,7 @@ use crate::math::{
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::ops::{Div, Mul, Sub};
+use core::ops::{Div, Mul, Sub};
 
 /// The Bogacki–Shampine 3(2) tableau.
 #[derive(Debug)]

@@ -15,7 +15,7 @@ use crate::{
     },
     units::Length,
 };
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 /// The freely-jointed chain model with an arbitrary link potential.[^1]
 /// [^1]: M.R. Buche, M.N. Silberstein, and S.J. Grutzik, [Physical Review E **106**, 024502 (2022)](https://doi.org/10.1103/PhysRevE.106.024502).

@@ -1,5 +1,5 @@
 use super::{CHUNK, Scalar};
-use std::arch::x86_64::{
+use core::arch::x86_64::{
     _mm256_castpd_si256, _mm256_fnmadd_pd, _mm256_loadu_pd, _mm256_or_pd, _mm256_set1_pd,
     _mm256_setzero_pd, _mm256_storeu_pd, _mm256_testz_si256,
 };

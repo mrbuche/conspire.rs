@@ -2,12 +2,11 @@
 mod test;
 
 use crate::io::Write;
+use core::{mem::size_of, str::from_utf8};
 use std::{
     fs::File,
     io::{self, BufReader, BufWriter, Error, ErrorKind, Read, Result},
-    mem::size_of,
     path::Path,
-    str::from_utf8,
 };
 
 pub trait NpyType: Copy {
@@ -20,7 +19,7 @@ pub trait NpyType: Copy {
         let mut data = Vec::<Self>::with_capacity(count);
         unsafe {
             let bytes =
-                std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, count * Self::SIZE);
+                core::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, count * Self::SIZE);
             file.read_exact(bytes)
                 .map_err(|_| invalid("truncated .npy data".into()))?;
             data.set_len(count);
@@ -41,7 +40,7 @@ pub trait NpyType: Copy {
     #[cfg(target_endian = "little")]
     fn write_le_all<W: io::Write>(data: &[Self], file: &mut W) -> Result<()> {
         let bytes = unsafe {
-            std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data))
+            core::slice::from_raw_parts(data.as_ptr() as *const u8, core::mem::size_of_val(data))
         };
         file.write_all(bytes)
     }
@@ -50,7 +49,7 @@ pub trait NpyType: Copy {
         file.write_all(&Self::write_le_bytes(data))
     }
     fn write_le_bytes(data: &[Self]) -> Vec<u8> {
-        let mut buffer = Vec::with_capacity(std::mem::size_of_val(data));
+        let mut buffer = Vec::with_capacity(core::mem::size_of_val(data));
         for &value in data {
             value.write_le(&mut buffer);
         }

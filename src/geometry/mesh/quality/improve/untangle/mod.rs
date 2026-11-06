@@ -9,7 +9,7 @@ use crate::{
     },
     math::{Quantity, Scalar, Tensor},
 };
-use std::mem::transmute_copy;
+use core::mem::transmute_copy;
 
 const PROBES: usize = 32;
 

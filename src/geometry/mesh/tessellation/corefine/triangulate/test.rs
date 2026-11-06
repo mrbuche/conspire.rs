@@ -1,5 +1,5 @@
 use super::{Across, Input, Triangulation, build, triangulate};
-use std::collections::{HashMap, HashSet};
+use crate::math::{FxHashMap, FxHashSet};
 
 struct Lcg(u64);
 
@@ -123,9 +123,9 @@ fn incircle(case: &Case, a: usize, b: usize, c: usize, d: usize) -> i128 {
         + lift([cx, cy]) * (ax * by - bx * ay)
 }
 
-fn segment_edges(case: &Case) -> HashSet<(usize, usize)> {
+fn segment_edges(case: &Case) -> FxHashSet<(usize, usize)> {
     let p = |i: usize| case.integer[i];
-    let mut edges = HashSet::new();
+    let mut edges = FxHashSet::default();
     for &[u, v] in &case.input.segments {
         let axis = if p(u)[0] != p(v)[0] { 0 } else { 1 };
         let (low, high) = (p(u)[axis].min(p(v)[axis]), p(u)[axis].max(p(v)[axis]));
@@ -146,7 +146,7 @@ fn verify(case: &Case, triangles: &[[usize; 3]]) {
     let boundary_points: usize = case.input.sides.iter().map(Vec::len).sum::<usize>() + 3;
     assert_eq!(triangles.len(), 2 * count - boundary_points - 2);
     let mut twice_area = 0;
-    let mut third: HashMap<(usize, usize), usize> = HashMap::new();
+    let mut third: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for &[a, b, c] in triangles {
         let area = orient(point(a), point(b), point(c));
         assert!(area > 0, "triangle {a} {b} {c} is not counterclockwise");
@@ -159,12 +159,12 @@ fn verify(case: &Case, triangles: &[[usize; 3]]) {
         }
     }
     assert_eq!(twice_area, (case.size * case.size) as i128);
-    let boundary: HashSet<(usize, usize)> = third
+    let boundary: FxHashSet<(usize, usize)> = third
         .keys()
         .copied()
         .filter(|&(u, v)| !third.contains_key(&(v, u)))
         .collect();
-    let mut expected = HashSet::new();
+    let mut expected = FxHashSet::default();
     for (edge, side) in case.input.sides.iter().enumerate() {
         let mut chain = vec![edge];
         chain.extend(side);

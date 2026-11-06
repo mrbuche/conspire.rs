@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{Matrix, Scalar, Solution, Vector, sparse::CscMatrix};
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// Why a solver cannot take a constraint.
 pub(super) const UNSUPPORTED: &str =

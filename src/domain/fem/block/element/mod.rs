@@ -26,7 +26,7 @@ use crate::{
     mechanics::{CoordinateList, CurrentCoordinates, CurrentVelocities, ReferenceCoordinates},
     units::{Length, ReciprocalLength, Volume},
 };
-use std::fmt::{self, Debug, Formatter};
+use core::fmt::{self, Debug, Formatter};
 
 const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8; // nightly feature
 const FRAC_SQRT_3_5: Scalar = 0.774_596_669_241_483;

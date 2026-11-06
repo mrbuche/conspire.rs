@@ -7,14 +7,14 @@ use crate::{
             subdivide::insert_bit,
         },
     },
-    math::{Scalar, Tensor, TensorVec},
+    math::{FxHashMap, Scalar, Tensor, TensorVec},
 };
-use std::{array::from_fn, collections::HashMap};
+use core::array::from_fn;
 
 #[cfg(test)]
 mod test;
 
-type Lines = Vec<HashMap<[usize; 2], Vec<(usize, usize)>>>;
+type Lines = Vec<FxHashMap<[usize; 2], Vec<(usize, usize)>>>;
 
 /// How a leaf's facet meets the rest of the tree.
 pub(crate) enum Facet {
@@ -32,7 +32,7 @@ pub(crate) enum Facet {
 pub(crate) struct Facets<const D: usize> {
     coordinates: Coordinates<D>,
     lines: Lines,
-    nodes: HashMap<[usize; D], usize>,
+    nodes: FxHashMap<[usize; D], usize>,
 }
 
 pub(crate) fn corner_length<const D: usize, const M: usize, const N: usize, T, U, V>(
@@ -137,7 +137,7 @@ impl<const D: usize> Facets<D> {
     where
         T: Cell,
     {
-        let mut nodes = HashMap::<[usize; D], usize>::new();
+        let mut nodes = FxHashMap::<[usize; D], usize>::default();
         let mut coordinates = Coordinates::<D>::new();
         leaves.iter().for_each(|&index| {
             let (corner, length) = corner_length(&tree.nodes[index]);
@@ -149,7 +149,7 @@ impl<const D: usize> Facets<D> {
                 });
             })
         });
-        let mut lines: Lines = vec![HashMap::new(); D];
+        let mut lines: Lines = vec![FxHashMap::default(); D];
         if D == 3 {
             nodes.iter().for_each(|(key, &node)| {
                 (0..D).for_each(|axis| {

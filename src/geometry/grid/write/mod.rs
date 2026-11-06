@@ -5,7 +5,8 @@ use crate::{
     geometry::grid::Grid,
     io::{Npy, NpyType, Write, write::Compression},
 };
-use std::{fmt::Display, io::Error as ErrorIO, path::Path};
+use core::fmt::Display;
+use std::{io::Error as ErrorIO, path::Path};
 
 pub enum Output<P>
 where

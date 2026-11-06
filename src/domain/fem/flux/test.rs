@@ -222,7 +222,7 @@ fn the_products_of_a_flux_and_of_an_energy_exist_for_every_balance_model() {
         constitutive::diffusion::Diffusive,
         units::{Area, Charge, Current, MolarFlowRate},
     };
-    use std::ops::Mul;
+    use core::ops::Mul;
     fn typed<L>()
     where
         L: Diffusive,

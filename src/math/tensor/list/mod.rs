@@ -3,7 +3,7 @@ pub(crate) mod vec;
 use crate::math::{
     ContractWith, Differentiable, Erase, Quantity, Tensor, TensorArray, TensorRank0,
 };
-use std::{
+use core::{
     array::{self, from_fn},
     fmt::{Display, Formatter, Result},
     iter::Sum,

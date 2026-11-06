@@ -13,29 +13,29 @@ use crate::{
         Coordinate, DirectionsRef,
         mesh::{Mesh, tessellation::D, tessellation::Tessellation},
     },
-    math::{Quantity, Scalar, Tensor},
+    math::{FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::{array::from_fn, collections::HashMap, collections::HashSet};
+use core::array::from_fn;
 
 pub(super) struct GenericTables {
-    signs: HashMap<usize, Sign>,
-    crossings: HashMap<[usize; 2], Vec<Coordinate<D>>>,
-    faces: HashMap<Vec<usize>, Vec<usize>>,
-    segments: HashMap<Vec<usize>, Vec<[Vertex; 2]>>,
+    signs: FxHashMap<usize, Sign>,
+    crossings: FxHashMap<[usize; 2], Vec<Coordinate<D>>>,
+    faces: FxHashMap<Vec<usize>, Vec<usize>>,
+    segments: FxHashMap<Vec<usize>, Vec<[Vertex; 2]>>,
 }
 
 impl GenericTables {
-    pub(super) fn signs(&self) -> &HashMap<usize, Sign> {
+    pub(super) fn signs(&self) -> &FxHashMap<usize, Sign> {
         &self.signs
     }
-    pub(super) fn crossings(&self) -> &HashMap<[usize; 2], Vec<Coordinate<D>>> {
+    pub(super) fn crossings(&self) -> &FxHashMap<[usize; 2], Vec<Coordinate<D>>> {
         &self.crossings
     }
-    pub(super) fn faces(&self) -> &HashMap<Vec<usize>, Vec<usize>> {
+    pub(super) fn faces(&self) -> &FxHashMap<Vec<usize>, Vec<usize>> {
         &self.faces
     }
-    pub(super) fn segments(&self) -> &HashMap<Vec<usize>, Vec<[Vertex; 2]>> {
+    pub(super) fn segments(&self) -> &FxHashMap<Vec<usize>, Vec<[Vertex; 2]>> {
         &self.segments
     }
 }
@@ -46,12 +46,12 @@ impl Tessellation {
         &self,
         mesh: &Mesh<D>,
         classes: &[Class],
-        snapped: &HashSet<usize>,
+        snapped: &FxHashSet<usize>,
     ) -> Result<
         (
-            HashSet<[usize; 2]>,
-            HashMap<usize, Sign>,
-            HashMap<[usize; 2], Vec<Coordinate<D>>>,
+            FxHashSet<[usize; 2]>,
+            FxHashMap<usize, Sign>,
+            FxHashMap<[usize; 2], Vec<Coordinate<D>>>,
         ),
         &'static str,
     > {
@@ -62,7 +62,7 @@ impl Tessellation {
         let directions = NORMALIZED_DIRECTIONS;
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
-        let mut edges = HashSet::new();
+        let mut edges = FxHashSet::default();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -76,7 +76,7 @@ impl Tessellation {
             });
             offset += block.number_of_elements();
         });
-        let mut signs = HashMap::new();
+        let mut signs = FxHashMap::default();
         edges.iter().flatten().for_each(|&node| {
             signs.entry(node).or_insert_with(|| {
                 if snapped.contains(&node) {
@@ -94,7 +94,7 @@ impl Tessellation {
                 }
             });
         });
-        let mut crossings = HashMap::<[usize; 2], Vec<Coordinate<D>>>::new();
+        let mut crossings = FxHashMap::<[usize; 2], Vec<Coordinate<D>>>::default();
         edges.iter().try_for_each(|&[a, b]| {
             let span = &coordinates[b] - &coordinates[a];
             let length = span.norm();
@@ -191,7 +191,7 @@ impl Tessellation {
         &self,
         mesh: &Mesh<D>,
         classes: &[Class],
-        snapped: &HashSet<usize>,
+        snapped: &FxHashSet<usize>,
     ) -> Result<Tables, &'static str> {
         let (_, signs, crossings) = self.edges_signs_crossings(mesh, classes, snapped)?;
         let coordinates = mesh.coordinates();
@@ -202,7 +202,7 @@ impl Tessellation {
         let contains = |point: &Coordinate<D>| {
             self.encloses(point, surface_coordinates, &elements, &normals, &directions)
         };
-        let mut face_loops = HashMap::new();
+        let mut face_loops = FxHashMap::default();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             let local_faces = block.local_faces();
@@ -218,7 +218,7 @@ impl Tessellation {
             });
             offset += block.number_of_elements();
         });
-        let mut segments = HashMap::new();
+        let mut segments = FxHashMap::default();
         face_loops.iter().try_for_each(|(key, corners)| {
             let cut = face_cut(corners, &signs, &crossings)?;
             let count = cut.endpoints.len();
@@ -263,7 +263,7 @@ impl Tessellation {
         &self,
         mesh: &Mesh<D>,
         classes: &[Class],
-        snapped: &HashSet<usize>,
+        snapped: &FxHashSet<usize>,
     ) -> Result<GenericTables, &'static str> {
         let (_, signs, crossings) = self.edges_signs_crossings(mesh, classes, snapped)?;
         let coordinates = mesh.coordinates();
@@ -274,7 +274,7 @@ impl Tessellation {
         let contains = |point: &Coordinate<D>| {
             self.encloses(point, surface_coordinates, &elements, &normals, &directions)
         };
-        let mut face_loops = HashMap::<Vec<usize>, Vec<usize>>::new();
+        let mut face_loops = FxHashMap::<Vec<usize>, Vec<usize>>::default();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             let owners = face_owners(block);
@@ -291,7 +291,7 @@ impl Tessellation {
             });
             offset += block.number_of_elements();
         });
-        let mut segments = HashMap::new();
+        let mut segments = FxHashMap::default();
         face_loops.iter().try_for_each(|(key, corners)| {
             let cut = face_cut(corners, &signs, &crossings)?;
             let count = cut.endpoints.len();

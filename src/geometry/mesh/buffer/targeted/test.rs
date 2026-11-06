@@ -5,7 +5,7 @@ use crate::{
     },
     math::{Quantity, Scalar},
 };
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 const THRESHOLD: Scalar = 0.1;
 

@@ -6,10 +6,8 @@ use crate::{
     math::Quantity,
     units::Length,
 };
-use std::{
-    array::from_fn,
-    thread::{available_parallelism, scope},
-};
+use core::array::from_fn;
+use std::thread::{available_parallelism, scope};
 
 impl Voxels<usize> {
     pub fn from_tessellation(tessellation: &Tessellation, size: Quantity<Length>) -> Self {

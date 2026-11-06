@@ -18,7 +18,7 @@ use crate::{
     mechanics::Times,
     units::Time,
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 pub trait ElasticViscoplasticElements<S, const D: usize>
 where

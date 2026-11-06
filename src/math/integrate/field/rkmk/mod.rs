@@ -8,7 +8,7 @@ use crate::math::{
     optimize::{EqualityConstraints, Optimization, RootFinding},
     sparse::SparseSolver,
 };
-use std::ops::{AddAssign, Mul};
+use core::ops::{AddAssign, Mul};
 
 /// Fills `slopes` with one RKMK step's corrected stage slopes `k̃ᵢ` in the
 /// field's Lie algebra: per stage combine the earlier `k̃ⱼ` by row `Aᵢ`,

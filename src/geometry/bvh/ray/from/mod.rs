@@ -6,7 +6,7 @@ use crate::{
     math::{Reference, TensorRank1},
     units::{Dimensionless, UnitDiv},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 impl<const D: usize, U> From<(Coordinate<D>, TensorRank1<D, Reference, U>)> for Ray<D>
 where

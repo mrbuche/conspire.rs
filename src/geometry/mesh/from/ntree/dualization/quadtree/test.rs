@@ -9,7 +9,7 @@ use crate::geometry::{
     },
 };
 use crate::math::Quantity;
-use std::collections::{HashMap, HashSet};
+use crate::math::{FxHashMap, FxHashSet};
 
 fn min_scaled_jacobian(mesh: &Mesh<D>) -> f64 {
     let coordinates = mesh.coordinates();
@@ -19,7 +19,7 @@ fn min_scaled_jacobian(mesh: &Mesh<D>) -> f64 {
             (0..N)
                 .map(|k| {
                     let e = |j: usize| {
-                        std::array::from_fn::<f64, D, _>(|i| {
+                        core::array::from_fn::<f64, D, _>(|i| {
                             (coordinates[quad[j]][i] - coordinates[quad[k]][i]).value()
                         })
                     };
@@ -57,7 +57,7 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
             ));
         }
     }
-    let mut edges: HashMap<[usize; 2], usize> = HashMap::new();
+    let mut edges: FxHashMap<[usize; 2], usize> = FxHashMap::default();
     for element in mesh.iter().flatten() {
         for k in 0..N {
             let mut edge = [element[k], element[(k + 1) % N]];
@@ -73,7 +73,7 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
         .filter(|(_, count)| **count == 1)
         .map(|(edge, _)| *edge)
         .collect();
-    let mut degree: HashMap<usize, usize> = HashMap::new();
+    let mut degree: FxHashMap<usize, usize> = FxHashMap::default();
     for edge in &boundary {
         *degree.entry(edge[0]).or_insert(0) += 1;
         *degree.entry(edge[1]).or_insert(0) += 1;
@@ -83,13 +83,13 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
             "boundary not a closed manifold: vertex {vertex} borders {count} boundary edges"
         ));
     }
-    let vertices: HashSet<usize> = degree.keys().copied().collect();
-    let mut neighbors: HashMap<usize, Vec<usize>> = HashMap::new();
+    let vertices: FxHashSet<usize> = degree.keys().copied().collect();
+    let mut neighbors: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
     for edge in &boundary {
         neighbors.entry(edge[0]).or_default().push(edge[1]);
         neighbors.entry(edge[1]).or_default().push(edge[0]);
     }
-    let mut reached: HashSet<usize> = HashSet::new();
+    let mut reached: FxHashSet<usize> = FxHashSet::default();
     let mut queue = vec![*vertices.iter().next().ok_or("boundary is empty")?];
     reached.insert(queue[0]);
     while let Some(vertex) = queue.pop() {

@@ -3,7 +3,7 @@ use crate::geometry::{
     Coordinate,
     predicates::{arithmetic::Estimate, expansion::Expansion, orient3d, test::Lcg},
 };
-use std::{array::from_fn, cmp::Ordering};
+use core::{array::from_fn, cmp::Ordering};
 
 type Grid = [i128; 3];
 

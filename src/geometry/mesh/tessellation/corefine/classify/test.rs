@@ -11,7 +11,7 @@ use crate::{
     },
     units::Length,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 fn area(tessellation: &Tessellation, regions: &[Region], region: Region) -> f64 {
     let coordinates = tessellation.mesh().coordinates();
@@ -195,8 +195,8 @@ fn random_cuboids_on_a_coarse_grid_are_classified_by_the_side_they_are_on()
     };
     let first = solid([0.0; 3], [1.0; 3]);
     for _ in 0..200 {
-        let low: [f64; 3] = std::array::from_fn(|_| next(5) as f64 * 0.25 - 0.5);
-        let high: [f64; 3] = std::array::from_fn(|axis| low[axis] + (next(4) + 1) as f64 * 0.25);
+        let low: [f64; 3] = core::array::from_fn(|_| next(5) as f64 * 0.25 - 0.5);
+        let high: [f64; 3] = core::array::from_fn(|axis| low[axis] + (next(4) + 1) as f64 * 0.25);
         let second = solid(low, high);
         let corefined = corefine(&first, &second);
         assert_sides(&corefined, &first, &second)?;

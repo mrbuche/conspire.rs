@@ -1,10 +1,21 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(feature = "autodiff", feature(autodiff))]
 #![cfg_attr(feature = "nightly", feature(portable_simd))]
+#![warn(
+    clippy::alloc_instead_of_core,
+    clippy::std_instead_of_alloc,
+    clippy::std_instead_of_core
+)]
+
+extern crate alloc;
 
 #[cfg(feature = "cbm")]
 #[doc(hidden)]
 pub use domain::cbm;
+
+#[cfg(any(feature = "io", feature = "math"))]
+#[cfg_attr(not(feature = "math"), allow(dead_code))]
+mod hash;
 
 #[cfg(feature = "constitutive")]
 pub mod constitutive;

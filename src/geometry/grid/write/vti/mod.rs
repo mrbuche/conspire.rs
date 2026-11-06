@@ -5,8 +5,8 @@ use crate::{
         write::{data_array, data_array_compressed},
     },
 };
+use core::array::from_fn;
 use std::{
-    array::from_fn,
     fs::File,
     io::{BufWriter, Error, ErrorKind, Result, Write},
     path::Path,

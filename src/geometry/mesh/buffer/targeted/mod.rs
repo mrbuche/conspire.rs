@@ -11,7 +11,7 @@ use crate::{
     math::{Quantity, Scalar, Tensor, TensorVec},
     units::Length,
 };
-use std::{array::from_fn, mem::replace};
+use core::{array::from_fn, mem::replace};
 
 const RINGS: usize = 2;
 

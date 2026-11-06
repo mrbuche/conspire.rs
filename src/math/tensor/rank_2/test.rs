@@ -1036,8 +1036,8 @@ fn norm_dim_9() -> Result<(), AssertionError> {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank2::<3, Current, Current>>(),
-        std::mem::size_of::<[TensorRank1::<3, Current>; 3]>()
+        core::mem::size_of::<TensorRank2::<3, Current, Current>>(),
+        core::mem::size_of::<[TensorRank1::<3, Current>; 3]>()
     )
 }
 

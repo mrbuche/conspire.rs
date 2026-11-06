@@ -8,7 +8,7 @@ use crate::{
     },
     units::Time,
 };
-use std::f64::consts::FRAC_PI_2;
+use core::f64::consts::FRAC_PI_2;
 
 pub(crate) mod fixed_step;
 pub(crate) mod variable_step;

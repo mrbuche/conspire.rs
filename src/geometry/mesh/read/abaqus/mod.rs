@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::FxHashMap;
 use crate::{
     geometry::{
         Coordinates,
@@ -8,13 +9,14 @@ use crate::{
     },
     math::Scalar,
 };
+use core::{
+    iter::Peekable,
+    str::{FromStr, Lines},
+};
 use std::{
-    collections::HashMap,
     fs::read_to_string,
     io::{Error, ErrorKind, Result},
-    iter::Peekable,
     path::Path,
-    str::{FromStr, Lines},
 };
 
 pub(crate) trait ReadAbaqus<P>
@@ -34,8 +36,8 @@ where
         let mut lines = text.lines().peekable();
         let mut points = Vec::<[Scalar; D]>::new();
         let mut node_labels = Vec::<usize>::new();
-        let mut node_index = HashMap::<usize, usize>::new();
-        let mut element_index = HashMap::<usize, usize>::new();
+        let mut node_index = FxHashMap::<usize, usize>::default();
+        let mut element_index = FxHashMap::<usize, usize>::default();
         let mut blocks = Vec::<Connectivity>::new();
         let mut node_sets = Vec::<NodeSet>::new();
         let mut side_sets = Vec::<SideSet>::new();
@@ -134,8 +136,8 @@ where
 fn element_block(
     element_type: &str,
     lines: &mut Peekable<Lines>,
-    node_index: &HashMap<usize, usize>,
-    element_index: &mut HashMap<usize, usize>,
+    node_index: &FxHashMap<usize, usize>,
+    element_index: &mut FxHashMap<usize, usize>,
     offset: usize,
 ) -> Result<Connectivity> {
     let (mut block, labels) = match element_type {
@@ -171,8 +173,8 @@ fn element_block(
 
 fn elements<const N: usize>(
     lines: &mut Peekable<Lines>,
-    node_index: &HashMap<usize, usize>,
-    element_index: &mut HashMap<usize, usize>,
+    node_index: &FxHashMap<usize, usize>,
+    element_index: &mut FxHashMap<usize, usize>,
     offset: usize,
 ) -> Result<(Vec<[usize; N]>, Vec<usize>)> {
     records(lines, 1 + N)?

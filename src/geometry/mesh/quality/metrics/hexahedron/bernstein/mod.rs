@@ -2,7 +2,7 @@
 pub(crate) mod test;
 
 use crate::{geometry::Coordinates, math::Scalar};
-use std::array::from_fn;
+use core::array::from_fn;
 
 const NODES: [[usize; 3]; 8] = [
     [0, 0, 0],

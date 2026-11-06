@@ -520,7 +520,7 @@ mod body {
         residual
     }
     fn forces(z: impl Fn(usize) -> f64) -> NodalForcesSolid<3> {
-        std::array::from_fn::<_, 8, _>(|node| [0.0, 0.0, z(node)]).into()
+        core::array::from_fn::<_, 8, _>(|node| [0.0, 0.0, z(node)]).into()
     }
     fn force(z: f64) -> BodyForce {
         [0.0, 0.0, z].into()

@@ -1,5 +1,5 @@
 use crate::math::{Hessian, optimize::OptimizationError, sparse::SparseSolver};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 pub(super) fn not_minimum(
     newton_raphson: &(impl Debug + ?Sized),

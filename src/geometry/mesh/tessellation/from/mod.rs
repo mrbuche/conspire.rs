@@ -11,7 +11,7 @@ use crate::geometry::{
         tessellation::{D, Tessellation},
     },
 };
-use std::cell::OnceCell;
+use core::cell::OnceCell;
 
 impl From<Isosurface> for Tessellation {
     fn from(surface: Isosurface) -> Self {

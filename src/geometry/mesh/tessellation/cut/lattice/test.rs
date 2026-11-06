@@ -195,7 +195,7 @@ fn a_plate_thinner_than_a_cell_is_all_cut_and_does_not_leak() {
 
 #[test]
 fn sphere_volume_is_bracketed_ever_more_tightly() {
-    let exact = 4.0 * std::f64::consts::PI / 3.0;
+    let exact = 4.0 * core::f64::consts::PI / 3.0;
     let mut previous = Scalar::INFINITY;
     for spacing in [0.3, 0.15, 0.075] {
         let lattice = sphere(3).lattice_cells(Quantity::new(spacing)).unwrap();

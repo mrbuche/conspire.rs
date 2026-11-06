@@ -4,10 +4,10 @@ use crate::geometry::{
     ntree::{Balance, Balancing, Octree, Pairing},
 };
 use crate::math::Quantity;
-use std::collections::{HashMap, HashSet};
+use crate::math::{FxHashMap, FxHashSet};
 
 fn hex_vol6(hex: &[usize; 8], coordinates: &Coordinates<3>) -> f64 {
-    let p: [[f64; 3]; 8] = std::array::from_fn(|k| {
+    let p: [[f64; 3]; 8] = core::array::from_fn(|k| {
         let v = &coordinates[hex[k]];
         [v[0].value(), v[1].value(), v[2].value()]
     });
@@ -44,7 +44,7 @@ pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
         if distinct.len() != 8 {
             return Err(format!("hex {e} has repeated nodes: {element:?}"));
         }
-        let hex: [usize; 8] = std::array::from_fn(|k| element[k]);
+        let hex: [usize; 8] = core::array::from_fn(|k| element[k]);
         let six_v = hex_vol6(&hex, coordinates);
         if six_v <= 1e-9 {
             return Err(format!(
@@ -52,7 +52,7 @@ pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
             ));
         }
     }
-    let mut faces: HashMap<[usize; 4], usize> = HashMap::new();
+    let mut faces: FxHashMap<[usize; 4], usize> = FxHashMap::default();
     for element in mesh.iter().flatten() {
         for face in HEX_FACES {
             let mut key = [
@@ -68,7 +68,7 @@ pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
     if let Some((face, count)) = faces.iter().find(|(_, count)| **count > 2) {
         return Err(format!("non-conformal: face {face:?} shared {count} times"));
     }
-    let mut edges: HashMap<[usize; 2], usize> = HashMap::new();
+    let mut edges: FxHashMap<[usize; 2], usize> = FxHashMap::default();
     let exterior: Vec<_> = mesh.exterior_faces();
     for face in &exterior {
         for i in 0..face.len() {
@@ -82,17 +82,17 @@ pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
             "boundary not a closed manifold: edge {edge:?} borders {count} boundary faces"
         ));
     }
-    let vertices: HashSet<usize> = exterior.iter().flatten().copied().collect();
+    let vertices: FxHashSet<usize> = exterior.iter().flatten().copied().collect();
     let euler = vertices.len() as i64 - edges.len() as i64 + exterior.len() as i64;
     if euler != 2 {
         return Err(format!(
             "boundary is not a topological sphere (Euler characteristic {euler})"
         ));
     }
-    let mut component: HashMap<usize, usize> = HashMap::new();
+    let mut component: FxHashMap<usize, usize> = FxHashMap::default();
     let mut queue = vec![*vertices.iter().next().ok_or("boundary is empty")?];
     component.insert(queue[0], 0);
-    let mut neighbors: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut neighbors: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
     for edge in edges.keys() {
         neighbors.entry(edge[0]).or_default().push(edge[1]);
         neighbors.entry(edge[1]).or_default().push(edge[0]);
@@ -173,7 +173,7 @@ fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
 fn edge_counts(octree: &Octree<u16, usize>) -> [usize; 4] {
     use super::{edge::test::edge_transition_counts, face::face_transition};
     let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
-    let mut nodes_map = HashMap::new();
+    let mut nodes_map = FxHashMap::default();
     face_transition(
         octree,
         &center_nodes,
@@ -247,7 +247,7 @@ fn star_fires_on_synthetic_checkerboard() {
 
     let (center_nodes, coordinates, ..) = octree.initialize();
     let mut hexes = Vec::new();
-    super::vertex::vertex_transitions(&octree, &center_nodes, &mut hexes, &HashMap::new());
+    super::vertex::vertex_transitions(&octree, &center_nodes, &mut hexes, &FxHashMap::default());
     assert!(
         !hexes.is_empty(),
         "the star template did not fire on the checkerboard tree"
@@ -260,7 +260,7 @@ fn star_fires_on_synthetic_checkerboard() {
         );
     });
 
-    let generic: HashSet<[usize; 8]> = vertex_dual_generic(&octree, &center_nodes)
+    let generic: FxHashSet<[usize; 8]> = vertex_dual_generic(&octree, &center_nodes)
         .into_iter()
         .map(|mut hex| {
             hex.sort_unstable();

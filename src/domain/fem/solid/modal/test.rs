@@ -14,7 +14,7 @@ use crate::{
     math::{Quantity, assert::AssertionError},
     units::Density,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 type Hexes = Block<
     crate::constitutive::solid::hyperelastic::NeoHookean,

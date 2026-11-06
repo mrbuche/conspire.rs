@@ -10,7 +10,7 @@ use crate::math::{
     Vector,
 };
 use crate::units::{UnitHalves, UnitSum};
-use std::{
+use core::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},

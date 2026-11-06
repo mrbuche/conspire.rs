@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{HessianBlock, Tensor, TensorRank0, TensorTuple, Vector};
-use std::ops::IndexMut;
+use core::ops::IndexMut;
 
 /// A block matrix of four blocks that may differ in type, as `[[A, B], [C, D]]`.
 ///

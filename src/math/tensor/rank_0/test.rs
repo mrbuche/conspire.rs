@@ -53,8 +53,8 @@ fn divide() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank0>(),
-        std::mem::size_of::<f64>()
+        core::mem::size_of::<TensorRank0>(),
+        core::mem::size_of::<f64>()
     )
 }
 

@@ -60,7 +60,7 @@ fn round_trip_all_byte_values() {
 fn round_trip_long_runs() {
     let mut data = Vec::new();
     for byte in 0..8u8 {
-        data.extend(std::iter::repeat_n(byte, 5_000));
+        data.extend(core::iter::repeat_n(byte, 5_000));
     }
     round_trip(&data);
 }
@@ -264,7 +264,7 @@ fn round_trip_lz77_partial_match_below_max_length() {
 #[test]
 fn round_trip_lz77_candidate_beyond_window() {
     let mut data = b"XYZ".to_vec();
-    data.extend(std::iter::repeat_n(0u8, 40_000));
+    data.extend(core::iter::repeat_n(0u8, 40_000));
     data.extend_from_slice(b"XYZ");
     round_trip(&data);
 }

@@ -13,7 +13,7 @@ use crate::{
         },
     },
 };
-use std::cell::{Ref, RefCell};
+use core::cell::{Ref, RefCell};
 
 /// The internal variables held at every integration point of every element.
 pub type InternalVariablesField<const G: usize, V> = TensorVector<InternalVariables<G, V>>;

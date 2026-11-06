@@ -11,7 +11,7 @@ use crate::math::{
     interpolate::InterpolateSolution,
 };
 use crate::units::Time;
-use std::ops::{Div, Mul, Sub};
+use core::ops::{Div, Mul, Sub};
 
 pub(crate) mod bogacki_shampine;
 pub(crate) mod dormand_prince;

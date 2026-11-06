@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use std::slice::Iter;
+use core::slice::Iter;
 
 macro_rules! collection {
     ($set: ident, $sets: ident, $member: ty, $docs: literal) => {
@@ -59,7 +59,7 @@ macro_rules! collection {
         }
         impl IntoIterator for $sets {
             type Item = $set;
-            type IntoIter = std::vec::IntoIter<$set>;
+            type IntoIter = alloc::vec::IntoIter<$set>;
             fn into_iter(self) -> Self::IntoIter {
                 self.0.into_iter()
             }

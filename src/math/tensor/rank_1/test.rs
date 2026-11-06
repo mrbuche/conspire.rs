@@ -292,8 +292,8 @@ fn normalized() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank1::<3, Current>>(),
-        std::mem::size_of::<[TensorRank0; 3]>()
+        core::mem::size_of::<TensorRank1::<3, Current>>(),
+        core::mem::size_of::<[TensorRank0; 3]>()
     )
 }
 

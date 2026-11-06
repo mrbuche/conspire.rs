@@ -7,13 +7,13 @@ use crate::{
     },
     math::Quantity,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 fn report(name: &str, mesh: &Mesh<3>) -> (usize, f64, usize) {
     let scaled = &mesh.minimum_scaled_jacobians()[0];
     let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
     let negative = scaled.iter().filter(|&&value| value <= 0.0).count();
-    let certified = match &mesh.connectivities()[0] {
+    let sound = match &mesh.connectivities()[0] {
         Connectivity::Hexahedral(hexes) => hexes
             .iter()
             .filter(|hex| bernstein::certifies(hex.as_ref(), mesh.coordinates()))
@@ -23,7 +23,7 @@ fn report(name: &str, mesh: &Mesh<3>) -> (usize, f64, usize) {
     println!(
         "{name:>16}  {:>7} hexes  min SJ {minimum:>8.4}  {negative:>5} inverted  {:>5} uncertified",
         scaled.len(),
-        scaled.len() - certified
+        scaled.len() - sound
     );
     (scaled.len(), minimum, negative)
 }
@@ -168,6 +168,7 @@ fn every_configuration_of_signs_splits_into_hexahedra_that_hold_up() {
 
 mod field {
     use super::{Placement, report};
+    use crate::math::FxHashMap;
     use crate::{
         geometry::{
             grid::{
@@ -178,7 +179,8 @@ mod field {
         },
         math::Tensor,
     };
-    use std::{array::from_fn, collections::HashMap, f64::consts::PI};
+    use core::{array::from_fn, f64::consts::PI};
+
     fn volume_of(mesh: &Mesh<3>) -> f64 {
         mesh.volumes().into_iter().flatten().sum()
     }
@@ -260,7 +262,7 @@ mod field {
             [2, 3, 7, 6],
             [3, 0, 4, 7],
         ];
-        let mut faces = HashMap::<[usize; 4], u32>::new();
+        let mut faces = FxHashMap::<[usize; 4], u32>::default();
         hexes.iter().for_each(|hex| {
             FACES.iter().for_each(|face| {
                 let mut key: [usize; 4] = from_fn(|corner| hex[face[corner]]);
@@ -269,7 +271,7 @@ mod field {
             })
         });
         assert!(faces.values().all(|&count| count <= 2));
-        let mut edges = HashMap::<[usize; 2], u32>::new();
+        let mut edges = FxHashMap::<[usize; 2], u32>::default();
         faces
             .iter()
             .filter(|&(_, &count)| count == 1)

@@ -13,11 +13,11 @@ use crate::math::{
     styled_error, write_tensor_rank_0,
 };
 
-use std::{
+use alloc::vec::IntoIter;
+use core::{
     fmt::{self, Display, Formatter},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
-    vec::IntoIter,
 };
 
 pub use ldl::LdlDecomposition;

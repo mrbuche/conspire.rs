@@ -24,7 +24,7 @@ where
 {
     fn dualize(&self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
-        let mut nodes_map = NodeMap::new();
+        let mut nodes_map = NodeMap::default();
         edge_transition(
             self,
             &center_nodes,

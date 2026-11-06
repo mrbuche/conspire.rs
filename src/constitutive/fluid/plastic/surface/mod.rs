@@ -12,7 +12,7 @@ use crate::{
     mechanics::{FlowDirectionPlastic, MandelStressElastic, StretchingRatePlastic},
     units::{Dissipation, Stress},
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Required methods for yield surfaces.
 ///

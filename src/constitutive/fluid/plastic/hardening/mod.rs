@@ -7,7 +7,7 @@ pub use linear::Linear;
 pub use voce::Voce;
 
 use crate::{constitutive::ConstitutiveError, math::Quantity, units::Stress};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Required methods for isotropic hardening laws.
 pub trait PlasticHardening

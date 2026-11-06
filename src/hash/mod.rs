@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod test;
 
-use std::{
-    collections::{HashMap, HashSet},
-    hash::{BuildHasherDefault, Hasher},
-};
+use core::hash::BuildHasherDefault;
+use core::hash::Hasher;
+use std::collections::{HashMap, HashSet};
 
 const SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
 const ROTATE: u32 = 5;

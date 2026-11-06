@@ -5,7 +5,7 @@ use crate::{
     geometry::{Coordinate, bbox::BoundingBox},
     math::{Scalar, Tensor},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 impl<const D: usize> BoundingBox<D> {
     pub fn minimum(&self) -> &Coordinate<D> {

@@ -3,7 +3,7 @@ use crate::geometry::{
     Coordinate,
     predicates::{arithmetic::Estimate, expansion::Expansion, test::Lcg},
 };
-use std::{array::from_fn, cmp::Ordering};
+use core::{array::from_fn, cmp::Ordering};
 
 type Vector = [i64; 3];
 

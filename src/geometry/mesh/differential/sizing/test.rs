@@ -172,7 +172,7 @@ fn folded() -> (Vec<[usize; 3]>, Coordinates<3>) {
 
 fn cylinder() -> (Vec<[usize; 3]>, Coordinates<3>) {
     strip(9, 5, |column, row| {
-        let angle = column as f64 * std::f64::consts::FRAC_PI_2 / 8.0;
+        let angle = column as f64 * core::f64::consts::FRAC_PI_2 / 8.0;
         [angle.cos(), row as f64 / 4.0, angle.sin()]
     })
 }
@@ -222,7 +222,7 @@ fn creased_cylinder() -> (Vec<[usize; 3]>, Coordinates<3>) {
     strip(13, 5, |column, row| {
         let across = row as f64 / 4.0;
         if column <= 8 {
-            let angle = column as f64 * std::f64::consts::FRAC_PI_2 / 8.0;
+            let angle = column as f64 * core::f64::consts::FRAC_PI_2 / 8.0;
             [angle.cos(), across, angle.sin()]
         } else {
             [(column - 8) as f64 / 8.0, across, 1.0]

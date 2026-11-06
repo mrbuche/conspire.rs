@@ -3,7 +3,7 @@ use crate::geometry::ntree::{
     Orthotree,
     node::{Kind, cell::Cell},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const fn mirror_facet(facet: usize) -> usize {
     facet ^ 1

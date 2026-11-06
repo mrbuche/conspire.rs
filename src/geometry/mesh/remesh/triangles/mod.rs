@@ -10,7 +10,7 @@ use crate::{
     math::{FxHashMap, FxHashSet, Quantity, Reference, Scalar, Tensor, TensorRank1, TensorVec},
     units::{Area, Length},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const N: usize = 3;
 const SPLIT_ABOVE: Scalar = 4.0 / 3.0;

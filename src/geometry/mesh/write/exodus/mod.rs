@@ -5,7 +5,8 @@ use crate::{
     geometry::mesh::{Mesh, connectivity::base::FlatConnectivity},
     io::{DefineVariable, NetCDF, PutVariable},
 };
-use std::{ffi::NulError, path::Path};
+use alloc::ffi::NulError;
+use std::path::Path;
 
 /// Which on-disk Exodus flavour to write.
 pub enum ExodusFormat<P>

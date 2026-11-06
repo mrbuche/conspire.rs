@@ -10,12 +10,12 @@ use crate::{
     domain::NodalReferenceCoordinates,
     geometry::mesh::PrimitiveConnectivity,
     math::{
-        CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1, TensorRank1List,
+        CrossProduct, FxHashMap, Quantity, Reference, Scalar, Tensor, TensorRank1, TensorRank1List,
         TensorRank1Vec,
     },
     units::{ReciprocalLength, UnitMul, Volume},
 };
-use std::collections::HashMap;
+
 use tetrahedron::{ElementNodalReferenceCoordinates, GradientVectors, Tetrahedron};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -90,8 +90,9 @@ impl Node {
         connectivity: &PrimitiveConnectivity<3, 4>,
         elements: &[Tetrahedron],
         weightings: &[[Scalar; 4]],
-    ) -> HashMap<(usize, usize), UnnormalizedBondGradientVector> {
-        let mut bonds: HashMap<(usize, usize), UnnormalizedBondGradientVector> = HashMap::new();
+    ) -> FxHashMap<(usize, usize), UnnormalizedBondGradientVector> {
+        let mut bonds: FxHashMap<(usize, usize), UnnormalizedBondGradientVector> =
+            FxHashMap::default();
         connectivity
             .iter()
             .zip(elements.iter())

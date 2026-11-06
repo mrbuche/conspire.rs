@@ -1,7 +1,7 @@
 use super::super::pierce::Local;
 use super::clip;
 use crate::geometry::Coordinate;
-use std::array::from_fn;
+use core::array::from_fn;
 
 struct Lcg(u64);
 

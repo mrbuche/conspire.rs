@@ -14,7 +14,7 @@ use crate::{
     },
     units::{ElectricPotential, Length, Temperature as TemperatureUnit},
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 pub(super) fn indices(constraints: EqualityConstraints) -> Vec<usize> {
     EqualityConstraint::held_indices(&constraints).unwrap_or_default()

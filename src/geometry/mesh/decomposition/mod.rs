@@ -8,7 +8,7 @@ mod rcb;
 pub use self::rcb::Bisection;
 
 use crate::{geometry::mesh::Mesh, math::Tensor};
-use std::array::from_fn;
+use core::array::from_fn;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DecompositionQuality {

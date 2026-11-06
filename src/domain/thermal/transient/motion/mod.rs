@@ -12,7 +12,7 @@ use crate::{
     },
     units::{Temperature, Time},
 };
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// The temperatures of a model held in place, and the motion of those that are moved.
 ///

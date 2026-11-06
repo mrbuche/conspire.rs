@@ -8,9 +8,8 @@ use crate::{
         },
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
-    math::{CrossProduct, Quantity, Tensor},
+    math::{CrossProduct, FxHashMap, Quantity, Tensor},
 };
-use std::collections::HashMap;
 
 fn cut(
     tessellation: &Tessellation,
@@ -72,7 +71,7 @@ pub(super) fn signed_volumes(
     coordinates: &Coordinates<3>,
 ) -> Vec<f64> {
     let faces_nodes = polyhedra.faces_nodes();
-    let mut owner = HashMap::new();
+    let mut owner = FxHashMap::default();
     polyhedra
         .elements_faces()
         .iter()
@@ -128,7 +127,7 @@ fn midpoint(
     a: usize,
     b: usize,
     coordinates: &mut Vec<[f64; 3]>,
-    cache: &mut HashMap<[usize; 2], usize>,
+    cache: &mut FxHashMap<[usize; 2], usize>,
 ) -> usize {
     let key = if a < b { [a, b] } else { [b, a] };
     *cache.entry(key).or_insert_with(|| {
@@ -160,7 +159,7 @@ pub(super) fn sphere(refinements: usize) -> Tessellation {
         [0, 3, 5],
     ];
     (0..refinements).for_each(|_| {
-        let mut cache = HashMap::new();
+        let mut cache = FxHashMap::default();
         faces = faces
             .iter()
             .flat_map(|&[a, b, c]| {
@@ -263,7 +262,7 @@ fn cut_sphere() {
     let mesh = cut(&tessellation, Balancing::Strong(1), 12.0).unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 2);
     let coordinates = mesh.coordinates();
-    let mut usage: HashMap<Vec<usize>, usize> = HashMap::new();
+    let mut usage: FxHashMap<Vec<usize>, usize> = FxHashMap::default();
     mesh.iter().for_each(|block| match block {
         Connectivity::Hexahedral(_) => block.iter().for_each(|element| {
             block.local_faces().iter().for_each(|face| {
@@ -400,7 +399,7 @@ fn rotated_box(minimum: [f64; 3], maximum: [f64; 3], angle: f64) -> Tessellation
             axis[2] * p[0] - axis[0] * p[2],
             axis[0] * p[1] - axis[1] * p[0],
         ];
-        std::array::from_fn(|d| p[d] * cos + cross[d] * sin + axis[d] * dot * (1.0 - cos))
+        core::array::from_fn(|d| p[d] * cos + cross[d] * sin + axis[d] * dot * (1.0 - cos))
     };
     let triangles = match &plain.mesh().connectivities()[0] {
         Connectivity::Triangular(triangles) => triangles.iter().copied().collect::<Vec<_>>(),
@@ -485,7 +484,7 @@ fn spanned(mesh: &Mesh<3>) -> f64 {
 }
 
 fn boundary_faces(mesh: &Mesh<3>) -> usize {
-    let mut faces = HashMap::<[usize; 3], usize>::new();
+    let mut faces = FxHashMap::<[usize; 3], usize>::default();
     tets(mesh).iter().for_each(|tet| {
         [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
             .iter()
@@ -522,7 +521,7 @@ fn conforming_in_a_box(mesh: &Mesh<3>) {
             flush(low[axis]) || flush(high[axis])
         })
     };
-    let mut faces = HashMap::<[usize; 3], usize>::new();
+    let mut faces = FxHashMap::<[usize; 3], usize>::default();
     tets(mesh).iter().for_each(|tet| {
         [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
             .iter()
@@ -581,14 +580,14 @@ fn classify_agrees_between_the_hex_and_tet_lattices() {
         .iter()
         .zip(found.chunks(6))
         .for_each(|(&cell, tets)| assert!(tets.iter().all(|&class| class == cell)));
-    let cells_differing: std::collections::BTreeSet<usize> = classes
+    let cells_differing: alloc::collections::BTreeSet<usize> = classes
         .iter()
         .zip(&found)
         .enumerate()
         .filter(|&(_, (&rasterized, &found))| rasterized != found)
         .map(|(element, _)| element / 6)
         .collect();
-    let hexes_differing: std::collections::BTreeSet<usize> = cells
+    let hexes_differing: alloc::collections::BTreeSet<usize> = cells
         .iter()
         .zip(&hex_found)
         .enumerate()

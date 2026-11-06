@@ -21,7 +21,7 @@ use crate::math::{
     Norm, Quantity,
     optimize::{BacktrackingLineSearch, Direct, NoSearch, ObjectiveMerit, Tolerances, TrustRegion},
 };
-use std::fmt::{self, Debug, Display, Formatter};
+use core::fmt::{self, Debug, Display, Formatter};
 
 /// The Newton-Raphson method.
 #[derive(Clone)]

@@ -3,7 +3,7 @@ mod test;
 
 use super::{HALF_EPSILON, arithmetic::Arithmetic, expansion::Expansion};
 use crate::geometry::Coordinate;
-use std::{array::from_fn, cmp::Ordering};
+use core::{array::from_fn, cmp::Ordering};
 
 /// A bound on the relative rounding error of the floating-point `orient3d` determinant.[^1]
 ///

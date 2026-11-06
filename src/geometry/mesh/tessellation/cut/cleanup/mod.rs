@@ -7,13 +7,12 @@ use crate::{
         Coordinate, Coordinates,
         mesh::tessellation::{D, Tessellation},
     },
-    math::{Quantity, Scalar, Tensor},
+    math::{FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::{Length, Volume},
 };
-use std::collections::{HashMap, HashSet};
 
 pub(super) fn intern(
-    face_ids: &mut HashMap<Vec<usize>, usize>,
+    face_ids: &mut FxHashMap<Vec<usize>, usize>,
     faces_nodes: &mut Vec<Vec<usize>>,
     owners: &mut Vec<usize>,
     polygon: Vec<usize>,
@@ -29,13 +28,13 @@ pub(super) fn intern(
 }
 
 pub(super) fn agglomerate(
-    sets: &mut [HashSet<usize>],
+    sets: &mut [FxHashSet<usize>],
     owners: &mut [usize],
     faces_nodes: &[Vec<usize>],
     fractions: &[Scalar],
     coordinates: &Coordinates<D>,
 ) -> Vec<bool> {
-    let mut face_cells = HashMap::<usize, Vec<usize>>::new();
+    let mut face_cells = FxHashMap::<usize, Vec<usize>>::default();
     sets.iter().enumerate().for_each(|(cell, faces)| {
         faces
             .iter()
@@ -54,7 +53,7 @@ pub(super) fn agglomerate(
         if !alive[sliver] {
             return;
         }
-        let mut areas = HashMap::new();
+        let mut areas = FxHashMap::default();
         sets[sliver].iter().for_each(|&face| {
             face_cells[&face].iter().for_each(|&other| {
                 if other != sliver && alive[other] {
@@ -110,19 +109,19 @@ impl Tessellation {
         &self,
         coordinates: &mut Coordinates<D>,
         faces_nodes: &mut [Vec<usize>],
-        sets: &mut [HashSet<usize>],
+        sets: &mut [FxHashSet<usize>],
         owners: &[usize],
         alive: &mut [bool],
-        signs: &HashMap<usize, Sign>,
-        whole: &HashSet<usize>,
+        signs: &FxHashMap<usize, Sign>,
+        whole: &FxHashSet<usize>,
         scales: &[Quantity<Length>],
-        crossing_edge: &HashMap<usize, [usize; 2]>,
+        crossing_edge: &FxHashMap<usize, [usize; 2]>,
     ) {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let surface_elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
-        let mut face_cells = HashMap::<usize, Vec<usize>>::new();
+        let mut face_cells = FxHashMap::<usize, Vec<usize>>::default();
         sets.iter().enumerate().for_each(|(cell, faces)| {
             if alive[cell] {
                 faces
@@ -130,13 +129,13 @@ impl Tessellation {
                     .for_each(|&face| face_cells.entry(face).or_default().push(cell))
             }
         });
-        let mut node_faces = HashMap::<usize, HashSet<usize>>::new();
+        let mut node_faces = FxHashMap::<usize, FxHashSet<usize>>::default();
         face_cells.keys().for_each(|&face| {
             faces_nodes[face].iter().for_each(|&node| {
                 node_faces.entry(node).or_default().insert(face);
             })
         });
-        let mut ranks = HashMap::new();
+        let mut ranks = FxHashMap::default();
         signs.iter().for_each(|(&node, &sign)| {
             ranks.insert(node, if sign == Sign::On { 2 } else { 1 });
         });
@@ -168,9 +167,9 @@ impl Tessellation {
         });
         short.sort_unstable();
         short.dedup();
-        let mut parents = HashMap::new();
-        let mut anchored = HashMap::new();
-        fn root(parents: &mut HashMap<usize, usize>, node: usize) -> usize {
+        let mut parents = FxHashMap::default();
+        let mut anchored = FxHashMap::default();
+        fn root(parents: &mut FxHashMap<usize, usize>, node: usize) -> usize {
             let parent = *parents.entry(node).or_insert(node);
             if parent == node {
                 node
@@ -194,7 +193,7 @@ impl Tessellation {
                 }
             }
         });
-        let mut clusters = HashMap::<usize, Vec<usize>>::new();
+        let mut clusters = FxHashMap::<usize, Vec<usize>>::default();
         let mut merging: Vec<usize> = parents.keys().copied().collect();
         merging.sort_unstable();
         merging.into_iter().for_each(|node| {
@@ -236,24 +235,25 @@ impl Tessellation {
                 cells.dedup();
                 cells
             };
-            let oriented = |cell: usize, updated: &HashMap<usize, Vec<usize>>| -> Vec<Vec<usize>> {
-                sets[cell]
-                    .iter()
-                    .filter_map(|face| {
-                        let polygon = updated.get(face).unwrap_or(&faces_nodes[*face]);
-                        (polygon.len() > 2).then(|| {
-                            if owners[*face] == cell {
-                                polygon.clone()
-                            } else {
-                                polygon.iter().rev().copied().collect()
-                            }
+            let oriented =
+                |cell: usize, updated: &FxHashMap<usize, Vec<usize>>| -> Vec<Vec<usize>> {
+                    sets[cell]
+                        .iter()
+                        .filter_map(|face| {
+                            let polygon = updated.get(face).unwrap_or(&faces_nodes[*face]);
+                            (polygon.len() > 2).then(|| {
+                                if owners[*face] == cell {
+                                    polygon.clone()
+                                } else {
+                                    polygon.iter().rev().copied().collect()
+                                }
+                            })
                         })
-                    })
-                    .collect()
-            };
+                        .collect()
+                };
             let volumes: Vec<Quantity<Volume>> = cells
                 .iter()
-                .map(|&cell| signed_volume(&oriented(cell, &HashMap::new()), coordinates))
+                .map(|&cell| signed_volume(&oriented(cell, &FxHashMap::default()), coordinates))
                 .collect();
             let position = if rank(survivor) >= 2 {
                 coordinates[survivor].clone()
@@ -270,7 +270,7 @@ impl Tessellation {
             let previous = coordinates[survivor].clone();
             coordinates[survivor] = position;
             let mut pinched = false;
-            let updated: HashMap<usize, Vec<usize>> = affected
+            let updated: FxHashMap<usize, Vec<usize>> = affected
                 .iter()
                 .map(|&face| {
                     let mut polygon = Vec::new();

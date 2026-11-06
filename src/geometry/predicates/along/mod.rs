@@ -7,7 +7,7 @@ use super::{
     orient2d, orient3d, project,
 };
 use crate::geometry::Coordinate;
-use std::{array::from_fn, cmp::Ordering};
+use core::{array::from_fn, cmp::Ordering};
 
 /// What a line meets at one point: a triangle, an edge or a vertex.
 pub enum Cutter<'a> {

@@ -3,7 +3,7 @@ use crate::math::{
     optimize::{LineSearchError, ObjectiveMerit, OptimizationError, ResidualMerit},
 };
 use crate::units::{Dimensionless, UnitMul};
-use std::{fmt::Display, ops::Mul};
+use core::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
 

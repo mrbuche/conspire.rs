@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::FxHashSet;
 use crate::{
     geometry::mesh::{Connectivity, Mesh},
     io::write::{data_array, data_array_compressed},
     math::Tensor,
 };
 use std::{
-    collections::HashSet,
     fs::File,
     io::{BufWriter, Error, ErrorKind, Result, Write},
     path::Path,
@@ -89,9 +89,9 @@ impl<const D: usize> Mesh<D> {
             if let Connectivity::Polyhedral(poly) = block {
                 has_polyhedra = true;
                 let faces_nodes = poly.faces_nodes();
-                let mut emitted = HashSet::new();
+                let mut emitted = FxHashSet::default();
                 for element_faces in poly.iter() {
-                    let mut seen = HashSet::new();
+                    let mut seen = FxHashSet::default();
                     let mut unique = Vec::new();
                     for &face in element_faces {
                         for &node in &faces_nodes[face] {

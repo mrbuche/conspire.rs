@@ -14,7 +14,7 @@ use crate::{
         PowerPerTemperature, Temperature, TemperatureRate, Velocity,
     },
 };
-use std::ops::Div;
+use core::ops::Div;
 
 pub type NodalForceSolidThermal = TensorTuple<TensorRank1<3, Current, Force>, Quantity<Power>>;
 pub type NodalForcesSolidThermal = TensorTupleVec<TensorRank1<3, Current, Force>, Quantity<Power>>;

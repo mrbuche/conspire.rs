@@ -2,7 +2,7 @@
 
 use super::{Across, Face, Triangulation};
 use crate::geometry::predicates::incircle_metric;
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 impl Triangulation<'_> {
     /// Whether the edge from `b` to `c` of the counterclockwise triangle `a`, `b`, `c` must be

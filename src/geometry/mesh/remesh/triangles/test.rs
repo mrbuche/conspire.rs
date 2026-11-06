@@ -5,9 +5,8 @@ use super::{
 use crate::math::assert::Assert;
 use crate::{
     geometry::Coordinates,
-    math::{Quantity, Tensor, assert::AssertionError},
+    math::{FxHashMap, FxHashSet, Quantity, Tensor, assert::AssertionError},
 };
-use std::collections::HashMap;
 
 fn right_triangle(leg: f64) -> Coordinates<3> {
     Coordinates::from(vec![[0.0, 0.0, 0.0], [leg, 0.0, 0.0], [0.0, leg, 0.0]])
@@ -52,19 +51,19 @@ fn three_split_makes_four_faces() {
 fn flip_reduces_overvalent_hub() {
     let mut connectivity: Vec<[usize; 3]> = (1..8)
         .map(|i| [0, i, i + 1])
-        .chain(std::iter::once([0, 8, 1]))
+        .chain(core::iter::once([0, 8, 1]))
         .collect();
     let mut points = vec![[0.0, 0.0, 0.0]];
     points.extend((0..8).map(|i| {
-        let angle = i as f64 * std::f64::consts::FRAC_PI_4;
+        let angle = i as f64 * core::f64::consts::FRAC_PI_4;
         [angle.cos(), angle.sin(), 0.0]
     }));
     let coordinates = Coordinates::from(points);
     flip_edges(&mut connectivity, &coordinates);
     assert_eq!(connectivity.len(), 8, "flips must preserve the face count");
 
-    let mut hub_neighbors = std::collections::HashSet::new();
-    let mut edge_uses: HashMap<(usize, usize), usize> = HashMap::new();
+    let mut hub_neighbors = FxHashSet::default();
+    let mut edge_uses: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for &[a, b, c] in &connectivity {
         for (u, v) in [(a, b), (b, c), (c, a)] {
             *edge_uses.entry(edge(u, v)).or_default() += 1;
@@ -116,7 +115,7 @@ fn collapse_merges_short_edge() -> Result<(), AssertionError> {
     );
     assert_eq!(coordinates.len(), 5, "the merged-out vertex should be gone");
     Assert::default().eq_within_tols(&coordinates[0], &[1.05, 0.1, 0.0].into())?;
-    let mut edge_uses: HashMap<(usize, usize), usize> = HashMap::new();
+    let mut edge_uses: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for &[a, b, c] in &connectivity {
         for (u, v) in [(a, b), (b, c), (c, a)] {
             *edge_uses.entry(edge(u, v)).or_default() += 1;

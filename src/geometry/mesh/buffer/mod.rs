@@ -7,12 +7,10 @@ mod targeted;
 use super::{Connectivity, Fitting, Mesh, PrimitiveConnectivity, Tessellation};
 use crate::{
     geometry::Coordinates,
-    math::{Tensor, TensorVec},
+    math::{FxHashMap, FxHashSet, Tensor, TensorVec},
 };
-use std::{
-    array::from_fn,
-    collections::{HashMap, HashSet, hash_map::Entry},
-};
+use core::array::from_fn;
+use std::collections::hash_map::Entry;
 
 /// The four faces of a tetrahedron, as triples of local node indices.
 const TET_FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 1, 3], [1, 2, 3], [2, 0, 3]];
@@ -23,7 +21,7 @@ struct Peeled {
     connectivities: Vec<Connectivity>,
     coordinates: Coordinates<3>,
     count: usize,
-    duplicates: HashMap<usize, usize>,
+    duplicates: FxHashMap<usize, usize>,
     layer: Vec<usize>,
 }
 
@@ -36,7 +34,7 @@ struct Peeled {
 /// cut their shared quadrilateral the same way, and since node numbers are a
 /// total order the three diagonals can never wind around the prism, which is
 /// what would leave it untetrahedralizable without a new node.
-fn prism(face: &[usize], duplicates: &HashMap<usize, usize>) -> [[usize; 4]; 3] {
+fn prism(face: &[usize], duplicates: &FxHashMap<usize, usize>) -> [[usize; 4]; 3] {
     let first = (0..3)
         .min_by_key(|&i| face[i])
         .expect("empty boundary face");
@@ -89,7 +87,7 @@ fn manifold_boundary(mut mesh: Mesh<3>) -> Result<Mesh<3>, &'static str> {
             .flatten()
             .map(|tet| from_fn(|i| tet[i]))
             .collect();
-        let mut face_tets: HashMap<[usize; 3], Vec<usize>> = HashMap::new();
+        let mut face_tets: FxHashMap<[usize; 3], Vec<usize>> = FxHashMap::default();
         for (element, tet) in tets.iter().enumerate() {
             for face in TET_FACES {
                 let mut key = face.map(|node| tet[node]);
@@ -97,7 +95,7 @@ fn manifold_boundary(mut mesh: Mesh<3>) -> Result<Mesh<3>, &'static str> {
                 face_tets.entry(key).or_default().push(element);
             }
         }
-        let mut edge_faces: HashMap<[usize; 2], u32> = HashMap::new();
+        let mut edge_faces: FxHashMap<[usize; 2], u32> = FxHashMap::default();
         for (face, owners) in &face_tets {
             if owners.len() == 1 {
                 for [a, b] in [[0, 1], [1, 2], [2, 0]] {
@@ -107,14 +105,14 @@ fn manifold_boundary(mut mesh: Mesh<3>) -> Result<Mesh<3>, &'static str> {
                 }
             }
         }
-        let bad: HashSet<[usize; 2]> = edge_faces
+        let bad: FxHashSet<[usize; 2]> = edge_faces
             .into_iter()
             .filter_map(|(edge, count)| (count != 2).then_some(edge))
             .collect();
         if bad.is_empty() {
             return Ok(mesh);
         }
-        let mut discard: HashSet<usize> = HashSet::new();
+        let mut discard: FxHashSet<usize> = FxHashSet::default();
         for (face, owners) in &face_tets {
             if owners.len() == 1
                 && [[0, 1], [1, 2], [2, 0]].iter().any(|&[a, b]| {
@@ -224,7 +222,7 @@ impl Mesh<3> {
         arity: usize,
         misshapen: &'static str,
     ) -> Result<Peeled, &'static str> {
-        let mut edges = HashMap::new();
+        let mut edges = FxHashMap::default();
         boundary.iter().try_for_each(|face| {
             if face.len() != arity {
                 return Err(misshapen);
@@ -242,7 +240,7 @@ impl Mesh<3> {
         let (connectivities, mut coordinates) = self.into();
         let connectivities = connectivities.into_blocks();
         let count = coordinates.len();
-        let mut duplicates = HashMap::new();
+        let mut duplicates = FxHashMap::default();
         let mut layer = Vec::new();
         boundary.iter().flatten().for_each(|&node| {
             if let Entry::Vacant(slot) = duplicates.entry(node) {

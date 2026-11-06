@@ -9,7 +9,7 @@ use crate::{
     },
     units::{Acceleration, Length, RateSquared, Time, Velocity},
 };
-use std::f64::consts::FRAC_PI_2;
+use core::f64::consts::FRAC_PI_2;
 
 type Solution = (
     Times,

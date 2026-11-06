@@ -9,7 +9,7 @@ use crate::{
     },
     math::{Tensor, TensorVec},
 };
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 impl Mesh<2> {
     pub fn from_pixels<T>(pixels: Pixels<T>, remove: Option<&[T]>) -> Self

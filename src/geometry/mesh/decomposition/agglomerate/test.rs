@@ -1,3 +1,4 @@
+use crate::math::FxHashMap;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -5,7 +6,6 @@ use crate::{
     },
     math::CrossProduct,
 };
-use std::collections::HashMap;
 
 fn signed_volumes(mesh: &Mesh<3>) -> Vec<f64> {
     let Some(Connectivity::Polyhedral(polyhedra)) = mesh.iter().next() else {
@@ -13,7 +13,7 @@ fn signed_volumes(mesh: &Mesh<3>) -> Vec<f64> {
     };
     let coordinates = mesh.coordinates();
     let faces_nodes = polyhedra.faces_nodes();
-    let mut owner = HashMap::new();
+    let mut owner = FxHashMap::default();
     polyhedra
         .elements_faces()
         .iter()

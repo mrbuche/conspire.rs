@@ -17,7 +17,7 @@ use crate::{
     math::{Scalar, TensorRank1Vec},
     vem::{NodalReferenceCoordinates, block::element::VirtualElement},
 };
-use std::fmt::{self, Debug, Formatter};
+use core::fmt::{self, Debug, Formatter};
 
 pub use density::{Densities, DensityField, ElementDensities, NoDensity};
 

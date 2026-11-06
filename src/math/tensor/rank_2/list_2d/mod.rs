@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{Tensor, TensorRank0, TensorRank2, TensorRank2List, tensor::list::TensorList};
 use crate::units::{Dimensionless, UnitMul};
-use std::ops::Mul;
+use core::ops::Mul;
 
 use crate::math::assert::FiniteDifference;
 

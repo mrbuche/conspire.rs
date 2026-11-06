@@ -19,7 +19,7 @@ use crate::{
     math::{FxHashMap, Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 pub(super) use crate::geometry::grid::marching_cubes::separated::{
     CORNERS, Corner, Vertex, inside,

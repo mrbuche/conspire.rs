@@ -1,4 +1,4 @@
-use std::ops::{Div, Mul};
+use core::ops::{Div, Mul};
 
 use crate::{
     constitutive::solid::elastic::internal_variables::ElasticIV,

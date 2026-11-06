@@ -26,7 +26,7 @@ use crate::{
     },
     units::Stress,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// An elastic model given as `#[autodiff]`-differentiable scalar kernels over a
 /// row-major deformation gradient: three stress measures, and by forward mode

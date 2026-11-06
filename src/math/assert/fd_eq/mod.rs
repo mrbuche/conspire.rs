@@ -2,7 +2,7 @@ mod owned;
 
 use super::{Assert, AssertionError, FiniteDifference};
 use crate::math::Tensor;
-use std::fmt::Display;
+use core::fmt::Display;
 
 /// Finite-difference equality assertions, overloaded across owned and borrowed operands.
 pub trait AssertFd<Rhs = Self> {

@@ -5,7 +5,7 @@ use crate::{
     geometry::{Coordinate, grid::Grid},
     math::Quantity,
 };
-use std::{
+use core::{
     array::from_fn,
     ops::{Deref, DerefMut, Range},
 };

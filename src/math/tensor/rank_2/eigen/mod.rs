@@ -1,6 +1,6 @@
 use crate::math::Quantity;
 use crate::units::Dimensionless;
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 use super::{
     super::{

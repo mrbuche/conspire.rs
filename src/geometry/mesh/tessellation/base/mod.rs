@@ -11,10 +11,10 @@ use crate::{
             tessellation::{D, Normals, Tessellation, features::Features},
         },
     },
-    math::{Quantity, Scalar, Tensor, TensorVec},
+    math::{FxHashMap, Quantity, Scalar, Tensor, TensorVec},
     units::Length,
 };
-use std::{array::from_fn, cell::OnceCell, collections::HashMap};
+use core::{array::from_fn, cell::OnceCell};
 
 const WELD_TOLERANCE: Scalar = 1e-6;
 
@@ -60,7 +60,7 @@ impl Tessellation {
         tolerance: Quantity<Length>,
     ) -> Result<(), &'static str> {
         let mut representatives = Vec::with_capacity(self.mesh.number_of_nodes());
-        let mut anchors: HashMap<[i64; D], Vec<usize>> = HashMap::new();
+        let mut anchors: FxHashMap<[i64; D], Vec<usize>> = FxHashMap::default();
         let mut welded = Coordinates::new();
         for point in self.mesh.coordinates() {
             let cell = from_fn(|axis| (point[axis] / tolerance).floor().value() as i64);

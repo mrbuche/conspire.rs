@@ -15,6 +15,7 @@ use super::{
     frame::{coincident, cut_order},
     split::{Piece, refine, share},
 };
+use crate::math::{FxHashMap, FxHashSet};
 use crate::{
     geometry::{
         Coordinate,
@@ -23,10 +24,8 @@ use crate::{
     },
     math::Tensor,
 };
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-};
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::cmp::Ordering;
 
 /// The surfaces that separate any number of solids, each triangle labelled with the solid on
 /// either side of it.
@@ -97,7 +96,7 @@ impl Interfaces {
 
 /// A surface of the faces that use the `positions`, without the positions nothing uses.
 fn surface(faces: Vec<[usize; 3]>, positions: &[&Coordinate<3>]) -> Tessellation {
-    let mut renumbered = HashMap::<usize, usize>::new();
+    let mut renumbered = FxHashMap::<usize, usize>::default();
     let mut vertices = Vec::<Coordinate<3>>::new();
     let faces: Vec<[usize; 3]> = faces
         .into_iter()
@@ -154,7 +153,7 @@ fn unify<'a>(
         if !found && (round > 0 || links.is_empty()) {
             return Ok(());
         }
-        let mut merged = HashMap::<Name, BTreeSet<Feature>>::new();
+        let mut merged = FxHashMap::<Name, BTreeSet<Feature>>::default();
         for piece in pieces.iter().flat_map(|map| map.values()) {
             for (spot, _) in &piece.points {
                 let name = Name::from(spot);
@@ -223,7 +222,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             contacts.insert([i, j], tessellations[i].contacts(tessellations[j])?);
         }
     }
-    let pairs: BTreeMap<[usize; 2], HashSet<[usize; 2]>> = contacts
+    let pairs: BTreeMap<[usize; 2], FxHashSet<[usize; 2]>> = contacts
         .iter()
         .map(|(&pair, contacts)| {
             let crossing = contacts.crossings.iter();
@@ -248,7 +247,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
     junctions.extend(edge_junctions(&flat, &pairs, solids.len(), corners)?);
     let counts: Vec<usize> = faces.iter().map(Vec::len).collect();
     junctions.extend(planar_junctions(&flat, &counts, corners)?);
-    let curves: HashMap<_, _> = contacts
+    let curves: FxHashMap<_, _> = contacts
         .iter()
         .flat_map(|(&[i, j], contacts)| {
             let sides = [&offsets[i], &offsets[j]];
@@ -296,7 +295,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
             ]
         })
         .collect();
-    let mut by_edge = HashMap::<Feature, Vec<usize>>::new();
+    let mut by_edge = FxHashMap::<Feature, Vec<usize>>::default();
     for (point, found) in features.iter().enumerate() {
         for feature in found.iter().filter(|f| matches!(f, Feature::Edge(_))) {
             by_edge.entry(feature.clone()).or_default().push(point);
@@ -474,13 +473,13 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
     }
     unify(&mut pieces, &faces, &coordinates, &offsets, &links, cutter)?;
     let mut vertices = coordinates.clone();
-    let mut named = HashMap::<Name, usize>::new();
+    let mut named = FxHashMap::<Name, usize>::default();
     let mut refined = Vec::new();
     for (volume, own) in faces.iter().enumerate() {
         refined.push(refine(
             own,
             |node| &coordinates[node],
-            std::mem::take(&mut pieces[volume]),
+            core::mem::take(&mut pieces[volume]),
             |spot| &spot.own,
             |spot| spot.others.iter().map(cutter).collect(),
             |spot, position| {
@@ -518,7 +517,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
                 let (a, b) = (renumber(a), renumber(b));
                 [a.min(b), a.max(b)]
             })
-            .collect::<HashSet<_>>();
+            .collect::<FxHashSet<_>>();
     }
     let positions: Vec<&Coordinate<3>> = vertices.iter().collect();
     let mut kept: Vec<[usize; 3]> = Vec::new();

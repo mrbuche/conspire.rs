@@ -6,7 +6,8 @@ use crate::{
         unsupported,
     },
 };
-use std::{array::from_fn, fs::read_to_string, io::Result, path::Path};
+use core::array::from_fn;
+use std::{fs::read_to_string, io::Result, path::Path};
 
 pub(super) fn read<const D: usize, T, P>(path: P) -> Result<Grid<D, T>>
 where

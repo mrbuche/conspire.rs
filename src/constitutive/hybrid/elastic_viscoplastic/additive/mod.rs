@@ -9,7 +9,7 @@ use crate::{
     },
     math::{Differentiable, Tensor},
 };
-use std::{marker::PhantomData, ops::Deref};
+use core::{marker::PhantomData, ops::Deref};
 
 /// A hybrid elastic-viscoplastic constitutive model based on the additive decomposition.
 #[derive(Clone, Debug)]

@@ -22,9 +22,9 @@ macro_rules! test_finite_element {
         #[test]
         fn size() {
             assert_eq!(
-                std::mem::size_of::<$element>(),
-                std::mem::size_of::<GradientVectors<3, G, N>>()
-                    + std::mem::size_of::<ScalarList<G>>()
+                core::mem::size_of::<$element>(),
+                core::mem::size_of::<GradientVectors<3, G, N>>()
+                    + core::mem::size_of::<ScalarList<G>>()
             )
         }
         macro_rules! setup_element {
@@ -267,10 +267,10 @@ macro_rules! test_surface_finite_element {
         #[test]
         fn size() {
             assert_eq!(
-                std::mem::size_of::<$element>(),
-                std::mem::size_of::<GradientVectors<3, G, N>>()
-                    + std::mem::size_of::<ScalarList<G>>()
-                    + std::mem::size_of::<Normals<G>>()
+                core::mem::size_of::<$element>(),
+                core::mem::size_of::<GradientVectors<3, G, N>>()
+                    + core::mem::size_of::<ScalarList<G>>()
+                    + core::mem::size_of::<Normals<G>>()
             )
         }
         macro_rules! setup_element {
@@ -727,7 +727,7 @@ macro_rules! test_finite_element_inner {
                 use crate::EPSILON;
                 #[test]
                 fn finite_difference() -> Result<(), AssertionError> {
-                    if std::any::type_name::<$element>()
+                    if core::any::type_name::<$element>()
                         == "conspire::fem::block::element::Element<3, 4, 10, 0>"
                     {
                         Ok(()) // temporary
@@ -770,7 +770,7 @@ macro_rules! test_finite_element_inner {
                 }
                 #[test]
                 fn kronecker_delta() -> Result<(), AssertionError> {
-                    if std::any::type_name::<$element>()
+                    if core::any::type_name::<$element>()
                         == "conspire::fem::block::element::Element<3, 4, 10, 0>"
                     {
                         Ok(()) // temporary
@@ -2415,7 +2415,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
             if is_rotated {
                 let element = get_element_transformed();
                 let state_variables =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
                         * element.nodal_forces(
@@ -2433,7 +2433,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
             } else {
                 let element = get_element();
                 let state_variables =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 if is_deformed {
                     Ok(element.nodal_forces(
                         &$constitutive_model,
@@ -2456,7 +2456,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
             if is_rotated {
                 let element = get_element_transformed();
                 let state_variables =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
                         * element.nodal_stiffnesses(
@@ -2479,7 +2479,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
             } else {
                 let element = get_element();
                 let state_variables =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 if is_deformed {
                     Ok(element.nodal_stiffnesses(
                         &$constitutive_model,
@@ -2500,7 +2500,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
         ) -> Result<ElementNodalStiffnessesSolid<N>, AssertionError> {
             let element = get_element();
             let state_variables =
-                std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                core::array::from_fn(|_| $constitutive_model.initial_state()).into();
             let mut finite_difference = $crate::math::Quantity::default();
             (0..N)
                 .map(|a| {
@@ -2554,7 +2554,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
             fn objectivity_deformed() -> Result<(), AssertionError> {
                 let element = get_element();
                 let state_variables: ViscoplasticStateVariables<G, _> =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 let element_transformed = get_element_transformed();
                 let rotation_transpose = get_rotation_reference_configuration().transpose();
                 let state_variables_transformed = state_variables
@@ -2587,7 +2587,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
             fn objectivity_undeformed() -> Result<(), AssertionError> {
                 let element = get_element();
                 let state_variables: ViscoplasticStateVariables<G, _> =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 let element_transformed = get_element_transformed();
                 let rotation_transpose = get_rotation_reference_configuration().transpose();
                 let state_variables_transformed = state_variables
@@ -2629,7 +2629,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
                 let element = get_element();
                 let nodal_coordinates = coordinates();
                 let state_variables: ViscoplasticStateVariables<G, _> =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 let q = get_rotation_intermediate_configuration();
                 let state_variables_rotated = state_variables
                     .iter()
@@ -2655,7 +2655,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
                 let element = get_element();
                 let nodal_coordinates = coordinates();
                 let state_variables: ViscoplasticStateVariables<G, _> =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 let q = get_rotation_intermediate_configuration();
                 let state_variables_rotated = state_variables
                     .iter()
@@ -2681,7 +2681,7 @@ macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
                 let element = get_element();
                 let nodal_coordinates = coordinates();
                 let state_variables: ViscoplasticStateVariables<G, _> =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 let q = get_rotation_intermediate_configuration();
                 let state_variables_rotated = state_variables
                     .iter()
@@ -2722,7 +2722,7 @@ macro_rules! test_finite_element_with_hyperelastic_viscoplastic_constitutive_mod
             is_deformed: bool,
         ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
             let element = get_element();
-            let state_variables = std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+            let state_variables = core::array::from_fn(|_| $constitutive_model.initial_state()).into();
             let mut finite_difference = $crate::math::Quantity::default();
             (0..N)
                 .map(|node| {
@@ -2770,7 +2770,7 @@ macro_rules! test_finite_element_with_hyperelastic_viscoplastic_constitutive_mod
                 fn objectivity() -> Result<(), AssertionError> {
                     let element = get_element();
                     let state_variables: ViscoplasticStateVariables<G, _> =
-                        std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                        core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                     let element_transformed = get_element_transformed();
                     let rotation_transpose = get_rotation_reference_configuration().transpose();
                     let state_variables_transformed = state_variables
@@ -2809,7 +2809,7 @@ macro_rules! test_finite_element_with_hyperelastic_viscoplastic_constitutive_mod
                 fn objectivity() -> Result<(), AssertionError> {
                     let element = get_element();
                     let state_variables: ViscoplasticStateVariables<G, _> =
-                        std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                        core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                     let element_transformed = get_element_transformed();
                     let rotation_transpose = get_rotation_reference_configuration().transpose();
                     let state_variables_transformed = state_variables
@@ -2847,7 +2847,7 @@ macro_rules! test_finite_element_with_hyperelastic_viscoplastic_constitutive_mod
                 let element = get_element();
                 let nodal_coordinates = coordinates();
                 let state_variables: ViscoplasticStateVariables<G, _> =
-                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    core::array::from_fn(|_| $constitutive_model.initial_state()).into();
                 let q = get_rotation_intermediate_configuration();
                 let state_variables_rotated = state_variables
                     .iter()

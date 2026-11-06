@@ -30,7 +30,7 @@ use crate::{
     mechanics::{DeformationGradientPlastic, MandelStressElastic, StretchingRatePlastic},
     units::{Dissipation, Rate, Stress},
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// A viscoplastic model given as `#[autodiff]`-differentiable scalar potential
 /// kernels: the plastic stretching rate is reverse mode over the dual

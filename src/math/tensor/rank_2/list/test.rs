@@ -99,8 +99,8 @@ fn from() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank2List::<3, Current, Current, 8>>(),
-        std::mem::size_of::<[TensorRank2::<3, Current, Current>; 8]>()
+        core::mem::size_of::<TensorRank2List::<3, Current, Current, 8>>(),
+        core::mem::size_of::<[TensorRank2::<3, Current, Current>; 8]>()
     )
 }
 

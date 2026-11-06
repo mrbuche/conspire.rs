@@ -19,7 +19,7 @@ use crate::{
     },
     math::{FxHashMap, Scalar, Tensor, TensorVec},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 /// The twelve cube edges, each the axis it runs along and the corner it runs
 /// from, whose bit for that axis is clear.

@@ -1,6 +1,6 @@
 use crate::geometry::grid::Grid;
+use core::fmt::Display;
 use std::{
-    fmt::Display,
     fs::File,
     io::{BufWriter, Result, Write},
     path::Path,

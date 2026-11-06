@@ -41,7 +41,7 @@ use crate::{
     },
     units::{UnitDiv, UnitMul},
 };
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 /// The step size taking a decrement of type `D` to an increment of `X`.
 pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;

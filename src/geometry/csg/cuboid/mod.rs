@@ -9,7 +9,7 @@ use crate::{
     math::{Quantity, Tensor},
     units::Length,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 /// An axis-aligned rectangular box.
 pub struct Cuboid {

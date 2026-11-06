@@ -66,8 +66,8 @@ pub(crate) trait StyledError {
 
 macro_rules! styled_error {
     (<$($generic:ident),*> $ty:ty) => {
-        impl<$($generic),*> std::fmt::Debug for $ty {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl<$($generic),*> core::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 let style = $crate::math::Style::detect();
                 write!(
                     f,
@@ -79,8 +79,8 @@ macro_rules! styled_error {
                 )
             }
         }
-        impl<$($generic),*> std::fmt::Display for $ty {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl<$($generic),*> core::fmt::Display for $ty {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 let style = $crate::math::Style::detect();
                 write!(
                     f,
@@ -90,7 +90,7 @@ macro_rules! styled_error {
                 )
             }
         }
-        impl<$($generic),*> std::error::Error for $ty {}
+        impl<$($generic),*> core::error::Error for $ty {}
     };
     ($ty:ty) => {
         styled_error!(<> $ty);

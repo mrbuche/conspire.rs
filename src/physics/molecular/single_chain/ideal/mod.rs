@@ -8,7 +8,7 @@ use crate::{
     },
     units::Length,
 };
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// The ideal chain model.
 #[derive(Clone, Debug)]

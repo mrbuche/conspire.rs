@@ -3,7 +3,7 @@ use crate::math::{
     Scalar, SquareMatrix, Vector,
     assert::{Assert, AssertionError},
 };
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 fn within(abs_tol: Scalar) -> Assert {
     Assert {

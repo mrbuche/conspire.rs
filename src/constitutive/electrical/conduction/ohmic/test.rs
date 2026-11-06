@@ -17,7 +17,10 @@ fn model() -> Ohmic {
 
 #[test]
 fn size() {
-    assert_eq!(std::mem::size_of::<Ohmic>(), std::mem::size_of::<Scalar>())
+    assert_eq!(
+        core::mem::size_of::<Ohmic>(),
+        core::mem::size_of::<Scalar>()
+    )
 }
 
 #[test]

@@ -4,11 +4,12 @@
 mod test;
 
 use super::{Contacts, Feature, Key, Side, frame::frame, triangulate::triangulate_constrained};
+use crate::math::{FxHashMap, FxHashSet};
 use crate::{
     geometry::{Coordinate, mesh::Tessellation, predicates::Cutter},
     math::Tensor,
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use alloc::collections::BTreeMap;
 
 /// What meets one triangle: points, each with a rounded position, and the segments between them.
 pub(super) struct Piece<K> {
@@ -59,9 +60,9 @@ pub(super) struct Split {
     /// The triangle of the tessellation that was split, for each triangle of the result.
     pub parents: Vec<usize>,
     /// The edges, as pairs of vertices with the smaller first, along which the other meets it.
-    pub curves: HashSet<[usize; 2]>,
+    pub curves: FxHashSet<[usize; 2]>,
     /// The vertex of the result at each point that was added, by the key that names it.
-    pub named: HashMap<Key, usize>,
+    pub named: FxHashMap<Key, usize>,
 }
 
 pub(super) fn split(
@@ -110,7 +111,7 @@ pub(super) fn split(
         .flatten()
         .map(|nodes| [nodes[0], nodes[1], nodes[2]])
         .collect();
-    let mut named = HashMap::<Key, usize>::new();
+    let mut named = FxHashMap::<Key, usize>::default();
     let refined = refine(
         &faces,
         |node| &coordinates[node],
@@ -138,7 +139,7 @@ pub(super) struct Refined {
     /// The triangle that each was split from.
     pub parents: Vec<usize>,
     /// The edges, as pairs of vertices with the smaller first, that the segments became.
-    pub curves: HashSet<[usize; 2]>,
+    pub curves: FxHashSet<[usize; 2]>,
 }
 
 /// Split triangles of one surface into the pieces that what meets them cuts them into.
@@ -161,7 +162,7 @@ pub(super) fn refine<'c, 'a, K: Ord + Clone>(
     let mut refined = Refined {
         faces: Vec::new(),
         parents: Vec::new(),
-        curves: HashSet::new(),
+        curves: FxHashSet::default(),
     };
     for (index, &nodes) in faces.iter().enumerate() {
         let Some(piece) = pieces.get(&index) else {
@@ -216,7 +217,7 @@ pub(super) fn share<K: Ord + Clone>(
     pieces: &mut BTreeMap<usize, Piece<K>>,
     feature: impl Fn(&K) -> &Feature,
 ) {
-    let mut around = HashMap::<[usize; 2], Vec<usize>>::new();
+    let mut around = FxHashMap::<[usize; 2], Vec<usize>>::default();
     for (index, nodes) in faces.iter().enumerate() {
         (0..3).for_each(|edge| {
             let (a, b) = (nodes[edge], nodes[(edge + 1) % 3]);

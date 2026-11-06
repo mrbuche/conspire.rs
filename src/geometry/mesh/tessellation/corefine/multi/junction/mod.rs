@@ -14,10 +14,9 @@ use crate::geometry::{
     Coordinate,
     predicates::{Derived, orient3d, side},
 };
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet},
-};
+use crate::math::{FxHashMap, FxHashSet};
+use alloc::collections::BTreeMap;
+use core::cmp::Ordering;
 
 /// Where a point is on a triangle: inside it, on an edge, or on a corner. The edge `e` runs from
 /// corner `e` to corner `e + 1`.
@@ -134,7 +133,7 @@ impl Junction {
 ///
 /// Fails where the three planes do not meet in one point.
 pub(super) fn junctions<'a>(
-    pairs: &BTreeMap<[usize; 2], HashSet<[usize; 2]>>,
+    pairs: &BTreeMap<[usize; 2], FxHashSet<[usize; 2]>>,
     solids: usize,
     corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3],
 ) -> Result<Vec<Junction>, &'static str> {
@@ -147,7 +146,7 @@ pub(super) fn junctions<'a>(
                 else {
                     continue;
                 };
-                let mut with_first = HashMap::<usize, Vec<usize>>::new();
+                let mut with_first = FxHashMap::<usize, Vec<usize>>::default();
                 ik.iter()
                     .for_each(|&[a, c]| with_first.entry(a).or_default().push(c));
                 let mut candidates: Vec<[usize; 3]> = ij
@@ -191,7 +190,7 @@ pub(super) fn planar_junctions<'a>(
     counts: &[usize],
     corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3],
 ) -> Result<Vec<Junction>, &'static str> {
-    let mut partners = HashMap::<(usize, usize, usize), Vec<usize>>::new();
+    let mut partners = FxHashMap::<(usize, usize, usize), Vec<usize>>::default();
     for (&[x, y], list) in coplanar {
         for &[tx, ty] in list {
             partners.entry((y, x, ty)).or_default().push(tx);
@@ -202,7 +201,7 @@ pub(super) fn planar_junctions<'a>(
     for (&[i, j], list) in coplanar {
         for &[a, b] in list {
             for k in (j + 1)..counts.len() {
-                let on_a: HashSet<usize> = partners
+                let on_a: FxHashSet<usize> = partners
                     .get(&(i, k, a))
                     .into_iter()
                     .flatten()
@@ -373,11 +372,11 @@ fn locate(
 /// The three planes do not meet in a point there, but the edge meets the plane of the third.
 pub(super) fn edge_junctions<'a>(
     coplanar: &BTreeMap<[usize; 2], Vec<[usize; 2]>>,
-    pairs: &BTreeMap<[usize; 2], HashSet<[usize; 2]>>,
+    pairs: &BTreeMap<[usize; 2], FxHashSet<[usize; 2]>>,
     solids: usize,
     corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3],
 ) -> Result<Vec<Junction>, &'static str> {
-    let mut crossing = HashMap::<(usize, usize, usize), Vec<usize>>::new();
+    let mut crossing = FxHashMap::<(usize, usize, usize), Vec<usize>>::default();
     for (&[x, y], set) in pairs {
         for &[tx, ty] in set {
             crossing.entry((y, x, ty)).or_default().push(tx);
@@ -388,7 +387,7 @@ pub(super) fn edge_junctions<'a>(
     for (&[j, k], list) in coplanar {
         for &[b, c] in list {
             for i in (0..solids).filter(|&i| i != j && i != k) {
-                let with_c: HashSet<usize> = crossing
+                let with_c: FxHashSet<usize> = crossing
                     .get(&(k, i, c))
                     .into_iter()
                     .flatten()
@@ -501,7 +500,7 @@ pub(super) struct Ends {
 /// A point at the end of a curve, and the features that name the end.
 pub(super) type Link = (usize, [Feature; 2]);
 
-type Arranged = (Vec<Point>, HashMap<Curve, Vec<usize>>, Vec<Link>);
+type Arranged = (Vec<Point>, FxHashMap<Curve, Vec<usize>>, Vec<Link>);
 
 /// The points, and the points strictly between the ends of every curve that has any, in order from
 /// its start, where `curves` gives the ends of every curve and `feature` the feature of a solid
@@ -514,11 +513,11 @@ type Arranged = (Vec<Point>, HashMap<Curve, Vec<usize>>, Vec<Link>);
 /// say which side of the other surface it is on.
 pub(super) fn arrange<'a>(
     junctions: &[Junction],
-    curves: &HashMap<Curve, Ends>,
+    curves: &FxHashMap<Curve, Ends>,
     feature: impl Fn(usize, usize, Located) -> Feature,
     corners: impl Fn(usize, usize) -> [&'a Coordinate<3>; 3] + Copy,
 ) -> Result<Arranged, &'static str> {
-    let mut through = HashMap::<Curve, Vec<usize>>::new();
+    let mut through = FxHashMap::<Curve, Vec<usize>>::default();
     for (index, junction) in junctions.iter().enumerate() {
         for (n, &(first, a)) in junction.triangles.iter().enumerate() {
             for &(second, b) in &junction.triangles[n + 1..] {
@@ -543,7 +542,7 @@ pub(super) fn arrange<'a>(
     };
     let mut same = Groups::<usize>::default();
     // The same lowest feature of every solid is the same point, however it was found.
-    let mut named = HashMap::<Vec<Feature>, usize>::new();
+    let mut named = FxHashMap::<Vec<Feature>, usize>::default();
     for (index, junction) in junctions.iter().enumerate() {
         let features: Vec<Feature> = junction
             .triangles
@@ -576,7 +575,7 @@ pub(super) fn arrange<'a>(
         }
     }
     let mut points = Vec::<Point>::new();
-    let mut numbered = HashMap::<usize, usize>::new();
+    let mut numbered = FxHashMap::<usize, usize>::default();
     for (index, junction) in junctions.iter().enumerate() {
         let root = same.find(&index);
         let next = points.len();
@@ -598,7 +597,7 @@ pub(super) fn arrange<'a>(
         .iter_mut()
         .for_each(|p| p.places.sort_unstable_by_key(|&(s, ..)| s));
     let mut links = Vec::new();
-    let mut arranged = HashMap::new();
+    let mut arranged = FxHashMap::default();
     for (curve, found) in through {
         for &x in &found {
             if let Some(end) = end_of(&curve, x) {

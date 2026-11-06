@@ -9,7 +9,7 @@ use crate::geometry::{
     },
 };
 use crate::math::Quantity;
-use std::array::from_fn;
+use core::array::from_fn;
 
 const ROTATIONS: [[usize; 8]; 24] = [
     [0, 1, 2, 3, 4, 5, 6, 7],
@@ -98,7 +98,7 @@ fn min_scaled_jacobian(mesh: &Mesh<3>) -> f64 {
                 .iter()
                 .map(|&[c, a, b, d]| {
                     let e = |k: usize| {
-                        std::array::from_fn::<f64, 3, _>(|i| {
+                        core::array::from_fn::<f64, 3, _>(|i| {
                             (coordinates[hex[k]][i] - coordinates[hex[c]][i]).value()
                         })
                     };
@@ -145,7 +145,7 @@ fn survey(configs: &[[usize; 8]], balancing: Balancing) {
         }
     }
     if !failures.is_empty() {
-        let mut summary = std::collections::BTreeMap::new();
+        let mut summary = alloc::collections::BTreeMap::new();
         for failure in &failures {
             let key = failure.split(" rotation").next().unwrap().to_string();
             *summary.entry(key).or_insert(0usize) += 1;

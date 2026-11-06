@@ -6,7 +6,7 @@ use crate::{
     geometry::{Coordinate, Coordinates, Direction, Directions, grid::Voxels},
     math::{FxHashMap, TensorVec},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 pub(crate) type Corner = [usize; 3];
 

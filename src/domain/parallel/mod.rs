@@ -5,8 +5,9 @@ mod pool;
 mod test;
 
 use crate::domain::block::element::Items;
+use core::convert::Infallible;
 use pool::Pool;
-use std::{convert::Infallible, sync::Mutex};
+use std::sync::Mutex;
 
 const GATHER_CHUNK: usize = 512;
 

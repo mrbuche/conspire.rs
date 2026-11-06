@@ -13,7 +13,7 @@ use crate::{
     },
     units::Length,
 };
-use std::{array::from_fn, f64::consts::TAU};
+use core::{array::from_fn, f64::consts::TAU};
 
 fn length(value: f64) -> Quantity<Length> {
     Quantity::new(value)

@@ -21,7 +21,7 @@ use crate::{
     math::TensorRank2,
     mechanics::{FlowDirectionPlastic, Scalar},
 };
-use std::{array::from_fn, fmt::Debug};
+use core::{array::from_fn, fmt::Debug};
 
 pub(crate) const SIZE: usize = 10;
 

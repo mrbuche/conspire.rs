@@ -2,8 +2,7 @@
 mod test;
 
 use crate::domain::feti::interface::Interface;
-use crate::math::{LuDecomposition, Matrix, SquareMatrix, Tensor, Vector};
-use std::collections::HashSet;
+use crate::math::{FxHashSet, LuDecomposition, Matrix, SquareMatrix, Tensor, Vector};
 
 /// One subdomain's local system, already condensed and interfaced.
 ///
@@ -79,7 +78,7 @@ impl DirichletLocal {
         dual_dofs: &[usize],
         interface_dofs: &[usize],
     ) -> Option<Self> {
-        let on_interface: HashSet<usize> = interface_dofs.iter().copied().collect();
+        let on_interface: FxHashSet<usize> = interface_dofs.iter().copied().collect();
         let boundary: Vec<usize> = dual_dofs
             .iter()
             .copied()

@@ -1,5 +1,5 @@
 use super::Expansion;
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 struct Lcg(u64);
 

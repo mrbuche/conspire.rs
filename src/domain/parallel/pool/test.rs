@@ -1,13 +1,11 @@
 use super::Pool;
+use crate::math::FxHashSet;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use core::{panic::AssertUnwindSafe, time::Duration};
 use std::{
-    collections::HashSet,
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::{
-        Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    panic::catch_unwind,
+    sync::Mutex,
     thread::{current, sleep, yield_now},
-    time::Duration,
 };
 
 #[test]
@@ -28,7 +26,7 @@ fn every_thread_runs_the_job_once() {
 #[test]
 fn the_threads_are_the_same_between_jobs() {
     let pool = Pool::new(3).unwrap();
-    let ids = Mutex::new(HashSet::new());
+    let ids = Mutex::new(FxHashSet::default());
     (0..20).for_each(|_| {
         pool.run(&|| {
             ids.lock().unwrap().insert(current().id());

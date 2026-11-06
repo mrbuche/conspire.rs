@@ -18,7 +18,7 @@ use crate::{
     },
     units::Viscosity,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Required methods for viscous fluid constitutive models.
 pub trait Viscous

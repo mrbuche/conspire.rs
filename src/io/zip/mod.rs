@@ -2,11 +2,11 @@
 mod test;
 
 use crate::io::Write;
+use core::str::from_utf8;
 use std::{
     fs::File,
     io::{self, BufReader, BufWriter, Error, ErrorKind, Read, Result},
     path::Path,
-    str::from_utf8,
 };
 
 /// One member of a ZIP archive.

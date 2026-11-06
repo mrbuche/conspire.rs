@@ -5,7 +5,7 @@ use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorArray, TensorVec,
     integrate::{FixedStep, Implicit, IntegrationError, OdeIntegrator},
 };
-use std::{
+use core::{
     fmt::Debug,
     ops::{Add, Mul, Sub},
 };

@@ -11,7 +11,7 @@ use crate::{
     },
     units::Length,
 };
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 /// Options for arbitrary discrete potentials.
 #[derive(Clone, Debug)]

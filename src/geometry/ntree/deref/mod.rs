@@ -1,5 +1,5 @@
 use crate::geometry::ntree::{Orthotree, node::Nodes};
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V> Deref
     for Orthotree<D, L, M, N, T, U, V>

@@ -15,7 +15,7 @@ use crate::{
     mechanics::NormalGradients,
     units::Area,
 };
-use std::iter::repeat_n;
+use core::iter::repeat_n;
 
 pub type LinearCohesiveElement<const G: usize, const N: usize> = CohesiveElement<G, N, 1>;
 

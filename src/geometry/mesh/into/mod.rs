@@ -5,7 +5,7 @@ use crate::geometry::{
     Coordinates,
     mesh::{Connectivities, Connectivity, Mesh, NodeSets, SideSets},
 };
-use std::vec::IntoIter;
+use alloc::vec::IntoIter;
 
 impl<const D: usize> From<Mesh<D>> for (Connectivities, Coordinates<D>) {
     fn from(mesh: Mesh<D>) -> Self {

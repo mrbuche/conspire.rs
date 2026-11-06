@@ -8,7 +8,7 @@ use crate::math::{
         ode::explicit::variable_step::bogacki_shampine::Tableau as BogackiShampineTableau,
     },
 };
-use std::ops::{Div, Mul, Sub};
+use core::ops::{Div, Mul, Sub};
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug, Default)]

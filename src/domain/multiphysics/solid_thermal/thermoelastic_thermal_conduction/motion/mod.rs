@@ -12,7 +12,7 @@ use crate::{
     },
     units::Time,
 };
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// The coordinates and temperatures of a thermoelastic model held in place, and the motion of
 /// those that are moved.

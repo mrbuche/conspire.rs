@@ -80,7 +80,7 @@ mod gather {
 
 mod workers {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use core::sync::atomic::{AtomicUsize, Ordering};
     #[test]
     fn at_least_one_thread_is_needed() {
         assert!(Workers::new(0).is_err());

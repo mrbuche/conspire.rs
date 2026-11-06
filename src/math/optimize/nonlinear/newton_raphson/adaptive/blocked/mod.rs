@@ -11,7 +11,7 @@ use crate::math::{
     },
     sparse::CscMatrix,
 };
-use std::{fmt::Display, ops::Mul};
+use core::{fmt::Display, ops::Mul};
 
 /// One step of a minimization in global and local variables within an
 /// adaptive trust region, once the local variables are eliminated.

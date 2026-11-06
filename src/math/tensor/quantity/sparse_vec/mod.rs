@@ -1,7 +1,7 @@
 use super::Quantity;
 use crate::math::{Tensor, TensorRank0};
 use crate::units::Dimensionless;
-use std::{
+use core::{
     fmt::{self, Debug, Display, Formatter, Result},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},

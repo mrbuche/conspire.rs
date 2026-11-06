@@ -9,7 +9,7 @@ use crate::{
     },
     math::{FxHashMap, Quantity, Scalar, Tensor, TensorVec},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Node {

@@ -8,7 +8,7 @@ use crate::{
     },
     math::{Tensor, TensorVec},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 impl<const D: usize> Mesh<D> {
     pub(crate) fn retain_elements(

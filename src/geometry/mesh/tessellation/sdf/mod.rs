@@ -1,10 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use std::{
-    f64::consts::TAU,
-    thread::{available_parallelism, scope},
-};
+use core::f64::consts::TAU;
+use std::thread::{available_parallelism, scope};
 
 use crate::{
     geometry::{Direction, DirectionsRef, mesh::tessellation::Tessellation},

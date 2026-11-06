@@ -5,7 +5,7 @@ pub(crate) mod element;
 pub(crate) mod solid;
 
 use crate::math::{optimize::EqualityConstraint, sparse::SparseSolver};
-use std::any::type_name;
+use core::any::type_name;
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) fn trimmed_type_name<T>() -> &'static str {

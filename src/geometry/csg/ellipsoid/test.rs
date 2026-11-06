@@ -11,7 +11,7 @@ use crate::{
     },
     units::Length,
 };
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 fn length(value: f64) -> Quantity<Length> {
     Quantity::new(value)

@@ -6,7 +6,7 @@ use crate::geometry::{
     Coordinate,
     predicates::{collinear, orient3d, orient3d_estimate},
 };
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 /// The lowest-dimensional feature of a triangle that contains a point.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

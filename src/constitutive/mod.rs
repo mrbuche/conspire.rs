@@ -18,7 +18,7 @@ pub mod solid;
 pub mod thermal;
 
 use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 /// Required methods for constitutive models.
 pub trait Constitutive

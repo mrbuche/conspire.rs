@@ -11,7 +11,7 @@ use crate::math::{
     assert::{Assert, AssertionError},
     sparse::{CscMatrix, SparseSolver},
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 const SOLUTION: [Scalar; 3] = [0.8, 0.7, 0.7];
 

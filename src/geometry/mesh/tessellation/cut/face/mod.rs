@@ -3,7 +3,8 @@ mod test;
 
 use super::{Sign, Vertex};
 use crate::geometry::{Coordinate, mesh::tessellation::D};
-use std::{collections::HashMap, mem::take};
+use crate::math::FxHashMap;
+use core::mem::take;
 
 pub(super) struct FaceCut {
     pub(super) endpoints: Vec<Vertex>,
@@ -17,8 +18,8 @@ pub(super) struct FaceCut {
 
 pub(super) fn face_cut(
     corners: &[usize],
-    signs: &HashMap<usize, Sign>,
-    crossings: &HashMap<[usize; 2], Vec<Coordinate<D>>>,
+    signs: &FxHashMap<usize, Sign>,
+    crossings: &FxHashMap<[usize; 2], Vec<Coordinate<D>>>,
 ) -> Result<FaceCut, &'static str> {
     let n = corners.len();
     let statuses: Vec<Sign> = corners.iter().map(|node| signs[node]).collect();
@@ -170,7 +171,7 @@ pub(super) fn face_cut(
 pub(super) fn clip_face(
     cut: &FaceCut,
     chords: Option<&Vec<[Vertex; 2]>>,
-    crossing_ids: &HashMap<[usize; 2], Vec<usize>>,
+    crossing_ids: &FxHashMap<[usize; 2], Vec<usize>>,
 ) -> Vec<Vec<usize>> {
     let point = |vertex: Vertex| match vertex {
         Vertex::Node(node) => node,
@@ -183,12 +184,12 @@ pub(super) fn clip_face(
             vec![]
         };
     }
-    let mut partner = HashMap::new();
+    let mut partner = FxHashMap::default();
     chords.unwrap().iter().for_each(|&[one, two]| {
         partner.insert(one, two);
         partner.insert(two, one);
     });
-    let arcs: HashMap<Vertex, usize> = cut
+    let arcs: FxHashMap<Vertex, usize> = cut
         .endpoints
         .iter()
         .enumerate()

@@ -23,7 +23,7 @@ pub(crate) mod sparse_vec_2d;
 pub(crate) mod vec;
 pub(crate) mod vec_2d;
 
-use std::{
+use core::{
     array::{IntoIter, from_fn},
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,
@@ -408,13 +408,13 @@ impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
         relabel(self.into_canonical())
     }
     pub(super) fn canonical(&self) -> &TensorRank2<D, Reference, Reference, Dimensionless> {
-        unsafe {
-            &*(self as *const Self as *const TensorRank2<D, Reference, Reference, Dimensionless>)
-        }
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
+        unsafe { transmute::<&Self, &TensorRank2<D, Reference, Reference, Dimensionless>>(self) }
     }
     fn canonical_mut(&mut self) -> &mut TensorRank2<D, Reference, Reference, Dimensionless> {
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
         unsafe {
-            &mut *(self as *mut Self as *mut TensorRank2<D, Reference, Reference, Dimensionless>)
+            transmute::<&mut Self, &mut TensorRank2<D, Reference, Reference, Dimensionless>>(self)
         }
     }
     fn into_canonical(self) -> TensorRank2<D, Reference, Reference, Dimensionless> {

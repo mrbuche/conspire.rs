@@ -9,7 +9,7 @@ use crate::{
     },
     math::{FxHashMap, Scalar},
 };
-use std::num::NonZeroU32;
+use core::num::NonZeroU32;
 
 type Tree = Octree<u16, NonZeroU32>;
 
@@ -247,7 +247,7 @@ fn an_unbalanced_tree_still_conforms() {
 /// orientation, so each is checked on its own.
 #[test]
 fn config_a_templates_bound_the_patch_triangles() {
-    let mut seen = std::collections::BTreeSet::new();
+    let mut seen = alloc::collections::BTreeSet::new();
     for tessellation in [
         box_surface([-1.0, -0.6, -0.2], [1.0, 0.6, 0.2]),
         ball(8, 12, 1.0),
@@ -268,7 +268,7 @@ fn config_a_templates_bound_the_patch_triangles() {
                 let mut hanging = Vec::new();
                 for (edge, &(axis, low)) in super::CUBE_EDGES.iter().enumerate() {
                     let mut key: [usize; 3] =
-                        std::array::from_fn(|a| corner[a] + ((low >> a) & 1) * length);
+                        core::array::from_fn(|a| corner[a] + ((low >> a) & 1) * length);
                     key[axis] += length / 2;
                     if let Some(node) = facets.node(&key) {
                         hanging.push((edge, node))
@@ -290,13 +290,13 @@ fn config_a_templates_bound_the_patch_triangles() {
                             *counts.entry(face).or_default() += 1
                         })
                 });
-                let bound: std::collections::BTreeSet<[usize; 3]> = counts
+                let bound: alloc::collections::BTreeSet<[usize; 3]> = counts
                     .iter()
                     .filter(|&(_, &count)| count == 1)
                     .map(|(&face, _)| face)
                     .collect();
                 assert!(counts.values().all(|&count| count <= 2));
-                let wanted: std::collections::BTreeSet<[usize; 3]> = polygons
+                let wanted: alloc::collections::BTreeSet<[usize; 3]> = polygons
                     .iter()
                     .flatten()
                     .flat_map(|polygon| builder.triangles(polygon))

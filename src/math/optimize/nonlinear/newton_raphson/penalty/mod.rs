@@ -2,7 +2,7 @@ use crate::math::{
     Scalar, Vector,
     optimize::{NewtonRaphson, OptimizationError, nonlinear::newton_raphson::backtrack::Backtrack},
 };
-use std::{fmt::Display, ops::Mul};
+use core::{fmt::Display, ops::Mul};
 
 pub(super) const PENALTY_SAFETY: Scalar = 2.0;
 

@@ -1,9 +1,11 @@
+use crate::hash::FxHashMap;
 use crate::io::netcdf::{
     NetCDF, Output, Reader, State, Writer,
     format::{self, AttValue, Attribute, DimSpec},
     nc_lock, reject_nul,
 };
-use std::{collections::HashMap, ffi::NulError, fs::File, io::Write};
+use alloc::ffi::NulError;
+use std::{fs::File, io::Write};
 
 impl NetCDF {
     pub fn close(&mut self) {
@@ -17,7 +19,7 @@ impl NetCDF {
                     &writer.dims,
                     &writer.global_attributes,
                     &output.variables,
-                    std::mem::take(&mut output.data),
+                    core::mem::take(&mut output.data),
                     threads,
                     &mut file,
                 );
@@ -119,7 +121,7 @@ impl NetCDF {
             State::Read(_) => panic!("end_definition on a NetCDF opened for reading"),
         };
         assert!(writer.output.is_none(), "end_definition called twice");
-        let dim_index: HashMap<&str, usize> = writer
+        let dim_index: FxHashMap<&str, usize> = writer
             .dims
             .iter()
             .enumerate()
@@ -140,7 +142,7 @@ impl NetCDF {
                         })
                     })
                     .collect(),
-                atts: std::mem::take(&mut build.attributes),
+                atts: core::mem::take(&mut build.attributes),
                 begin: 0,
                 vsize: 0,
                 storage: format::Storage::Classic,

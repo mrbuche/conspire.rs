@@ -15,9 +15,9 @@ use crate::{
     domain::{NodalReferenceCoordinates, block::element::Items},
     geometry::mesh::PrimitiveConnectivity,
 };
+use core::fmt::{self, Debug, Formatter};
 use density::NoDensity;
 use node::{Node, Weighting};
-use std::fmt::{self, Debug, Formatter};
 
 pub struct Block<C, R = NoDensity> {
     constitutive_model: C,

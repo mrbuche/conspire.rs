@@ -24,10 +24,10 @@ use crate::{
         },
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, Sizing},
     },
-    math::{Quantity, Scalar},
+    math::{FxHashMap, Quantity, Scalar},
     units::Length,
 };
-use std::{collections::HashMap, num::NonZeroU32};
+use core::num::NonZeroU32;
 
 const COLLAPSE_FRACTION: Scalar = 0.2;
 const CROSSING_TOLERANCE: Quantity<Length> = Length::meters(1.0e-8);
@@ -93,23 +93,23 @@ pub enum Vertex {
 }
 
 pub struct Tables {
-    signs: HashMap<usize, Sign>,
-    crossings: HashMap<[usize; 2], Vec<Coordinate<D>>>,
-    faces: HashMap<[usize; 4], [usize; 4]>,
-    segments: HashMap<[usize; 4], Vec<[Vertex; 2]>>,
+    signs: FxHashMap<usize, Sign>,
+    crossings: FxHashMap<[usize; 2], Vec<Coordinate<D>>>,
+    faces: FxHashMap<[usize; 4], [usize; 4]>,
+    segments: FxHashMap<[usize; 4], Vec<[Vertex; 2]>>,
 }
 
 impl Tables {
-    pub fn signs(&self) -> &HashMap<usize, Sign> {
+    pub fn signs(&self) -> &FxHashMap<usize, Sign> {
         &self.signs
     }
-    pub fn crossings(&self) -> &HashMap<[usize; 2], Vec<Coordinate<D>>> {
+    pub fn crossings(&self) -> &FxHashMap<[usize; 2], Vec<Coordinate<D>>> {
         &self.crossings
     }
-    pub fn faces(&self) -> &HashMap<[usize; 4], [usize; 4]> {
+    pub fn faces(&self) -> &FxHashMap<[usize; 4], [usize; 4]> {
         &self.faces
     }
-    pub fn segments(&self) -> &HashMap<[usize; 4], Vec<[Vertex; 2]>> {
+    pub fn segments(&self) -> &FxHashMap<[usize; 4], Vec<[Vertex; 2]>> {
         &self.segments
     }
 }

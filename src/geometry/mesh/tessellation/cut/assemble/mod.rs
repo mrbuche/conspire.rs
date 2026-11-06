@@ -16,19 +16,19 @@ use crate::{
             tessellation::{D, Tessellation},
         },
     },
-    math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec},
+    math::{CrossProduct, FxHashMap, FxHashSet, Quantity, Scalar, Tensor, TensorVec},
     units::{Length, Volume},
 };
-use std::{array::from_fn, collections::HashMap, collections::HashSet};
+use core::array::from_fn;
 
 #[expect(clippy::type_complexity)]
 fn build_cut_cells(
     mesh: &Mesh<D>,
     classes: &[Class],
     tables: &Tables,
-    face_polygons: &HashMap<&[usize; 4], Vec<Vec<usize>>>,
-    face_cuts: &HashMap<&[usize; 4], FaceCut>,
-    crossing_ids: &HashMap<[usize; 2], Vec<usize>>,
+    face_polygons: &FxHashMap<&[usize; 4], Vec<Vec<usize>>>,
+    face_cuts: &FxHashMap<&[usize; 4], FaceCut>,
+    crossing_ids: &FxHashMap<[usize; 2], Vec<usize>>,
     coordinates: &Coordinates<D>,
 ) -> Result<
     (
@@ -40,7 +40,7 @@ fn build_cut_cells(
     ),
     &'static str,
 > {
-    let mut face_ids = HashMap::<Vec<usize>, usize>::new();
+    let mut face_ids = FxHashMap::<Vec<usize>, usize>::default();
     let mut faces_nodes = Vec::new();
     let mut owners = Vec::new();
     let point = |vertex: Vertex| match vertex {
@@ -73,7 +73,7 @@ fn build_cut_cells(
                             (key, oriented)
                         })
                         .collect();
-                    let mut adjacency = HashMap::<Vertex, Vec<Vertex>>::new();
+                    let mut adjacency = FxHashMap::<Vertex, Vec<Vertex>>::default();
                     faces.iter().for_each(|(key, _)| {
                         if let Some(pairs) = tables.segments.get(key) {
                             pairs.iter().for_each(|&[one, two]| {
@@ -147,7 +147,7 @@ fn build_cut_cells(
                     let clipped = polygons.len();
                     let mut keys: Vec<Vertex> = adjacency.keys().copied().collect();
                     keys.sort_unstable();
-                    let mut visited = HashSet::<Vertex>::new();
+                    let mut visited = FxHashSet::<Vertex>::default();
                     keys.into_iter().for_each(|start| {
                         if visited.insert(start) {
                             let mut polygon = vec![point(start)];
@@ -199,8 +199,8 @@ fn build_cut_cells(
                             polygon.reverse()
                         }
                     });
-                    let mut roots = HashMap::new();
-                    fn find(roots: &mut HashMap<usize, usize>, node: usize) -> usize {
+                    let mut roots = FxHashMap::default();
+                    fn find(roots: &mut FxHashMap<usize, usize>, node: usize) -> usize {
                         let parent = *roots.entry(node).or_insert(node);
                         if parent == node {
                             node
@@ -217,7 +217,7 @@ fn build_cut_cells(
                             roots.insert(other, root);
                         })
                     });
-                    let components: HashSet<usize> = nodes
+                    let components: FxHashSet<usize> = nodes
                         .into_iter()
                         .map(|node| find(&mut roots, node))
                         .collect();
@@ -252,8 +252,8 @@ impl Tessellation {
         tables: &Tables,
     ) -> Result<Mesh<D>, &'static str> {
         let mut coordinates = mesh.coordinates().clone();
-        let mut crossing_ids = HashMap::<[usize; 2], Vec<usize>>::new();
-        let mut crossing_edge = HashMap::<usize, [usize; 2]>::new();
+        let mut crossing_ids = FxHashMap::<[usize; 2], Vec<usize>>::default();
+        let mut crossing_edge = FxHashMap::<usize, [usize; 2]>::default();
         let mut crossed_edges: Vec<&[usize; 2]> = tables.crossings.keys().collect();
         crossed_edges.sort_unstable();
         crossed_edges.into_iter().for_each(|edge| {
@@ -268,8 +268,8 @@ impl Tessellation {
                 .collect();
             crossing_ids.insert(*edge, ids);
         });
-        let mut face_polygons = HashMap::new();
-        let mut face_cuts = HashMap::new();
+        let mut face_polygons = FxHashMap::default();
+        let mut face_cuts = FxHashMap::default();
         tables.faces.iter().try_for_each(|(key, corners)| {
             let cut = face_cut(corners, &tables.signs, &tables.crossings)?;
             face_polygons.insert(
@@ -308,7 +308,7 @@ impl Tessellation {
                     .value()
             })
             .collect();
-        let mut sets: Vec<HashSet<usize>> = elements_faces
+        let mut sets: Vec<FxHashSet<usize>> = elements_faces
             .iter()
             .map(|faces| faces.iter().copied().collect())
             .collect();
@@ -328,7 +328,7 @@ impl Tessellation {
                     .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
             })
             .collect();
-        let whole: HashSet<usize> = hexes.iter().flatten().copied().collect();
+        let whole: FxHashSet<usize> = hexes.iter().flatten().copied().collect();
         self.collapse_short_edges(
             &mut coordinates,
             &mut faces_nodes,
@@ -347,7 +347,7 @@ impl Tessellation {
             {
                 return;
             }
-            let mut uses = HashMap::new();
+            let mut uses = FxHashMap::default();
             sets[cell].iter().for_each(|&face| {
                 faces_nodes[face]
                     .iter()
@@ -364,7 +364,7 @@ impl Tessellation {
                 base.reverse();
             }
             let vertical = |node: usize| -> Option<usize> {
-                let mut counts = HashMap::new();
+                let mut counts = FxHashMap::default();
                 faces[1..].iter().for_each(|&face| {
                     let polygon = &faces_nodes[face];
                     if let Some(at) = polygon.iter().position(|&other| other == node) {
@@ -413,7 +413,7 @@ impl Tessellation {
                 alive[cell] = false;
             }
         });
-        let mut compacted = HashMap::new();
+        let mut compacted = FxHashMap::default();
         let mut compact_nodes = Vec::new();
         let elements_faces: Vec<Vec<usize>> = alive
             .into_iter()
@@ -440,7 +440,7 @@ impl Tessellation {
             })
             .collect();
         let faces_nodes = compact_nodes;
-        let mut remap = HashMap::new();
+        let mut remap = FxHashMap::default();
         let mut points = Coordinates::new();
         let mut renumber = |node: usize, points: &mut Coordinates<D>| -> usize {
             *remap.entry(node).or_insert_with(|| {
