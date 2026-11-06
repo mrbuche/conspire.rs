@@ -23,7 +23,7 @@
 use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{
-        Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        Blocks, Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
@@ -379,6 +379,220 @@ fn compare(cells: usize) -> bool {
 fn single_block_steps() {
     for cells in cells() {
         if !compare(cells) {
+            return;
+        }
+    }
+}
+
+/// Two grids of `cells` cells on a side, of different materials, side by side along one axis and
+/// sharing the plane of nodes between them.
+fn two_grids(cells: usize) -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
+    let nodes_x = 2 * cells + 1;
+    let index = move |i: usize, j: usize, k: usize| (k * (cells + 1) + j) * nodes_x + i;
+    let coordinates = (0..=cells)
+        .flat_map(|k| {
+            (0..=cells).flat_map(move |j| {
+                (0..nodes_x).map(move |i| {
+                    [
+                        i as f64 / cells as f64,
+                        j as f64 / cells as f64,
+                        k as f64 / cells as f64,
+                    ]
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+    let block = |start: usize| {
+        (0..cells)
+            .flat_map(|k| {
+                (0..cells).flat_map(move |j| {
+                    (start..start + cells).map(move |i| {
+                        [
+                            index(i, j, k),
+                            index(i + 1, j, k),
+                            index(i + 1, j + 1, k),
+                            index(i, j + 1, k),
+                            index(i, j, k + 1),
+                            index(i + 1, j, k + 1),
+                            index(i + 1, j + 1, k + 1),
+                            index(i, j + 1, k + 1),
+                        ]
+                    })
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    let reference = NodalReferenceCoordinates::from(coordinates.clone());
+    let first = Grid::from((
+        NeoHookean {
+            shear_modulus: Stress::pascals(3.0e9),
+            bulk_modulus: Stress::pascals(13.0e9),
+        },
+        Density::kilograms_per_cubic_meter(7.8e3),
+        block(0),
+        &reference,
+    ));
+    let second = Grid::from((
+        NeoHookean {
+            shear_modulus: Stress::pascals(1.0e9),
+            bulk_modulus: Stress::pascals(5.0e9),
+        },
+        Density::kilograms_per_cubic_meter(2.7e3),
+        block(cells),
+        &reference,
+    ));
+    ((Blocks(first, second), reference).into(), coordinates)
+}
+
+/// As [`compare`], for a model of two blocks of `cells^3` elements each: whether the device gives
+/// the state of the calling thread, and the cost of a step, to compare per element with that of
+/// one block.
+fn compare_two_blocks(cells: usize) -> bool {
+    let (model, reference) = two_grids(cells);
+    let current = deformed(&reference);
+    let nodes = current.len();
+    let elements = 2 * cells.pow(3);
+    let velocities = || NodalVelocities::from(vec![[0.0; 3]; nodes]);
+    let conditions = BoundaryConditions::<Solid<3>>::new();
+    let integrator = VelocityVerlet::new(Time::seconds(STEP));
+    let history = |execution: Execution, steps: usize| {
+        model
+            .integrate(
+                execution,
+                Unchecked,
+                Lumped,
+                &integrator,
+                &[Time::seconds(0.0), Time::seconds(steps as f64 * STEP)],
+                (current.clone(), velocities()),
+                &(),
+                &conditions,
+            )
+            .unwrap()
+    };
+    let (short, long) = history_steps(nodes);
+    let serial_run = history(Execution::Serial, short);
+    let expected_coordinates = components(serial_run.1.iter().last().unwrap());
+    let expected_velocities = components(serial_run.2.iter().last().unwrap());
+    let moved = components(&current)
+        .iter()
+        .zip(&expected_coordinates)
+        .map(|(start, end)| (end - start).abs())
+        .fold(0.0, f64::max);
+    let fastest = expected_velocities
+        .iter()
+        .map(|velocity| velocity.abs())
+        .fold(0.0, f64::max);
+    assert!(
+        moved > 0.0 && fastest > 0.0,
+        "the run on the calling thread did not move"
+    );
+    for (gradients, kernels) in [
+        (GpuGradients::Stored, GpuKernels::Handwritten),
+        (GpuGradients::OnTheFly, GpuKernels::Handwritten),
+        (GpuGradients::Stored, GpuKernels::Library),
+        (GpuGradients::OnTheFly, GpuKernels::Library),
+    ] {
+        let run = model.integrate_on_device(
+            options(GpuPrecision::F64, gradients, kernels),
+            Time::seconds(STEP),
+            short,
+            (current.clone(), velocities()),
+            &conditions,
+        );
+        match run {
+            Ok((found_coordinates, found_velocities)) => {
+                let gap = |found: &[f64], expected: &[f64]| {
+                    found
+                        .iter()
+                        .zip(expected)
+                        .map(|(found, expected)| (found - expected).abs())
+                        .fold(0.0, f64::max)
+                };
+                let coordinates = gap(&components(&found_coordinates), &expected_coordinates);
+                let velocities = gap(&components(&found_velocities), &expected_velocities);
+                assert!(
+                    velocities < 1e-9 * fastest,
+                    "{gradients:?} {kernels:?}: the velocities differ from those of the calling thread by {velocities}, of velocities up to {fastest}"
+                );
+                assert!(
+                    coordinates < 1e-2 * moved,
+                    "{gradients:?} {kernels:?}: the coordinates differ from those of the calling thread by {coordinates}, of a distance moved of up to {moved}"
+                );
+            }
+            Err(error) if no_device(&error) => {
+                println!("skipped: {error:?}");
+                return false;
+            }
+            Err(error) => panic!("{error:?}"),
+        }
+    }
+    let (serial, serial_setup) =
+        marginal(short, long, |steps| drop(history(Execution::Serial, steps)));
+    let (threaded, threaded_setup) = marginal(short, long, |steps| {
+        drop(history(Execution::Threads(threads()), steps))
+    });
+    let timed = |precision, gradients, kernels| {
+        device_cost(|steps| {
+            let start = Instant::now();
+            let (_, stepping) = model
+                .integrate_on_device_timed(
+                    options(precision, gradients, kernels),
+                    Time::seconds(STEP),
+                    steps,
+                    (current.clone(), velocities()),
+                    &conditions,
+                )
+                .unwrap();
+            (
+                stepping.as_secs_f64() * 1e3,
+                start.elapsed().as_secs_f64() * 1e3,
+            )
+        })
+    };
+    let hand = GpuKernels::Handwritten;
+    let (double, double_setup) = timed(GpuPrecision::F64, GpuGradients::Stored, hand);
+    let (double_fly, double_fly_setup) = timed(GpuPrecision::F64, GpuGradients::OnTheFly, hand);
+    let (library, library_setup) =
+        timed(GpuPrecision::F64, GpuGradients::Stored, GpuKernels::Library);
+    let (library_fly, library_fly_setup) = timed(
+        GpuPrecision::F64,
+        GpuGradients::OnTheFly,
+        GpuKernels::Library,
+    );
+    let rate = |step: f64| elements as f64 / step / 1e3;
+    println!(
+        "\n2 blocks of {} elements, {nodes} nodes, {} threads",
+        cells.pow(3),
+        threads()
+    );
+    println!(
+        "{:>16} {:>11} {:>14} {:>10} {:>12}",
+        "", "ms/step", "Melement/s", "vs threads", "setup ms"
+    );
+    for (label, step, setup) in [
+        ("calling thread", serial, serial_setup),
+        ("threads", threaded, threaded_setup),
+        ("device f64", double, double_setup),
+        ("device f64 fly", double_fly, double_fly_setup),
+        ("library f64", library, library_setup),
+        ("library f64 fly", library_fly, library_fly_setup),
+    ] {
+        println!(
+            "{label:>16} {step:>11.3} {:>14.1} {:>9.2}x {setup:>12.1}",
+            rate(step),
+            threaded / step
+        );
+    }
+    true
+}
+
+/// A model of two blocks, which has twice the elements of one block of the same `CELLS`, so that
+/// the Melement/s are to be compared with those of `single_block_steps`.
+#[test]
+#[ignore]
+fn two_block_steps() {
+    for cells in cells() {
+        if !compare_two_blocks(cells) {
             return;
         }
     }
