@@ -9,7 +9,7 @@
 use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{
-        Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        Blocks, Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
@@ -269,6 +269,151 @@ fn run_with_the_code_of_the_library_follows_the_run_on_the_calling_thread() {
         assert!(
             gap < 1e-9 * scale.max(1.0),
             "{gradients:?}: the velocities differ by {gap}"
+        );
+    }
+}
+
+/// Two blocks of different materials that share the plane of nodes between them: a lattice twice
+/// as long in one direction, with the cells on one side of the plane in the first block and the
+/// others in the second.
+fn two_blocks() -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
+    let nodes_x = 2 * CELLS + 1;
+    let index = move |i: usize, j: usize, k: usize| (k * (CELLS + 1) + j) * nodes_x + i;
+    let coordinates = (0..=CELLS)
+        .flat_map(|k| {
+            (0..=CELLS).flat_map(move |j| {
+                (0..nodes_x).map(move |i| {
+                    [
+                        i as f64 / CELLS as f64,
+                        j as f64 / CELLS as f64,
+                        k as f64 / CELLS as f64,
+                    ]
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+    let cells = |start: usize| {
+        (0..CELLS)
+            .flat_map(|k| {
+                (0..CELLS).flat_map(move |j| {
+                    (start..start + CELLS).map(move |i| {
+                        [
+                            index(i, j, k),
+                            index(i + 1, j, k),
+                            index(i + 1, j + 1, k),
+                            index(i, j + 1, k),
+                            index(i, j, k + 1),
+                            index(i + 1, j, k + 1),
+                            index(i + 1, j + 1, k + 1),
+                            index(i, j + 1, k + 1),
+                        ]
+                    })
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    let reference = NodalReferenceCoordinates::from(coordinates.clone());
+    let first = Grid::from((
+        NeoHookean {
+            shear_modulus: Stress::pascals(3.0e9),
+            bulk_modulus: Stress::pascals(13.0e9),
+        },
+        Density::kilograms_per_cubic_meter(7.8e3),
+        cells(0),
+        &reference,
+    ));
+    let second = Grid::from((
+        NeoHookean {
+            shear_modulus: Stress::pascals(1.0e9),
+            bulk_modulus: Stress::pascals(5.0e9),
+        },
+        Density::kilograms_per_cubic_meter(2.7e3),
+        cells(CELLS),
+        &reference,
+    ));
+    ((Blocks(first, second), reference).into(), coordinates)
+}
+
+/// A model of two blocks, which have different materials and share nodes, on the device in every
+/// way that there is, against the run on the calling thread.
+#[test]
+fn run_of_a_model_of_two_blocks_follows_the_run_on_the_calling_thread() {
+    let (model, reference) = two_blocks();
+    let (coordinates, velocities) = (deformed(&reference), velocities(&reference));
+    let expected = model
+        .integrate(
+            Execution::Serial,
+            Unchecked,
+            Lumped,
+            &VelocityVerlet::new(Time::seconds(STEP)),
+            &[Time::seconds(0.0), Time::seconds(STEPS as f64 * STEP)],
+            (coordinates.clone(), velocities.clone()),
+            &(),
+            &BoundaryConditions::<Solid<3>>::new(),
+        )
+        .unwrap();
+    let expected = (
+        components(expected.1.iter().last().unwrap()),
+        components(expected.2.iter().last().unwrap()),
+    );
+    for (precision, gradients, kernels, tolerance) in [
+        (
+            GpuPrecision::F64,
+            GpuGradients::Stored,
+            GpuKernels::Handwritten,
+            1e-9,
+        ),
+        (
+            GpuPrecision::F64,
+            GpuGradients::OnTheFly,
+            GpuKernels::Handwritten,
+            1e-9,
+        ),
+        (
+            GpuPrecision::F32,
+            GpuGradients::Stored,
+            GpuKernels::Handwritten,
+            1e-3,
+        ),
+        (
+            GpuPrecision::F64,
+            GpuGradients::Stored,
+            GpuKernels::Library,
+            1e-9,
+        ),
+        (
+            GpuPrecision::F64,
+            GpuGradients::OnTheFly,
+            GpuKernels::Library,
+            1e-9,
+        ),
+    ] {
+        let run = model.integrate_on_device(
+            GpuOptions {
+                precision,
+                gradients,
+                kernels,
+                ..GpuOptions::default()
+            },
+            Time::seconds(STEP),
+            STEPS,
+            (coordinates.clone(), velocities.clone()),
+            &BoundaryConditions::<Solid<3>>::new(),
+        );
+        let (found_coordinates, found_velocities) = match run {
+            Ok(run) => run,
+            Err(error) if no_device(&error) => return println!("skipped: {error:?}"),
+            Err(error) => panic!("{precision:?} {gradients:?} {kernels:?}: {error:?}"),
+        };
+        let (gap, scale) = difference(&components(&found_coordinates), &expected.0);
+        assert!(
+            gap < tolerance * scale.max(1.0),
+            "{precision:?} {gradients:?} {kernels:?}: the coordinates differ by {gap}"
+        );
+        let (gap, scale) = difference(&components(&found_velocities), &expected.1);
+        assert!(
+            gap < tolerance * scale.max(1.0),
+            "{precision:?} {gradients:?} {kernels:?}: the velocities differ by {gap}"
         );
     }
 }
