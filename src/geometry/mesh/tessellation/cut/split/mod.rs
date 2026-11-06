@@ -2,7 +2,7 @@
 mod test;
 
 use super::{Sign, Vertex, face::FaceCut};
-use std::collections::{HashMap, HashSet};
+use crate::math::{FxHashMap, FxHashSet};
 
 pub(super) struct CutCell {
     pub(super) polygons: Vec<Vec<usize>>,
@@ -19,12 +19,12 @@ pub(super) enum Split {
 pub(super) fn split_cell(
     faces: &[Vec<usize>],
     edges: &[[usize; 2]],
-    signs: &HashMap<usize, Sign>,
-    face_cuts: &HashMap<Vec<usize>, FaceCut>,
-    face_orientations: &HashMap<Vec<usize>, Vec<usize>>,
-    face_polygons: &HashMap<Vec<usize>, Vec<Vec<usize>>>,
-    segments: &HashMap<Vec<usize>, Vec<[Vertex; 2]>>,
-    crossing_ids: &HashMap<[usize; 2], Vec<usize>>,
+    signs: &FxHashMap<usize, Sign>,
+    face_cuts: &FxHashMap<Vec<usize>, FaceCut>,
+    face_orientations: &FxHashMap<Vec<usize>, Vec<usize>>,
+    face_polygons: &FxHashMap<Vec<usize>, Vec<Vec<usize>>>,
+    segments: &FxHashMap<Vec<usize>, Vec<[Vertex; 2]>>,
+    crossing_ids: &FxHashMap<[usize; 2], Vec<usize>>,
 ) -> Result<Split, &'static str> {
     let point = |vertex: Vertex| match vertex {
         Vertex::Node(node) => node,
@@ -42,7 +42,7 @@ pub(super) fn split_cell(
         .iter()
         .flatten()
         .any(|node| signs[node] == Sign::Inside);
-    let mut adjacency = HashMap::<Vertex, Vec<Vertex>>::new();
+    let mut adjacency = FxHashMap::<Vertex, Vec<Vertex>>::default();
     keyed_faces.iter().for_each(|(key, _)| {
         if let Some(pairs) = segments.get(key) {
             pairs.iter().for_each(|&[one, two]| {
@@ -117,7 +117,7 @@ pub(super) fn split_cell(
     let clipped = polygons.len();
     let mut keys: Vec<Vertex> = adjacency.keys().copied().collect();
     keys.sort_unstable();
-    let mut visited = HashSet::<Vertex>::new();
+    let mut visited = FxHashSet::<Vertex>::default();
     keys.into_iter().for_each(|start| {
         if visited.insert(start) {
             let mut polygon = vec![point(start)];
@@ -142,9 +142,9 @@ pub(super) fn split_cell(
     if polygons.len() < 4 {
         return Ok(Split::Discarded);
     }
-    let nodes: HashSet<usize> = polygons.iter().flatten().copied().collect();
-    let mut roots = HashMap::new();
-    fn find(roots: &mut HashMap<usize, usize>, node: usize) -> usize {
+    let nodes: FxHashSet<usize> = polygons.iter().flatten().copied().collect();
+    let mut roots = FxHashMap::default();
+    fn find(roots: &mut FxHashMap<usize, usize>, node: usize) -> usize {
         let parent = *roots.entry(node).or_insert(node);
         if parent == node {
             node
@@ -161,7 +161,7 @@ pub(super) fn split_cell(
             roots.insert(other, root);
         })
     });
-    let components: HashSet<usize> = nodes
+    let components: FxHashSet<usize> = nodes
         .into_iter()
         .map(|node| find(&mut roots, node))
         .collect();

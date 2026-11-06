@@ -2,10 +2,9 @@ use super::super::test::{box_surface, dual, hexahedron, sphere};
 use super::super::{Class, Sign, Vertex};
 use crate::{
     geometry::mesh::Connectivity,
-    math::{CrossProduct, Quantity, Tensor},
+    math::{CrossProduct, FxHashSet, Quantity, Tensor},
     units::{Length, Volume},
 };
-use std::collections::HashSet;
 
 #[test]
 fn tables_single_hexahedron() {
@@ -13,7 +12,7 @@ fn tables_single_hexahedron() {
     let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
     let classes = tessellation.classify(&mesh);
     let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
+        .tables(&mesh, &classes, &FxHashSet::default())
         .unwrap();
     assert_eq!(tables.signs().len(), 8);
     assert_eq!(
@@ -45,10 +44,10 @@ fn tables_generic_matches_hex_tables() {
     let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
     let classes = tessellation.classify(&mesh);
     let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
+        .tables(&mesh, &classes, &FxHashSet::default())
         .unwrap();
     let generic = tessellation
-        .tables_generic(&mesh, &classes, &HashSet::new())
+        .tables_generic(&mesh, &classes, &FxHashSet::default())
         .unwrap();
     assert_eq!(generic.signs(), tables.signs());
     assert_eq!(generic.crossings(), tables.crossings());
@@ -68,7 +67,7 @@ fn tables_sphere_dual() {
     let mesh = dual(&tessellation, 8.0);
     let classes = tessellation.classify(&mesh);
     let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
+        .tables(&mesh, &classes, &FxHashSet::default())
         .unwrap();
     assert!(!tables.crossings().is_empty());
     tables.crossings().values().flatten().for_each(|point| {
@@ -109,7 +108,9 @@ fn tables_double_crossing_edge() {
     let mesh = hexahedron([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]);
     let classes = plate.classify(&mesh);
     assert_eq!(classes, vec![Class::Cut]);
-    let tables = plate.tables(&mesh, &classes, &HashSet::new()).unwrap();
+    let tables = plate
+        .tables(&mesh, &classes, &FxHashSet::default())
+        .unwrap();
     assert_eq!(
         tables
             .signs()

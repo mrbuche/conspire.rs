@@ -1,3 +1,4 @@
+use crate::math::FxHashMap;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -6,7 +7,6 @@ use crate::{
     math::assert::AssertionError,
 };
 use core::f64::consts::{PI, TAU};
-use std::collections::HashMap;
 
 pub const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],
@@ -181,7 +181,7 @@ pub fn octahedron(levels: usize) -> Tessellation {
         [0, 3, 5],
     ];
     for _ in 0..levels {
-        let mut midpoints = HashMap::new();
+        let mut midpoints = FxHashMap::default();
         let mut midpoint = |a: usize, b: usize, points: &mut Vec<[f64; 3]>| {
             *midpoints.entry((a.min(b), a.max(b))).or_insert_with(|| {
                 let sum = [0, 1, 2].map(|i| points[a][i] + points[b][i]);

@@ -6,7 +6,7 @@ use super::super::{
 };
 use super::{Split, split_cell};
 use crate::math::Tensor;
-use std::collections::{HashMap, HashSet};
+use crate::math::{FxHashMap, FxHashSet};
 
 #[test]
 fn split_cell_from_generic_tables() {
@@ -21,7 +21,7 @@ fn split_cell_from_generic_tables() {
     let element = block.iter().next().unwrap();
     let faces = element_faces(block, element);
     let edges = element_edges(&faces);
-    let mut crossing_ids = HashMap::<[usize; 2], Vec<usize>>::new();
+    let mut crossing_ids = FxHashMap::<[usize; 2], Vec<usize>>::default();
     let mut next_id = mesh.coordinates().len();
     let mut crossed_edges: Vec<&[usize; 2]> = tables.crossings().keys().collect();
     crossed_edges.sort_unstable();
@@ -36,8 +36,8 @@ fn split_cell_from_generic_tables() {
             .collect();
         crossing_ids.insert(*edge, ids);
     });
-    let mut face_cuts = HashMap::new();
-    let mut face_polygons = HashMap::new();
+    let mut face_cuts = FxHashMap::default();
+    let mut face_polygons = FxHashMap::default();
     tables.faces().iter().for_each(|(key, corners)| {
         let cut = face_cut(corners, tables.signs(), tables.crossings()).unwrap();
         let polygons = if cut.flush {
@@ -64,7 +64,7 @@ fn split_cell_from_generic_tables() {
     };
     assert!(!cut_cell.polygons.is_empty());
     assert!(cut_cell.clipped <= cut_cell.polygons.len());
-    let outside_nodes: HashSet<usize> = tables
+    let outside_nodes: FxHashSet<usize> = tables
         .signs()
         .iter()
         .filter(|&(_, &sign)| sign == Sign::Outside)

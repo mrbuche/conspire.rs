@@ -7,15 +7,14 @@ use crate::{
         Coordinates,
         mesh::{Connectivities, Connectivity, Mesh},
     },
-    math::{Tensor, TensorVec},
+    math::{FxHashMap, Tensor, TensorVec},
 };
-use std::collections::HashMap;
 
 impl Decomposition {
     pub fn agglomerate(&self, mesh: &Mesh<3>) -> Result<Mesh<3>, &'static str> {
         let elements_faces = outward_faces(mesh)?;
         let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
-        let mut indices: HashMap<Vec<usize>, usize> = HashMap::new();
+        let mut indices: FxHashMap<Vec<usize>, usize> = FxHashMap::default();
         let mut cells = Vec::new();
         for part in 0..self.number_of_parts() {
             let elements = self.part_elements(part);
@@ -23,7 +22,7 @@ impl Decomposition {
                 continue;
             }
             let mut roots = (0..elements.len()).collect::<Vec<_>>();
-            let mut tally: HashMap<Vec<usize>, (usize, usize)> = HashMap::new();
+            let mut tally: FxHashMap<Vec<usize>, (usize, usize)> = FxHashMap::default();
             let mut order: Vec<(&Vec<usize>, Vec<usize>)> = Vec::new();
             for (position, &element) in elements.iter().enumerate() {
                 for face in &elements_faces[element] {
@@ -96,7 +95,7 @@ fn outward_faces(mesh: &Mesh<3>) -> Result<Vec<Vec<Vec<usize>>>, &'static str> {
     for block in mesh.iter() {
         match block {
             Connectivity::Polyhedral(connectivity) => {
-                let mut owner = HashMap::new();
+                let mut owner = FxHashMap::default();
                 connectivity
                     .elements_faces()
                     .iter()

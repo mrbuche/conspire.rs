@@ -6,9 +6,8 @@ use crate::{
             Connectivity, Mesh, Tessellation, differential::laplace::Weighting, smooth::Smoothing,
         },
     },
-    math::{Quantity, TensorVec},
+    math::{FxHashMap, FxHashSet, Quantity, TensorVec},
 };
-use std::collections::HashMap;
 
 fn distinct_positions(tessellation: &Tessellation) -> usize {
     tessellation
@@ -22,7 +21,7 @@ fn distinct_positions(tessellation: &Tessellation) -> usize {
                 point[2].value().to_bits(),
             ]
         })
-        .collect::<std::collections::HashSet<_>>()
+        .collect::<FxHashSet<_>>()
         .len()
 }
 
@@ -38,7 +37,7 @@ fn taubin() -> Smoothing {
 }
 
 fn is_closed_manifold(tessellation: &Tessellation) -> bool {
-    let mut edges: HashMap<(usize, usize), usize> = HashMap::new();
+    let mut edges: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for triangle in tessellation.mesh().connectivities()[0].iter() {
         for edge in 0..3 {
             let (a, b) = (triangle[edge], triangle[(edge + 1) % 3]);

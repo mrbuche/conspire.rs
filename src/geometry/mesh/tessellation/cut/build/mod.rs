@@ -18,10 +18,9 @@ use crate::{
             tessellation::{D, Tessellation},
         },
     },
-    math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec},
+    math::{CrossProduct, FxHashMap, FxHashSet, Quantity, Scalar, Tensor, TensorVec},
     units::{Length, Volume},
 };
-use std::collections::{HashMap, HashSet};
 
 fn orient_outward(polygons: &mut [Vec<usize>], clipped: usize, coordinates: &Coordinates<D>) {
     let mut nodes: Vec<usize> = polygons.iter().flatten().copied().collect();
@@ -60,8 +59,8 @@ impl Tessellation {
         tables: &GenericTables,
     ) -> Result<Mesh<D>, &'static str> {
         let mut coordinates = mesh.coordinates().clone();
-        let mut crossing_ids = HashMap::<[usize; 2], Vec<usize>>::new();
-        let mut crossing_edge = HashMap::<usize, [usize; 2]>::new();
+        let mut crossing_ids = FxHashMap::<[usize; 2], Vec<usize>>::default();
+        let mut crossing_edge = FxHashMap::<usize, [usize; 2]>::default();
         let mut crossed_edges: Vec<&[usize; 2]> = tables.crossings().keys().collect();
         crossed_edges.sort_unstable();
         crossed_edges.into_iter().for_each(|edge| {
@@ -76,8 +75,8 @@ impl Tessellation {
                 .collect();
             crossing_ids.insert(*edge, ids);
         });
-        let mut face_cuts = HashMap::new();
-        let mut face_polygons = HashMap::new();
+        let mut face_cuts = FxHashMap::default();
+        let mut face_polygons = FxHashMap::default();
         tables
             .faces()
             .iter()
@@ -92,13 +91,13 @@ impl Tessellation {
                 face_cuts.insert(key.clone(), cut);
                 Ok(())
             })?;
-        let mut face_ids = HashMap::<Vec<usize>, usize>::new();
+        let mut face_ids = FxHashMap::<Vec<usize>, usize>::default();
         let mut faces_nodes = Vec::new();
         let mut face_owner = Vec::new();
         let mut elements_faces = Vec::<Vec<usize>>::new();
         let mut fractions = Vec::<Scalar>::new();
         let mut scales = Vec::<Quantity<Length>>::new();
-        let mut whole = HashSet::<usize>::new();
+        let mut whole = FxHashSet::<usize>::default();
         let mut offset = 0;
         mesh.iter().try_for_each(|block| {
             let owners = face_owners(block);
@@ -179,7 +178,7 @@ impl Tessellation {
             offset += block.number_of_elements();
             Ok(())
         })?;
-        let mut sets: Vec<HashSet<usize>> = elements_faces
+        let mut sets: Vec<FxHashSet<usize>> = elements_faces
             .iter()
             .map(|faces| faces.iter().copied().collect())
             .collect();
@@ -201,7 +200,7 @@ impl Tessellation {
             &scales,
             &crossing_edge,
         );
-        let mut compacted = HashMap::new();
+        let mut compacted = FxHashMap::default();
         let mut compact_nodes = Vec::new();
         let elements_faces: Vec<Vec<usize>> = alive
             .into_iter()
@@ -227,7 +226,7 @@ impl Tessellation {
                 })
             })
             .collect();
-        let mut remap = HashMap::new();
+        let mut remap = FxHashMap::default();
         let mut points = Coordinates::new();
         let mut renumber = |node: usize, points: &mut Coordinates<D>| -> usize {
             *remap.entry(node).or_insert_with(|| {

@@ -5,11 +5,10 @@ use crate::{
         ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, Sizing},
     },
-    math::{Quantity, Scalar, Tensor},
+    math::{FxHashMap, Quantity, Scalar, Tensor},
     units::Length,
 };
 use core::array::from_fn;
-use std::collections::HashMap;
 
 fn curvature(tolerance: Quantity<Length>) -> CurvatureSizing {
     CurvatureSizing {
@@ -69,7 +68,7 @@ fn tessellate(points: Vec<[f64; 3]>, faces: Vec<[usize; 3]>) -> Tessellation {
 
 fn cube(divisions: usize) -> (Vec<[f64; 3]>, Vec<[usize; 3]>) {
     let mut points: Vec<[f64; 3]> = Vec::new();
-    let mut lookup = HashMap::<[usize; 3], usize>::new();
+    let mut lookup = FxHashMap::<[usize; 3], usize>::default();
     let mut faces: Vec<[usize; 3]> = Vec::new();
     let mut node = |grid: [usize; 3]| {
         *lookup.entry(grid).or_insert_with(|| {

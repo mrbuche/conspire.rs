@@ -3,7 +3,7 @@ mod test;
 
 use super::BoundaryConditions;
 use crate::geometry::mesh::Decomposition;
-use std::collections::HashMap;
+use crate::math::FxHashMap;
 
 /// Which nodes are corners.
 ///
@@ -24,7 +24,7 @@ impl CornerSelection {
         Self { nodes }
     }
     pub(crate) fn from_decomposition(decomposition: &Decomposition) -> Self {
-        let mut counts = HashMap::<usize, usize>::new();
+        let mut counts = FxHashMap::<usize, usize>::default();
         decomposition.parts_nodes().iter().for_each(|nodes| {
             nodes.iter().for_each(|&node| {
                 *counts.entry(node).or_insert(0) += 1;
@@ -56,7 +56,7 @@ impl CornerSelection {
 /// (singular) row/column in the assembled coarse problem wherever a
 /// boundary condition pins a corner component.
 pub(crate) struct CornerDofs {
-    index: HashMap<(usize, usize), usize>,
+    index: FxHashMap<(usize, usize), usize>,
     count: usize,
 }
 
@@ -66,7 +66,7 @@ impl CornerDofs {
         boundary_conditions: &BoundaryConditions,
         dimension: usize,
     ) -> Self {
-        let mut index = HashMap::new();
+        let mut index = FxHashMap::default();
         let mut count = 0;
         corners.nodes().iter().for_each(|&node| {
             (0..dimension).for_each(|component| {

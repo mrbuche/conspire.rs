@@ -6,9 +6,8 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{Connectivity, Mesh},
     },
-    math::{Scalar, TensorArray},
+    math::{FxHashMap, Scalar, TensorArray},
 };
-use std::collections::HashMap;
 
 #[derive(Clone, Copy)]
 pub enum Weighting {
@@ -78,9 +77,9 @@ impl<const D: usize> Mesh<D> {
             }
         })
     }
-    fn cotangent_weights(&self) -> HashMap<(usize, usize), Scalar> {
+    fn cotangent_weights(&self) -> FxHashMap<(usize, usize), Scalar> {
         let coordinates = self.coordinates();
-        let mut weights = HashMap::new();
+        let mut weights = FxHashMap::default();
         for block in self.iter() {
             if block.number_of_nodes_per_element() == Some(3) {
                 for element in block.iter() {

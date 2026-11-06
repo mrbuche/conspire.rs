@@ -5,9 +5,8 @@ use crate::{
         Coordinates,
         mesh::{Connectivity, Tessellation},
     },
-    math::{CrossProduct, Quantity},
+    math::{CrossProduct, FxHashSet, Quantity},
 };
-use std::collections::HashSet;
 
 #[test]
 fn assemble_single_hexahedron() {
@@ -15,7 +14,7 @@ fn assemble_single_hexahedron() {
     let mesh = hexahedron([0.9, -0.1, -0.1], [1.1, 0.1, 0.1]);
     let classes = tessellation.classify(&mesh);
     let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
+        .tables(&mesh, &classes, &FxHashSet::default())
         .unwrap();
     let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
     assert_eq!(result.number_of_element_blocks(), 1);
@@ -85,7 +84,7 @@ fn agglomerate_sliver() {
     let classes = tessellation.classify(&mesh);
     assert_eq!(classes, vec![Class::Cut, Class::Cut]);
     let tables = tessellation
-        .tables(&mesh, &classes, &HashSet::new())
+        .tables(&mesh, &classes, &FxHashSet::default())
         .unwrap();
     let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();
     assert_eq!(result.number_of_element_blocks(), 1);

@@ -3,6 +3,7 @@ mod test;
 
 use super::{Class, topology::element_faces};
 use crate::geometry::mesh::tessellation::NORMALIZED_DIRECTIONS;
+use crate::math::FxHashMap;
 use crate::{
     geometry::{
         Coordinate, Coordinates, CoordinatesRef, Direction, DirectionsRef,
@@ -11,7 +12,7 @@ use crate::{
     },
     math::Tensor,
 };
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::hash_map::Entry;
 
 impl Tessellation {
     pub fn classify(&self, mesh: &Mesh<D>) -> Vec<Class> {
@@ -46,7 +47,7 @@ impl Tessellation {
                     )
                 })
             });
-        let mut faces = HashMap::new();
+        let mut faces = FxHashMap::default();
         let mut neighbors: Vec<Vec<usize>> = vec![Vec::new(); number_of_elements];
         let mut offset = 0;
         mesh.iter().for_each(|block| {

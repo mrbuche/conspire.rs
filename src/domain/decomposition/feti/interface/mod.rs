@@ -4,9 +4,8 @@ mod test;
 use super::dual_primal::CornerSelection;
 use crate::{
     geometry::mesh::Decomposition,
-    math::{Scalar, Vector},
+    math::{FxHashMap, Scalar, Vector},
 };
-use std::collections::HashMap;
 
 /// One subdomain's block of the interface (jump) operator.
 ///
@@ -128,7 +127,7 @@ pub(crate) fn build_interfaces(
     dimension: usize,
 ) -> (Vec<Interface>, usize) {
     let num_subdomains = decomposition.number_of_parts();
-    let mut node_occurrences = HashMap::<usize, Vec<(usize, usize)>>::new();
+    let mut node_occurrences = FxHashMap::<usize, Vec<(usize, usize)>>::default();
     decomposition
         .parts_nodes()
         .iter()

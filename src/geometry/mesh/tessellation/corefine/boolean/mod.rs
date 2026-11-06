@@ -4,11 +4,11 @@
 mod test;
 
 use super::{Corefined, Region};
+use crate::math::FxHashMap;
 use crate::{
     geometry::{Coordinate, mesh::Tessellation},
     math::Tensor,
 };
-use std::collections::HashMap;
 
 /// What to do with a triangle of a surface in a region of the other solid: leave it out, keep
 /// it, or keep it turned over.
@@ -86,7 +86,7 @@ impl Corefined {
         let first_vertices = self.first.mesh().coordinates();
         let second_vertices = self.second.mesh().coordinates();
         let count = first_vertices.iter().count();
-        let mut same: HashMap<usize, usize> = HashMap::new();
+        let mut same: FxHashMap<usize, usize> = FxHashMap::default();
         for &[a, b] in &self.shared {
             if same.insert(b, a).is_some_and(|earlier| earlier != a) {
                 return Err("a vertex is the same point as two others");
@@ -122,7 +122,7 @@ impl Corefined {
             .iter()
             .chain(second_vertices.iter())
             .collect();
-        let mut renumbered = HashMap::<usize, usize>::new();
+        let mut renumbered = FxHashMap::<usize, usize>::default();
         let mut vertices = Vec::<Coordinate<3>>::new();
         let faces: Vec<[usize; 3]> = faces
             .into_iter()

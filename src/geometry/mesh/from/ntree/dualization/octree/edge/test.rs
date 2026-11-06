@@ -112,7 +112,7 @@ type Transitions = (
 fn transitions(octree: &Octree<u16, usize>) -> Transitions {
     use crate::geometry::mesh::from::ntree::dualization::Initialize;
     let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
-    let mut nodes_map = NodeMap::new();
+    let mut nodes_map = NodeMap::default();
     super::super::face::face_transition(
         octree,
         &center_nodes,

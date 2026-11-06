@@ -1,10 +1,9 @@
 use crate::{
     domain::{Blocks, ElementModelError, Model, NodalCoordinates},
     geometry::mesh::Decomposition,
-    math::{Scalar, SquareMatrix, Tensor, Vector},
+    math::{FxHashMap, Scalar, SquareMatrix, Tensor, Vector},
 };
 use core::array::from_fn;
-use std::collections::HashMap;
 
 /// The tangent of a Newton step left unassembled.
 ///
@@ -113,7 +112,7 @@ impl ElementSystems {
         Ok((0..decomposition.number_of_parts())
             .map(|part| {
                 let nodes = decomposition.part_nodes(part);
-                let local: HashMap<usize, usize> = nodes
+                let local: FxHashMap<usize, usize> = nodes
                     .iter()
                     .enumerate()
                     .map(|(local, &node)| (node, local))

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::FxHashMap;
 use crate::{
     geometry::{
         Coordinates,
@@ -10,7 +11,7 @@ use crate::{
 };
 use alloc::ffi::NulError;
 use core::array::from_fn;
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 pub(crate) trait ReadExodus<P>
 where
@@ -101,7 +102,7 @@ where
             mesh.set_node_sets((node_sets, node_set_labels).into());
         }
         if let Some(num_side_sets) = netcdf.try_dimension_length("num_side_sets")? {
-            let element_index: HashMap<usize, usize> = match &element_labels {
+            let element_index: FxHashMap<usize, usize> = match &element_labels {
                 Some(labels) => labels
                     .iter()
                     .enumerate()

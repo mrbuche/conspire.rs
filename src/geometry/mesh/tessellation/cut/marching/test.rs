@@ -168,6 +168,7 @@ fn every_configuration_of_signs_splits_into_hexahedra_that_hold_up() {
 
 mod field {
     use super::{Placement, report};
+    use crate::math::FxHashMap;
     use crate::{
         geometry::{
             grid::{
@@ -179,7 +180,7 @@ mod field {
         math::Tensor,
     };
     use core::{array::from_fn, f64::consts::PI};
-    use std::collections::HashMap;
+
     fn volume_of(mesh: &Mesh<3>) -> f64 {
         mesh.volumes().into_iter().flatten().sum()
     }
@@ -261,7 +262,7 @@ mod field {
             [2, 3, 7, 6],
             [3, 0, 4, 7],
         ];
-        let mut faces = HashMap::<[usize; 4], u32>::new();
+        let mut faces = FxHashMap::<[usize; 4], u32>::default();
         hexes.iter().for_each(|hex| {
             FACES.iter().for_each(|face| {
                 let mut key: [usize; 4] = from_fn(|corner| hex[face[corner]]);
@@ -270,7 +271,7 @@ mod field {
             })
         });
         assert!(faces.values().all(|&count| count <= 2));
-        let mut edges = HashMap::<[usize; 2], u32>::new();
+        let mut edges = FxHashMap::<[usize; 2], u32>::default();
         faces
             .iter()
             .filter(|&(_, &count)| count == 1)

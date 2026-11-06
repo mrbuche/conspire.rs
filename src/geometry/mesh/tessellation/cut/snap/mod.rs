@@ -15,10 +15,9 @@ use crate::{
             tessellation::{D, Tessellation, features::FeatureIndex},
         },
     },
-    math::{Quantity, Scalar, Tensor},
+    math::{FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::{Length, Volume},
 };
-use std::collections::{HashMap, HashSet};
 
 /// Which corner each node should take, when two would otherwise take the same
 /// one and leave a cell degenerate. The nearer node wins.
@@ -27,8 +26,8 @@ fn claims(
     coordinates: &Coordinates<D>,
     candidates: &[usize],
     radius: impl Fn(usize) -> Quantity<Length>,
-) -> HashMap<usize, Coordinate<D>> {
-    let mut nearest = HashMap::<usize, (usize, Quantity<Length>)>::new();
+) -> FxHashMap<usize, Coordinate<D>> {
+    let mut nearest = FxHashMap::<usize, (usize, Quantity<Length>)>::default();
     candidates.iter().for_each(|&node| {
         if let Some((corner, distance)) = index.nearest_corner(&coordinates[node], radius(node))
             && nearest
@@ -49,13 +48,13 @@ impl Tessellation {
         &self,
         mesh: Mesh<D>,
         classes: &[Class],
-    ) -> Result<(Mesh<D>, HashSet<usize>), &'static str> {
+    ) -> Result<(Mesh<D>, FxHashSet<usize>), &'static str> {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
-        let mut lengths = HashMap::<usize, Quantity<Length>>::new();
+        let mut lengths = FxHashMap::<usize, Quantity<Length>>::default();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -81,7 +80,7 @@ impl Tessellation {
             .collect();
         let incidents = mesh.node_element_connectivity().to_vec();
         let mut working = mesh.coordinates().clone();
-        let mut snapped = HashSet::new();
+        let mut snapped = FxHashSet::default();
         let mut candidates: Vec<usize> = lengths.keys().copied().collect();
         candidates.sort_unstable();
         let radius = |node: usize| lengths[&node] * SNAP_FEATURE;
@@ -145,13 +144,13 @@ impl Tessellation {
         &self,
         mesh: Mesh<D>,
         classes: &[Class],
-    ) -> Result<(Mesh<D>, HashSet<usize>), &'static str> {
+    ) -> Result<(Mesh<D>, FxHashSet<usize>), &'static str> {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
-        let mut lengths = HashMap::<usize, Quantity<Length>>::new();
+        let mut lengths = FxHashMap::<usize, Quantity<Length>>::default();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -199,7 +198,7 @@ impl Tessellation {
             nodes.dedup();
         });
         let mut working = mesh.coordinates().clone();
-        let mut snapped = HashSet::new();
+        let mut snapped = FxHashSet::default();
         let mut candidates: Vec<usize> = lengths.keys().copied().collect();
         candidates.sort_unstable();
         let radius = |node: usize| lengths[&node] * SNAP_FEATURE;

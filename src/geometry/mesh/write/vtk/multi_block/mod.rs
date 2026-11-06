@@ -2,12 +2,12 @@
 mod test;
 
 use super::unstructured::WriteVtkUnstructured;
+use crate::math::FxHashMap;
 use crate::{
     geometry::mesh::{Connectivity, Mesh},
     io::write::{data_array, data_array_compressed},
 };
 use std::{
-    collections::HashMap,
     fs::File,
     io::{BufWriter, Error, ErrorKind, Result, Write},
     path::{Path, PathBuf},
@@ -103,7 +103,7 @@ fn write_side_set<const D: usize>(
     compress: bool,
 ) -> Result<()> {
     let coordinates = mesh.coordinates();
-    let mut local_index = HashMap::new();
+    let mut local_index = FxHashMap::default();
     let mut points = Vec::<[f64; 3]>::new();
     let mut polys = Vec::<Vec<usize>>::new();
     let mut poly_ids = Vec::<(usize, usize)>::new();

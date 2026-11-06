@@ -1,7 +1,7 @@
 use super::super::Class;
 use super::super::test::{dual, hexahedron, sphere};
+use crate::math::FxHashMap;
 use crate::math::Tensor;
-use std::collections::HashMap;
 
 #[test]
 fn classify_single_hexahedra() {
@@ -37,7 +37,7 @@ fn classify_sphere_dual() {
             Class::Outside => assert!(centroid.norm().value() > 1.0),
             Class::Cut => (),
         });
-    let mut faces = HashMap::<Vec<usize>, Vec<Class>>::new();
+    let mut faces = FxHashMap::<Vec<usize>, Vec<Class>>::default();
     mesh.iter().for_each(|block| {
         block
             .iter()

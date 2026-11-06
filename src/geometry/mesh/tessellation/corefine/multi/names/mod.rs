@@ -4,8 +4,8 @@
 mod test;
 
 use super::super::{Feature, Key};
+use crate::math::FxHashMap;
 use core::{hash::Hash, iter::once};
-use std::collections::HashMap;
 
 /// Where a solid's numbers start in those of all the solids together.
 pub(super) struct Offsets {
@@ -106,13 +106,13 @@ impl From<&Key> for Name {
 
 /// Groups of items known to be the same, each with the smallest of them as its root.
 pub(super) struct Groups<T> {
-    parents: HashMap<T, T>,
+    parents: FxHashMap<T, T>,
 }
 
 impl<T> Default for Groups<T> {
     fn default() -> Self {
         Self {
-            parents: HashMap::new(),
+            parents: FxHashMap::default(),
         }
     }
 }
@@ -141,7 +141,7 @@ impl<T: Clone + Eq + Hash + Ord> Groups<T> {
         }
     }
     /// The root of the group of every item that is in a group of more than itself.
-    pub fn roots(&mut self) -> HashMap<T, T> {
+    pub fn roots(&mut self) -> FxHashMap<T, T> {
         let items: Vec<T> = self.parents.keys().cloned().collect();
         items
             .into_iter()

@@ -11,12 +11,11 @@ use crate::{
             node::{Kind, cell::Cell},
         },
     },
-    math::{Scalar, TensorVec},
+    math::{FxHashMap, Scalar, TensorVec},
 };
 use core::array::from_fn;
-use std::collections::HashMap;
 
-type NodeMap<const D: usize> = HashMap<[usize; D], usize>;
+type NodeMap<const D: usize> = FxHashMap<[usize; D], usize>;
 
 fn get_or_add<const D: usize>(
     coordinate: Coordinate<D>,

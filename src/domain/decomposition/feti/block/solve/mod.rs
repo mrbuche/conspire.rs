@@ -16,6 +16,7 @@ use super::super::{
     pcg::{Preconditioner, primal_recovery, projected_pcg_with, rigid_projected_pcg},
     subdomain::{DirichletLocal, Subdomain},
 };
+use crate::math::FxHashSet;
 use crate::{
     domain::ElementModelError,
     geometry::mesh::Decomposition,
@@ -25,7 +26,6 @@ use crate::{
         styled_error,
     },
 };
-use std::collections::HashSet;
 
 /// Possible errors encountered when solving with FETI.
 pub enum SolveError {
@@ -148,7 +148,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
             if nodes.is_empty() || formulation == Formulation::Classical {
                 return Ok(());
             }
-            let free: HashSet<usize> = split.dual().iter().copied().collect();
+            let free: FxHashSet<usize> = split.dual().iter().copied().collect();
             let constrained: Vec<usize> = (0..D * nodes.len())
                 .filter(|dof| !free.contains(dof))
                 .collect();
@@ -186,7 +186,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
             .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
             .collect();
         let (dual_factor, floating) = if formulation == Formulation::Classical {
-            let free: HashSet<usize> = dual_dofs.iter().copied().collect();
+            let free: FxHashSet<usize> = dual_dofs.iter().copied().collect();
             let constrained: Vec<usize> = (0..D * subdomain_nodes[index].len())
                 .filter(|dof| !free.contains(dof))
                 .collect();

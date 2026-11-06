@@ -3,9 +3,8 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{Connectivity, tessellation::Tessellation},
     },
-    math::{Quantity, Tensor, TensorVec},
+    math::{FxHashMap, Quantity, Tensor, TensorVec},
 };
-use std::collections::HashMap;
 
 fn cube(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
     let [x0, y0, z0] = minimum;
@@ -55,7 +54,7 @@ fn sphere(refinements: usize) -> Tessellation {
         [0, 3, 5],
     ];
     (0..refinements).for_each(|_| {
-        let mut cache = HashMap::new();
+        let mut cache = FxHashMap::default();
         faces = faces
             .iter()
             .flat_map(|&[a, b, c]| {

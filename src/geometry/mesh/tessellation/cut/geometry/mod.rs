@@ -4,10 +4,9 @@ mod test;
 use super::Class;
 use crate::{
     geometry::{Coordinate, Coordinates, bvh::Hit, mesh::Mesh, mesh::tessellation::D},
-    math::{CrossProduct, Quantity, Scalar, Tensor},
+    math::{CrossProduct, FxHashMap, Quantity, Scalar, Tensor},
     units::{Area, Length, Volume},
 };
-use std::collections::HashMap;
 
 pub(super) fn dedupe(hits: Vec<Hit>, margin: Quantity<Length>) -> Vec<Quantity<Length>> {
     let mut distances = Vec::new();
@@ -99,7 +98,7 @@ pub(super) fn signed_volume(
 }
 
 pub(super) fn contained(mesh: &Mesh<D>, classes: &[Class]) -> bool {
-    let mut faces = HashMap::<Vec<usize>, (usize, u8)>::new();
+    let mut faces = FxHashMap::<Vec<usize>, (usize, u8)>::default();
     let mut offset = 0;
     mesh.iter().for_each(|block| {
         block.iter().enumerate().for_each(|(local, element)| {

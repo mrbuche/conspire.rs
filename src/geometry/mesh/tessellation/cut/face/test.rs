@@ -1,11 +1,11 @@
 use super::{super::Sign, face_cut};
 use crate::geometry::Coordinate;
-use std::collections::HashMap;
+use crate::math::FxHashMap;
 
 #[test]
 fn face_cut_pentagon() {
     let corners = [0, 1, 2, 3, 4];
-    let signs: HashMap<usize, Sign> = [
+    let signs: FxHashMap<usize, Sign> = [
         (0, Sign::Inside),
         (1, Sign::Inside),
         (2, Sign::Outside),
