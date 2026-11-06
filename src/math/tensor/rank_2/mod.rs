@@ -30,6 +30,7 @@ use core::{
     marker::PhantomData,
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    ptr::from_ref,
 };
 
 use super::{
@@ -409,10 +410,7 @@ impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
     }
     pub(super) fn canonical(&self) -> &TensorRank2<D, Reference, Reference, Dimensionless> {
         // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
-        unsafe {
-            &*core::ptr::from_ref(self)
-                .cast::<TensorRank2<D, Reference, Reference, Dimensionless>>()
-        }
+        unsafe { &*from_ref(self).cast::<TensorRank2<D, Reference, Reference, Dimensionless>>() }
     }
     fn canonical_mut(&mut self) -> &mut TensorRank2<D, Reference, Reference, Dimensionless> {
         unsafe {

@@ -190,7 +190,6 @@ pub(super) fn filter_pipeline(d: &[u8]) -> Vec<Filter> {
     assert_eq!(d[0], 2, "unsupported filter pipeline version {}", d[0]);
     let count = d[1] as usize;
     let mut p = 2;
-    // The count comes from the file, so it does not size an allocation.
     let mut out = Vec::new();
     for _ in 0..count {
         let id = u16(d, p);

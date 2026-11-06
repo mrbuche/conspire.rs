@@ -10,11 +10,12 @@ pub(crate) mod vec;
 pub(crate) mod vec_2d;
 
 use core::{
-    array::from_fn,
+    array::{IntoIter, from_fn},
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,
     marker::PhantomData,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
+    ptr::from_ref,
 };
 
 use crate::units::{UnitDiv, UnitMul};
@@ -63,7 +64,7 @@ impl<const D: usize, I, U> PartialEq for TensorRank1<D, I, U> {
 impl<const D: usize, I, U> TensorRank1<D, I, U> {
     pub(super) fn canonical(&self) -> &TensorRank1<D, Reference, Dimensionless> {
         // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
-        unsafe { &*core::ptr::from_ref(self).cast::<TensorRank1<D, Reference, Dimensionless>>() }
+        unsafe { &*from_ref(self).cast::<TensorRank1<D, Reference, Dimensionless>>() }
     }
     /// Asserts that the tensor carries the given unit.
     pub fn with_unit<V>(self) -> TensorRank1<D, I, V> {
@@ -384,7 +385,7 @@ impl<const D: usize, I, U> Tensor for TensorRank1<D, I, U> {
 
 impl<const D: usize, I, U> IntoIterator for TensorRank1<D, I, U> {
     type Item = Quantity<U>;
-    type IntoIter = core::array::IntoIter<Self::Item, D>;
+    type IntoIter = IntoIter<Self::Item, D>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }

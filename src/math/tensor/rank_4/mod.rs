@@ -15,6 +15,7 @@ use core::{
     marker::PhantomData,
     mem::transmute,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    ptr::from_ref,
 };
 
 use super::{
@@ -91,7 +92,7 @@ impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
     ) -> &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
         // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
         unsafe {
-            &*core::ptr::from_ref(self).cast::<TensorRank4<
+            &*from_ref(self).cast::<TensorRank4<
                 D,
                 Reference,
                 Reference,
