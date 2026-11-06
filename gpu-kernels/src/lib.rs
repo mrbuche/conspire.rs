@@ -274,7 +274,9 @@ pub unsafe extern "ptx-kernel" fn block_forces(
     if item < items {
         let element = Coalesced {
             reference,
-            items: if stride == 0 { 1 } else { items },
+            // The spacing of the values of the arrays is the number of elements whichever
+            // element is read, so the probe only changes which one that is.
+            items,
             item: item * stride as usize,
         };
         let mut positions = [[0.0; 3]; 8];
