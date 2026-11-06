@@ -14,8 +14,8 @@ use core::{
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,
     marker::PhantomData,
+    mem::{transmute, transmute_copy},
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
-    ptr::from_ref,
 };
 
 use crate::units::{UnitDiv, UnitMul};
@@ -64,7 +64,7 @@ impl<const D: usize, I, U> PartialEq for TensorRank1<D, I, U> {
 impl<const D: usize, I, U> TensorRank1<D, I, U> {
     pub(super) fn canonical(&self) -> &TensorRank1<D, Reference, Dimensionless> {
         // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
-        unsafe { &*from_ref(self).cast::<TensorRank1<D, Reference, Dimensionless>>() }
+        unsafe { transmute::<&Self, &TensorRank1<D, Reference, Dimensionless>>(self) }
     }
     /// Asserts that the tensor carries the given unit.
     pub fn with_unit<V>(self) -> TensorRank1<D, I, V> {
@@ -78,21 +78,17 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
         self / self.norm()
     }
     fn into_canonical(self) -> TensorRank1<D, Reference, Dimensionless> {
-        unsafe {
-            (&self as *const Self)
-                .cast::<TensorRank1<D, Reference, Dimensionless>>()
-                .read()
-        }
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
+        unsafe { transmute_copy::<Self, TensorRank1<D, Reference, Dimensionless>>(&self) }
     }
 }
 
 pub(super) fn relabel<const D: usize, I, U>(
     tensor: TensorRank1<D, Reference, Dimensionless>,
 ) -> TensorRank1<D, I, U> {
+    // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
     unsafe {
-        (&tensor as *const TensorRank1<D, Reference, Dimensionless>)
-            .cast::<TensorRank1<D, I, U>>()
-            .read()
+        transmute_copy::<TensorRank1<D, Reference, Dimensionless>, TensorRank1<D, I, U>>(&tensor)
     }
 }
 
