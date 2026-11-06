@@ -12,7 +12,9 @@ use crate::{
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
     math::{ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2},
-    mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
+    mechanics::{
+        DeformationGradient, FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList,
+    },
     units::StressPerArea,
 };
 
@@ -56,12 +58,35 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        nodal_forces::<_, _, _, _, _, O, _>(
-            self,
-            constitutive_model,
-            self.gradient_vectors(),
-            nodal_coordinates,
-        )
+        // One pass over the integration points, which adds to the forces as it goes, in place
+        // of a list of the deformation gradients, a list of the stresses, and a list of forces
+        // for each point that are then added: the same sums in the same order, so the same
+        // forces, without the lists, which a device keeps in memory far from the arithmetic.
+        let mut nodal_forces = ElementNodalForcesSolid::<N>::default();
+        self.gradient_vectors()
+            .iter()
+            .zip(self.integration_weights())
+            .try_for_each(|(gradient_vectors, integration_weight)| {
+                let deformation_gradient = nodal_coordinates
+                    .iter()
+                    .zip(gradient_vectors.iter())
+                    .map(|(nodal_coordinate, gradient_vector)| {
+                        DeformationGradient::from((nodal_coordinate, gradient_vector))
+                    })
+                    .sum::<DeformationGradient>();
+                let first_piola_kirchhoff_stress = constitutive_model
+                    .first_piola_kirchhoff_stress(&deformation_gradient)
+                    .map_err(|error| FiniteElementError::upstream(error, self))?;
+                nodal_forces
+                    .iter_mut()
+                    .zip(gradient_vectors.iter())
+                    .for_each(|(nodal_force, gradient_vector)| {
+                        *nodal_force +=
+                            (&first_piola_kirchhoff_stress * gradient_vector) * integration_weight
+                    });
+                Ok::<(), FiniteElementError>(())
+            })?;
+        Ok(nodal_forces)
     }
     fn nodal_stiffnesses(
         &self,

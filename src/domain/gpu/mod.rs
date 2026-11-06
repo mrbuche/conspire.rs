@@ -186,7 +186,7 @@ pub(crate) struct DeviceLayout {
 }
 
 /// `values`, which are `width` for each of `items`, with the item last instead of first.
-pub(crate) fn transpose<T: Copy + Default>(values: &[T], width: usize, items: usize) -> Vec<T> {
+fn transpose<T: Copy + Default>(values: &[T], width: usize, items: usize) -> Vec<T> {
     let mut transposed = vec![T::default(); values.len()];
     values
         .chunks_exact(width.max(1))
