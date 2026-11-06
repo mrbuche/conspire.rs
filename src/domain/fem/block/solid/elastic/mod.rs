@@ -128,6 +128,7 @@ where
             && matches!(model, GpuModel::NeoHookean { .. }))
         .then_some(LibraryBlock {
             forces_kernel: "block_forces",
+            on_the_fly_kernel: "block_forces_on_the_fly",
         });
         Some(GpuItems {
             library,

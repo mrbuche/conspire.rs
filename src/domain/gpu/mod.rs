@@ -133,6 +133,8 @@ pub struct GpuItems {
 pub struct LibraryBlock {
     /// The name of the kernel that computes the forces of the elements.
     pub forces_kernel: &'static str,
+    /// The name of the kernel that does so with the gradient vectors made on the fly.
+    pub on_the_fly_kernel: &'static str,
 }
 
 /// The shape functions of the elements of a block, at the integration points of its parametric

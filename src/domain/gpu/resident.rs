@@ -152,6 +152,12 @@ enum Geometry<R> {
     /// The gradient vectors and weights of the elements, as the kernels of the library take them,
     /// which is as the kernels written for it do.
     Library { reference: Buffer<R> },
+    /// The derivatives of the shape functions and the weights of the parametric element, as the
+    /// kernels of the library take them to make the gradient vectors as they are needed.
+    LibraryOnTheFly {
+        derivatives: Buffer<R>,
+        weights: Buffer<R>,
+    },
 }
 
 /// The fields are dropped in order, so the buffers go before the kernels and the device.
@@ -177,10 +183,9 @@ impl<R: Real> State<R> {
         let number_of_nodes = reference_coordinates.len() / 3;
         let on_the_fly = options.gradients == GpuGradients::OnTheFly;
         let library = options.kernels == GpuKernels::Library;
-        if library && (!R::DOUBLE || on_the_fly) {
+        if library && !R::DOUBLE {
             return Err(GpuError::Unsupported(
-                "the kernels of the library are in double precision, with stored gradient vectors"
-                    .to_string(),
+                "the kernels of the library are in double precision".to_string(),
             ));
         }
         let device = Device::new(options.device)?;
@@ -201,13 +206,30 @@ impl<R: Real> State<R> {
                         "the library has no kernels for this model and element".to_string(),
                     )
                 })?;
-                (
-                    device.module_from_ptx(LIBRARY)?,
-                    Geometry::Library {
-                        reference: device.buffer_of(&to_device(&layout.reference))?,
-                    },
-                    blocks_kernels.forces_kernel,
-                )
+                if on_the_fly {
+                    let shape = block.shape.as_ref().ok_or_else(|| {
+                        GpuError::Unsupported(
+                            "the elements cannot make their gradient vectors on the fly"
+                                .to_string(),
+                        )
+                    })?;
+                    (
+                        device.module_from_ptx(LIBRARY)?,
+                        Geometry::LibraryOnTheFly {
+                            derivatives: device.buffer_of(&to_device(&shape.derivatives))?,
+                            weights: device.buffer_of(&to_device(&shape.weights))?,
+                        },
+                        blocks_kernels.on_the_fly_kernel,
+                    )
+                } else {
+                    (
+                        device.module_from_ptx(LIBRARY)?,
+                        Geometry::Library {
+                            reference: device.buffer_of(&to_device(&layout.reference))?,
+                        },
+                        blocks_kernels.forces_kernel,
+                    )
+                }
             } else {
                 let mut definitions = vec![
                     format!("REAL={}", R::NAME),
@@ -343,9 +365,34 @@ impl<R: Real> State<R> {
                         &block.bulk_modulus,
                     ],
                 ),
-                (Geometry::OnTheFly { .. }, None) => Err(GpuError::Unsupported(
-                    "the reference coordinates are not on the device".to_string(),
-                )),
+                (
+                    Geometry::LibraryOnTheFly {
+                        derivatives,
+                        weights,
+                    },
+                    Some(reference_coordinates),
+                ) => self.device.launch(
+                    &block.forces_kernel,
+                    block.items as usize,
+                    THREADS_PER_BLOCK,
+                    &[
+                        &block.items,
+                        reference_coordinates,
+                        derivatives,
+                        weights,
+                        &block.connectivity,
+                        &self.coordinates,
+                        &block.item_forces,
+                        &block.failure,
+                        &block.shear_modulus,
+                        &block.bulk_modulus,
+                    ],
+                ),
+                (Geometry::OnTheFly { .. } | Geometry::LibraryOnTheFly { .. }, None) => {
+                    Err(GpuError::Unsupported(
+                        "the reference coordinates are not on the device".to_string(),
+                    ))
+                }
             }?;
             self.device.launch(
                 &block.gather_kernel,

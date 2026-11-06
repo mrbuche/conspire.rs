@@ -282,6 +282,7 @@ fn compare(cells: usize) -> bool {
         (GpuGradients::Stored, GpuKernels::Handwritten),
         (GpuGradients::OnTheFly, GpuKernels::Handwritten),
         (GpuGradients::Stored, GpuKernels::Library),
+        (GpuGradients::OnTheFly, GpuKernels::Library),
     ] {
         match device(GpuPrecision::F64, gradients, kernels, short) {
             Ok((found_coordinates, found_velocities)) => {
@@ -340,6 +341,11 @@ fn compare(cells: usize) -> bool {
     let (single_fly, single_fly_setup) = timed(GpuPrecision::F32, GpuGradients::OnTheFly, hand);
     let (library, library_setup) =
         timed(GpuPrecision::F64, GpuGradients::Stored, GpuKernels::Library);
+    let (library_fly, library_fly_setup) = timed(
+        GpuPrecision::F64,
+        GpuGradients::OnTheFly,
+        GpuKernels::Library,
+    );
     let rate = |step: f64| elements as f64 / step / 1e3;
     println!(
         "\n{elements} elements, {nodes} nodes ({cells}^3), {} threads",
@@ -357,6 +363,7 @@ fn compare(cells: usize) -> bool {
         ("device f64 fly", double_fly, double_fly_setup),
         ("device f32 fly", single_fly, single_fly_setup),
         ("library f64", library, library_setup),
+        ("library f64 fly", library_fly, library_fly_setup),
     ] {
         println!(
             "{label:>16} {step:>11.3} {:>14.1} {:>9.2}x {setup:>12.1}",

@@ -407,6 +407,120 @@ fn integration_data_in_the_layout_of_the_device_gives_the_forces_of_the_element(
     }
 }
 
+/// The gradient vectors and weights that the kernel of the library makes on the fly, from the
+/// reference coordinates of the nodes and the derivatives of the shape functions, are those of the
+/// elements to rounding: the same view as the kernel, on the host.
+#[test]
+#[allow(clippy::needless_range_loop)]
+fn integration_data_made_on_the_fly_gives_the_forces_of_the_element() {
+    use crate::{
+        constitutive::solid::hyperelastic::NeoHookean as Model,
+        domain::solid::elastic::ElasticItems,
+        fem::block::element::{
+            ElementNodalCoordinates, IntegrationData, solid::elastic::nodal_forces_from,
+        },
+        math::{Reference, TensorRank1List},
+        units::{ReciprocalLength, Volume},
+    };
+    struct OnTheFly<'a> {
+        nodes: [[f64; 3]; 8],
+        derivatives: &'a [f64],
+        weights: &'a [f64],
+    }
+    impl OnTheFly<'_> {
+        fn cofactors(&self, point: usize) -> ([[f64; 3]; 3], f64) {
+            let mut j = [[0.0; 3]; 3];
+            for (node, coordinates) in self.nodes.iter().enumerate() {
+                for i in 0..3 {
+                    for k in 0..3 {
+                        j[i][k] += coordinates[i] * self.derivatives[(point * 8 + node) * 3 + k];
+                    }
+                }
+            }
+            let mut cofactors = [[0.0; 3]; 3];
+            for i in 0..3 {
+                let (i1, i2) = ((i + 1) % 3, (i + 2) % 3);
+                for k in 0..3 {
+                    let (k1, k2) = ((k + 1) % 3, (k + 2) % 3);
+                    cofactors[i][k] = j[i1][k1] * j[i2][k2] - j[i1][k2] * j[i2][k1];
+                }
+            }
+            let determinant =
+                j[0][0] * cofactors[0][0] + j[0][1] * cofactors[0][1] + j[0][2] * cofactors[0][2];
+            (cofactors, determinant)
+        }
+    }
+    impl IntegrationData<8, 8> for OnTheFly<'_> {
+        fn gradient_vectors_at(
+            &self,
+            point: usize,
+        ) -> TensorRank1List<3, Reference, 8, ReciprocalLength> {
+            let (cofactors, determinant) = self.cofactors(point);
+            let reciprocal = 1.0 / determinant;
+            let mut gradient_vectors = [[0.0; 3]; 8];
+            for (node, gradient_vector) in gradient_vectors.iter_mut().enumerate() {
+                for (i, value) in gradient_vector.iter_mut().enumerate() {
+                    *value = (0..3)
+                        .map(|k| {
+                            (cofactors[i][k] * reciprocal)
+                                * self.derivatives[(point * 8 + node) * 3 + k]
+                        })
+                        .sum::<f64>();
+                }
+            }
+            gradient_vectors.into()
+        }
+        fn integration_weight_at(&self, point: usize) -> Quantity<Volume> {
+            Volume::cubic_meters(self.cofactors(point).1 * self.weights[point])
+        }
+    }
+    let (model, coordinates) = grid(3);
+    let current = deformed(&coordinates);
+    let mut blocks = Vec::new();
+    model.gpu_blocks(&mut blocks).unwrap();
+    let shape = blocks[0].shape.as_ref().expect("the shape functions");
+    let neo_hookean = Model {
+        shear_modulus: Stress::pascals(3.0e9),
+        bulk_modulus: Stress::pascals(13.0e9),
+    };
+    let mut largest = 0.0_f64;
+    let mut worst = 0.0_f64;
+    for (item, nodes) in model.blocks.connectivity().iter().enumerate() {
+        let nodal_coordinates: ElementNodalCoordinates<8> =
+            Grid::element_coordinates(&current, nodes);
+        let mut reference_nodes = [[0.0; 3]; 8];
+        for (position, &node) in reference_nodes.iter_mut().zip(nodes) {
+            *position = coordinates[node];
+        }
+        let found = nodal_forces_from::<_, _, 8, 8>(
+            &OnTheFly {
+                nodes: reference_nodes,
+                derivatives: &shape.derivatives,
+                weights: &shape.weights,
+            },
+            &(),
+            &neo_hookean,
+            &nodal_coordinates,
+        )
+        .unwrap();
+        let expected = model.blocks.forces_of(item, &current).unwrap();
+        for (found, expected) in found.iter().zip(expected.iter()) {
+            for (found, expected) in found.iter().zip(expected.iter()) {
+                largest = largest.max(expected.value().abs());
+                worst = worst.max((found.value() - expected.value()).abs());
+            }
+        }
+    }
+    assert!(
+        largest > 1e3,
+        "the forces are not small enough to be nothing"
+    );
+    assert!(
+        worst < 1e-10 * largest,
+        "the largest difference is {worst} of forces up to {largest}"
+    );
+}
+
 /// Runs the kernels on the host as C++, from the blocks of the model, and returns whether an
 /// element failed and what the harness wrote: the forces if there are no steps, and otherwise
 /// the coordinates and then the velocities at the end.
@@ -772,6 +886,7 @@ fn run_on_the_device_follows_the_run_on_the_calling_thread() {
         (GpuGradients::Stored, GpuKernels::Handwritten),
         (GpuGradients::OnTheFly, GpuKernels::Handwritten),
         (GpuGradients::Stored, GpuKernels::Library),
+        (GpuGradients::OnTheFly, GpuKernels::Library),
     ] {
         let device = run(Execution::Gpu(GpuOptions {
             gradients,
@@ -802,6 +917,7 @@ fn run_that_stays_on_the_device_follows_the_run_on_the_calling_thread() {
         (GpuGradients::Stored, GpuKernels::Handwritten),
         (GpuGradients::OnTheFly, GpuKernels::Handwritten),
         (GpuGradients::Stored, GpuKernels::Library),
+        (GpuGradients::OnTheFly, GpuKernels::Library),
     ] {
         let (found_coordinates, found_velocities) = model
             .integrate_on_device(

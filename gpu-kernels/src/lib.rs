@@ -317,6 +317,159 @@ pub unsafe extern "ptx-kernel" fn block_forces(
     }
 }
 
+/// The integration data of one element of a block, made as the integration points are gone
+/// through, from the reference coordinates of its nodes and the derivatives of the shape
+/// functions at the integration points of the parametric element, which every element shares:
+/// with J the sum over the nodes of the outer products of the coordinates and the derivatives,
+/// the gradient vector of a node is the inverse transpose of J times its derivatives, and the
+/// weight is the determinant of J times the weight of the point in the parametric element, as an
+/// element makes them when it is made.
+///   derivatives[(point * 8 + node) * 3 + component]
+///   weights[point]
+struct OnTheFly {
+    nodes: [[f64; 3]; 8],
+    derivatives: *const f64,
+    weights: *const f64,
+}
+
+impl OnTheFly {
+    fn derivative(&self, point: usize, node: usize, component: usize) -> f64 {
+        // SAFETY: the derivative is one of those of the parametric element, which the table has.
+        unsafe { *self.derivatives.add((point * 8 + node) * 3 + component) }
+    }
+    /// The cofactors of J at an integration point, which are its determinant times its inverse
+    /// transpose, and its determinant.
+    fn cofactors(&self, point: usize) -> ([[f64; 3]; 3], f64) {
+        let mut j = [[0.0; 3]; 3];
+        self.nodes
+            .iter()
+            .enumerate()
+            .for_each(|(node, coordinates)| {
+                (0..3).for_each(|i| {
+                    (0..3).for_each(|k| j[i][k] += coordinates[i] * self.derivative(point, node, k))
+                })
+            });
+        let mut cofactors = [[0.0; 3]; 3];
+        (0..3).for_each(|i| {
+            let (i1, i2) = ((i + 1) % 3, (i + 2) % 3);
+            (0..3).for_each(|k| {
+                let (k1, k2) = ((k + 1) % 3, (k + 2) % 3);
+                cofactors[i][k] = j[i1][k1] * j[i2][k2] - j[i1][k2] * j[i2][k1];
+            })
+        });
+        let determinant =
+            j[0][0] * cofactors[0][0] + j[0][1] * cofactors[0][1] + j[0][2] * cofactors[0][2];
+        (cofactors, determinant)
+    }
+}
+
+impl IntegrationData<8, 8> for OnTheFly {
+    fn gradient_vectors_at(
+        &self,
+        point: usize,
+    ) -> TensorRank1List<3, Reference, 8, ReciprocalLength> {
+        let (cofactors, determinant) = self.cofactors(point);
+        // The inverse transpose of J is the cofactors over the determinant, with one reciprocal.
+        let reciprocal = 1.0 / determinant;
+        let mut gradient_vectors = [[0.0; 3]; 8];
+        gradient_vectors
+            .iter_mut()
+            .enumerate()
+            .for_each(|(node, gradient_vector)| {
+                gradient_vector
+                    .iter_mut()
+                    .enumerate()
+                    .for_each(|(i, value)| {
+                        *value = (cofactors[i][0] * reciprocal) * self.derivative(point, node, 0)
+                            + (cofactors[i][1] * reciprocal) * self.derivative(point, node, 1)
+                            + (cofactors[i][2] * reciprocal) * self.derivative(point, node, 2)
+                    })
+            });
+        gradient_vectors.into()
+    }
+    fn integration_weight_at(&self, point: usize) -> Quantity<Volume> {
+        let (_, determinant) = self.cofactors(point);
+        // SAFETY: the weight is one of those of the parametric element, which the table has.
+        Volume::cubic_meters(determinant * unsafe { *self.weights.add(point) })
+    }
+}
+
+/// The nodal forces of each of `items` hexahedra of a block, by the code of the library, with
+/// the gradient vectors and weights made as they are needed from the reference coordinates of the
+/// nodes (see [`OnTheFly`]) in place of being read for each element. The rest is as for
+/// [`block_forces`].
+///
+/// # Safety
+///
+/// `reference_coordinates` must have the nodes that `connectivity` names, `derivatives` must be
+/// `8 * 8 * 3` values and `weights` eight, and the rest as for [`block_forces`].
+#[unsafe(no_mangle)]
+pub unsafe extern "ptx-kernel" fn block_forces_on_the_fly(
+    items: u32,
+    reference_coordinates: *const f64,
+    derivatives: *const f64,
+    weights: *const f64,
+    connectivity: *const u32,
+    coordinates: *const f64,
+    forces: *mut f64,
+    failure: *mut u32,
+    shear_modulus: f64,
+    bulk_modulus: f64,
+) {
+    let item = thread();
+    let items = items as usize;
+    if item < items {
+        let mut positions = [[0.0; 3]; 8];
+        let mut nodes = [[0.0; 3]; 8];
+        positions
+            .iter_mut()
+            .zip(nodes.iter_mut())
+            .enumerate()
+            .for_each(|(a, (position, node_reference))| {
+                // SAFETY: the node is one that the coordinates have.
+                let node = unsafe { *connectivity.add(a * items + item) } as usize;
+                (0..3).for_each(|i| unsafe {
+                    position[i] = *coordinates.add(3 * node + i);
+                    node_reference[i] = *reference_coordinates.add(3 * node + i);
+                });
+            });
+        let element = OnTheFly {
+            nodes,
+            derivatives,
+            weights,
+        };
+        let model = NeoHookean {
+            bulk_modulus: Stress::pascals(bulk_modulus),
+            shear_modulus: Stress::pascals(shear_modulus),
+        };
+        let mut nodal_forces = [[0.0; 3]; 8];
+        match nodal_forces_from::<_, _, 8, 8>(
+            &element,
+            &(),
+            &model,
+            &ElementNodalCoordinates::<8>::from(positions),
+        ) {
+            Ok(computed) => computed.iter().enumerate().for_each(|(a, force)| {
+                force
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, component)| nodal_forces[a][i] = component.value())
+            }),
+            Err(_) => {
+                // SAFETY: `failure` is one value, which the threads only take the least of.
+                unsafe { &*(failure as *const AtomicU32) }
+                    .fetch_min(item as u32, Ordering::Relaxed);
+            }
+        }
+        nodal_forces.iter().enumerate().for_each(|(a, force)| {
+            force.iter().enumerate().for_each(|(i, &component)| {
+                // SAFETY: the index is within the forces that there are.
+                unsafe { *forces.add((i * 8 + a) * items + item) = component }
+            })
+        });
+    }
+}
+
 /// The forces on `nodes` nodes, each the sum of the forces of the elements that have it, in the
 /// order of the elements, added to the forces that it has.
 ///
