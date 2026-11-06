@@ -254,25 +254,53 @@ fn compare(cells: usize) -> bool {
             )
         };
     // Whether there is a device, and whether it agrees with the calling thread, whichever
-    // way it gets the gradient vectors.
+    // way it gets the gradient vectors and with whichever kernels.
+    //
+    // The runs are a step or a few, so what is compared is what a step is made of: the
+    // velocities, which are the accelerations times the step and so the forces, to a part in a
+    // billion of the largest, and the coordinates to a hundredth of how far they moved. The
+    // coordinates alone would not do, since the distance that they move in a step is smaller than
+    // the tolerance that is fit for coordinates that are of the size of the body.
     let (short, long) = history_steps(nodes);
-    let expected = components(history(Execution::Serial, short).1.iter().last().unwrap());
+    let serial_run = history(Execution::Serial, short);
+    let expected_coordinates = components(serial_run.1.iter().last().unwrap());
+    let expected_velocities = components(serial_run.2.iter().last().unwrap());
+    let moved = components(&current)
+        .iter()
+        .zip(&expected_coordinates)
+        .map(|(start, end)| (end - start).abs())
+        .fold(0.0, f64::max);
+    let fastest = expected_velocities
+        .iter()
+        .map(|velocity| velocity.abs())
+        .fold(0.0, f64::max);
+    assert!(
+        moved > 0.0 && fastest > 0.0,
+        "the run on the calling thread did not move"
+    );
     for (gradients, kernels) in [
         (GpuGradients::Stored, GpuKernels::Handwritten),
         (GpuGradients::OnTheFly, GpuKernels::Handwritten),
         (GpuGradients::Stored, GpuKernels::Library),
     ] {
         match device(GpuPrecision::F64, gradients, kernels, short) {
-            Ok((found, _)) => {
-                let found = components(&found);
-                let gap = found
-                    .iter()
-                    .zip(&expected)
-                    .map(|(found, expected)| (found - expected).abs())
-                    .fold(0.0, f64::max);
+            Ok((found_coordinates, found_velocities)) => {
+                let gap = |found: &[f64], expected: &[f64]| {
+                    found
+                        .iter()
+                        .zip(expected)
+                        .map(|(found, expected)| (found - expected).abs())
+                        .fold(0.0, f64::max)
+                };
+                let coordinates = gap(&components(&found_coordinates), &expected_coordinates);
+                let velocities = gap(&components(&found_velocities), &expected_velocities);
                 assert!(
-                    gap < 1e-9,
-                    "{gradients:?}: the device differs from the calling thread by {gap}"
+                    velocities < 1e-9 * fastest,
+                    "{gradients:?} {kernels:?}: the velocities differ from those of the calling thread by {velocities}, of velocities up to {fastest}"
+                );
+                assert!(
+                    coordinates < 1e-2 * moved,
+                    "{gradients:?} {kernels:?}: the coordinates differ from those of the calling thread by {coordinates}, of a distance moved of up to {moved}"
                 );
             }
             Err(error) if no_device(&error) => {
