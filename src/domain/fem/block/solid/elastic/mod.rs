@@ -124,12 +124,19 @@ where
         });
         // The kernels of the library are for the elements that they were built for, which are
         // known by their types.
-        let library = (core::any::type_name::<F>() == core::any::type_name::<Hexahedron>()
-            && matches!(model, GpuModel::NeoHookean { .. }))
-        .then_some(LibraryBlock {
-            forces_kernel: "block_forces",
-            on_the_fly_kernel: "block_forces_on_the_fly",
-        });
+        let library =
+            (core::any::type_name::<F>() == core::any::type_name::<Hexahedron>()).then(|| {
+                match model {
+                    GpuModel::NeoHookean { .. } => LibraryBlock {
+                        forces_kernel: "block_forces",
+                        on_the_fly_kernel: "block_forces_on_the_fly",
+                    },
+                    GpuModel::SaintVenantKirchhoff { .. } => LibraryBlock {
+                        forces_kernel: "block_forces_saint_venant_kirchhoff",
+                        on_the_fly_kernel: "block_forces_on_the_fly_saint_venant_kirchhoff",
+                    },
+                }
+            });
         Some(GpuItems {
             library,
             shape,

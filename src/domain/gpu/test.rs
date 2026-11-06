@@ -606,10 +606,7 @@ fn run_on_host(
     components(coordinates)
         .iter()
         .for_each(|x| push(&x.to_le_bytes()));
-    let GpuModel::NeoHookean {
-        shear_modulus,
-        bulk_modulus,
-    } = block.model;
+    let (shear_modulus, bulk_modulus) = block.model.moduli();
     push(&shear_modulus.to_le_bytes());
     push(&bulk_modulus.to_le_bytes());
     push(&dt.to_le_bytes());

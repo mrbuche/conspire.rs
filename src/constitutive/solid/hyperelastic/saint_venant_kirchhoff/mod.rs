@@ -33,6 +33,15 @@ impl Solid for SaintVenantKirchhoff {
 }
 
 impl Elastic for SaintVenantKirchhoff {
+    #[cfg(feature = "gpu")]
+    fn gpu_model(&self) -> Option<crate::constitutive::solid::elastic::GpuModel> {
+        Some(
+            crate::constitutive::solid::elastic::GpuModel::SaintVenantKirchhoff {
+                shear_modulus: self.shear_modulus.value(),
+                bulk_modulus: self.bulk_modulus.value(),
+            },
+        )
+    }
     #[doc = include_str!("second_piola_kirchhoff_stress.md")]
     fn second_piola_kirchhoff_stress(
         &self,

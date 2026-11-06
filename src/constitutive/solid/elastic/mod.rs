@@ -59,6 +59,30 @@ pub enum GpuModel {
         /// The bulk modulus.
         bulk_modulus: f64,
     },
+    /// The Saint Venant-Kirchhoff model.
+    SaintVenantKirchhoff {
+        /// The shear modulus.
+        shear_modulus: f64,
+        /// The bulk modulus.
+        bulk_modulus: f64,
+    },
+}
+
+#[cfg(feature = "gpu")]
+impl GpuModel {
+    /// The shear modulus and the bulk modulus, which are the parameters of every model here.
+    pub fn moduli(&self) -> (f64, f64) {
+        match *self {
+            Self::NeoHookean {
+                shear_modulus,
+                bulk_modulus,
+            }
+            | Self::SaintVenantKirchhoff {
+                shear_modulus,
+                bulk_modulus,
+            } => (shear_modulus, bulk_modulus),
+        }
+    }
 }
 
 /// Required methods for elastic solid constitutive models.

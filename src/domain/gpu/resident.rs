@@ -194,10 +194,14 @@ impl<R: Real> State<R> {
         let mut modules = Vec::with_capacity(blocks.len());
         let mut states = Vec::with_capacity(blocks.len());
         for block in blocks {
-            let GpuModel::NeoHookean {
-                shear_modulus,
-                bulk_modulus,
-            } = block.model;
+            let (shear_modulus, bulk_modulus) = block.model.moduli();
+            if !library && !matches!(block.model, GpuModel::NeoHookean { .. }) {
+                return Err(GpuError::Unsupported(
+                    "the kernels that are written for the device are for the Neo-Hookean model; \
+                     the library has the others"
+                        .to_string(),
+                ));
+            }
             let items = block.number_of_items();
             let layout = block.device_layout();
             let (module, geometry, forces_name) = if library {

@@ -7,7 +7,7 @@
 //! tests of the library: `cargo test -F gpu --test gpu -- --nocapture`.
 
 use conspire::{
-    constitutive::solid::hyperelastic::NeoHookean,
+    constitutive::solid::hyperelastic::{NeoHookean, SaintVenantKirchhoff},
     fem::{
         Blocks, Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{Block, element::linear::Hexahedron},
@@ -22,6 +22,7 @@ use conspire::{
 };
 
 type Grid = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
+type Elastic = Block<SaintVenantKirchhoff, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
 
 const CELLS: usize = 6;
 const STEPS: usize = 40;
@@ -273,10 +274,9 @@ fn run_with_the_code_of_the_library_follows_the_run_on_the_calling_thread() {
     }
 }
 
-/// Two blocks of different materials that share the plane of nodes between them: a lattice twice
-/// as long in one direction, with the cells on one side of the plane in the first block and the
-/// others in the second.
-fn two_blocks() -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
+/// A lattice twice as long in one direction, and the cells on each side of the plane in the middle
+/// of it, which the nodes of the two sides share.
+fn two_lattices() -> (Vec<[f64; 3]>, Vec<[usize; 8]>, Vec<[usize; 8]>) {
     let nodes_x = 2 * CELLS + 1;
     let index = move |i: usize, j: usize, k: usize| (k * (CELLS + 1) + j) * nodes_x + i;
     let coordinates = (0..=CELLS)
@@ -312,6 +312,12 @@ fn two_blocks() -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
             })
             .collect::<Vec<_>>()
     };
+    (coordinates, cells(0), cells(CELLS))
+}
+
+/// Two blocks of different materials that share the plane of nodes between them.
+fn two_blocks() -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
+    let (coordinates, first_cells, second_cells) = two_lattices();
     let reference = NodalReferenceCoordinates::from(coordinates.clone());
     let first = Grid::from((
         NeoHookean {
@@ -319,7 +325,7 @@ fn two_blocks() -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
             bulk_modulus: Stress::pascals(13.0e9),
         },
         Density::kilograms_per_cubic_meter(7.8e3),
-        cells(0),
+        first_cells,
         &reference,
     ));
     let second = Grid::from((
@@ -328,7 +334,33 @@ fn two_blocks() -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
             bulk_modulus: Stress::pascals(5.0e9),
         },
         Density::kilograms_per_cubic_meter(2.7e3),
-        cells(CELLS),
+        second_cells,
+        &reference,
+    ));
+    ((Blocks(first, second), reference).into(), coordinates)
+}
+
+/// Two blocks of different models, one Neo-Hookean and one Saint Venant-Kirchhoff, that share the
+/// plane of nodes between them.
+fn mixed_blocks() -> (Model<Blocks<Grid, Elastic>, 3>, Vec<[f64; 3]>) {
+    let (coordinates, first_cells, second_cells) = two_lattices();
+    let reference = NodalReferenceCoordinates::from(coordinates.clone());
+    let first = Grid::from((
+        NeoHookean {
+            shear_modulus: Stress::pascals(3.0e9),
+            bulk_modulus: Stress::pascals(13.0e9),
+        },
+        Density::kilograms_per_cubic_meter(7.8e3),
+        first_cells,
+        &reference,
+    ));
+    let second = Elastic::from((
+        SaintVenantKirchhoff {
+            shear_modulus: Stress::pascals(1.0e9),
+            bulk_modulus: Stress::pascals(5.0e9),
+        },
+        Density::kilograms_per_cubic_meter(2.7e3),
+        second_cells,
         &reference,
     ));
     ((Blocks(first, second), reference).into(), coordinates)
@@ -416,4 +448,69 @@ fn run_of_a_model_of_two_blocks_follows_the_run_on_the_calling_thread() {
             "{precision:?} {gradients:?} {kernels:?}: the velocities differ by {gap}"
         );
     }
+}
+
+/// A model of two blocks of different models, which share nodes, with the code of the library on
+/// the device, against the run on the calling thread. The kernels that are written for the device
+/// are for the Neo-Hookean model alone, so they are to say that they cannot take it.
+#[test]
+fn run_of_a_model_of_two_models_follows_the_run_on_the_calling_thread() {
+    let (model, reference) = mixed_blocks();
+    let (coordinates, velocities) = (deformed(&reference), velocities(&reference));
+    let expected = model
+        .integrate(
+            Execution::Serial,
+            Unchecked,
+            Lumped,
+            &VelocityVerlet::new(Time::seconds(STEP)),
+            &[Time::seconds(0.0), Time::seconds(STEPS as f64 * STEP)],
+            (coordinates.clone(), velocities.clone()),
+            &(),
+            &BoundaryConditions::<Solid<3>>::new(),
+        )
+        .unwrap();
+    let expected = (
+        components(expected.1.iter().last().unwrap()),
+        components(expected.2.iter().last().unwrap()),
+    );
+    for gradients in [GpuGradients::Stored, GpuGradients::OnTheFly] {
+        let run = model.integrate_on_device(
+            GpuOptions {
+                kernels: GpuKernels::Library,
+                gradients,
+                ..GpuOptions::default()
+            },
+            Time::seconds(STEP),
+            STEPS,
+            (coordinates.clone(), velocities.clone()),
+            &BoundaryConditions::<Solid<3>>::new(),
+        );
+        let (found_coordinates, found_velocities) = match run {
+            Ok(run) => run,
+            Err(error) if no_device(&error) => return println!("skipped: {error:?}"),
+            Err(error) => panic!("{gradients:?}: {error:?}"),
+        };
+        let (gap, scale) = difference(&components(&found_coordinates), &expected.0);
+        assert!(
+            gap < 1e-9 * scale.max(1.0),
+            "{gradients:?}: the coordinates differ by {gap}"
+        );
+        let (gap, scale) = difference(&components(&found_velocities), &expected.1);
+        assert!(
+            gap < 1e-9 * scale.max(1.0),
+            "{gradients:?}: the velocities differ by {gap}"
+        );
+    }
+    let refused = model.integrate_on_device(
+        GpuOptions::default(),
+        Time::seconds(STEP),
+        STEPS,
+        (coordinates, velocities),
+        &BoundaryConditions::<Solid<3>>::new(),
+    );
+    let error = refused.expect_err("the kernels written for the device are for one model");
+    assert!(
+        format!("{error:?}").contains("Neo-Hookean"),
+        "the error is not that: {error:?}"
+    );
 }

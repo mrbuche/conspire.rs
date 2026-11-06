@@ -8,7 +8,10 @@
 #![feature(abi_ptx, stdarch_nvptx)]
 
 use conspire::{
-    constitutive::solid::{elastic::Elastic, hyperelastic::NeoHookean},
+    constitutive::solid::{
+        elastic::Elastic,
+        hyperelastic::{NeoHookean, SaintVenantKirchhoff},
+    },
     fem::block::element::{
         ElementNodalCoordinates, IntegrationData,
         linear::Hexahedron,
@@ -257,8 +260,8 @@ impl IntegrationData<8, 8> for Coalesced {
 ///
 /// A `stride` of zero has every thread read the first element, which is for finding how much of
 /// the time is that of reading the elements, and is otherwise one.
-#[unsafe(no_mangle)]
-pub unsafe extern "ptx-kernel" fn block_forces(
+#[inline(always)]
+unsafe fn stored_forces<M: Elastic>(
     items: u32,
     stride: u32,
     reference: *const f64,
@@ -266,8 +269,7 @@ pub unsafe extern "ptx-kernel" fn block_forces(
     coordinates: *const f64,
     forces: *mut f64,
     failure: *mut u32,
-    shear_modulus: f64,
-    bulk_modulus: f64,
+    model: &M,
 ) {
     let item = thread();
     let items = items as usize;
@@ -285,15 +287,11 @@ pub unsafe extern "ptx-kernel" fn block_forces(
             let node = unsafe { *connectivity.add(a * items + item) } as usize;
             (0..3).for_each(|i| position[i] = unsafe { *coordinates.add(3 * node + i) });
         });
-        let model = NeoHookean {
-            bulk_modulus: Stress::pascals(bulk_modulus),
-            shear_modulus: Stress::pascals(shear_modulus),
-        };
         let mut nodal_forces = [[0.0; 3]; 8];
         match nodal_forces_from::<_, _, 8, 8>(
             &element,
             &(),
-            &model,
+            model,
             &ElementNodalCoordinates::<8>::from(positions),
         ) {
             Ok(computed) => computed.iter().enumerate().for_each(|(a, force)| {
@@ -397,14 +395,14 @@ impl IntegrationData<8, 8> for OnTheFly {
 /// The nodal forces of each of `items` hexahedra of a block, by the code of the library, with
 /// the gradient vectors and weights made as they are needed from the reference coordinates of the
 /// nodes (see [`OnTheFly`]) in place of being read for each element. The rest is as for
-/// [`block_forces`].
+/// [`stored_forces`].
 ///
 /// # Safety
 ///
 /// `reference_coordinates` must have the nodes that `connectivity` names, `derivatives` must be
-/// `8 * 8 * 3` values and `weights` eight, and the rest as for [`block_forces`].
-#[unsafe(no_mangle)]
-pub unsafe extern "ptx-kernel" fn block_forces_on_the_fly(
+/// `8 * 8 * 3` values and `weights` eight, and the rest as for [`stored_forces`].
+#[inline(always)]
+unsafe fn on_the_fly_forces<M: Elastic>(
     items: u32,
     reference_coordinates: *const f64,
     derivatives: *const f64,
@@ -413,8 +411,7 @@ pub unsafe extern "ptx-kernel" fn block_forces_on_the_fly(
     coordinates: *const f64,
     forces: *mut f64,
     failure: *mut u32,
-    shear_modulus: f64,
-    bulk_modulus: f64,
+    model: &M,
 ) {
     let item = thread();
     let items = items as usize;
@@ -438,15 +435,11 @@ pub unsafe extern "ptx-kernel" fn block_forces_on_the_fly(
             derivatives,
             weights,
         };
-        let model = NeoHookean {
-            bulk_modulus: Stress::pascals(bulk_modulus),
-            shear_modulus: Stress::pascals(shear_modulus),
-        };
         let mut nodal_forces = [[0.0; 3]; 8];
         match nodal_forces_from::<_, _, 8, 8>(
             &element,
             &(),
-            &model,
+            model,
             &ElementNodalCoordinates::<8>::from(positions),
         ) {
             Ok(computed) => computed.iter().enumerate().for_each(|(a, force)| {
@@ -469,6 +462,93 @@ pub unsafe extern "ptx-kernel" fn block_forces_on_the_fly(
         });
     }
 }
+
+/// The kernels of a block of hexahedra of a model, in the two ways of getting the gradient vectors:
+/// the forces of the elements by the code of the library (see [`stored_forces`] and
+/// [`on_the_fly_forces`]), for the model that `$model` makes of a shear modulus and a bulk modulus.
+macro_rules! block_kernels {
+    ($stored:ident, $on_the_fly:ident, $model:ident) => {
+        /// The nodal forces of the hexahedra of a block of this model, with the gradient vectors
+        /// and weights stored (see [`stored_forces`]).
+        ///
+        /// # Safety
+        ///
+        /// As for [`stored_forces`].
+        #[unsafe(no_mangle)]
+        pub unsafe extern "ptx-kernel" fn $stored(
+            items: u32,
+            stride: u32,
+            reference: *const f64,
+            connectivity: *const u32,
+            coordinates: *const f64,
+            forces: *mut f64,
+            failure: *mut u32,
+            shear_modulus: f64,
+            bulk_modulus: f64,
+        ) {
+            // SAFETY: as for the function that this calls.
+            unsafe {
+                stored_forces(
+                    items,
+                    stride,
+                    reference,
+                    connectivity,
+                    coordinates,
+                    forces,
+                    failure,
+                    &$model {
+                        bulk_modulus: Stress::pascals(bulk_modulus),
+                        shear_modulus: Stress::pascals(shear_modulus),
+                    },
+                )
+            }
+        }
+        /// The nodal forces of the hexahedra of a block of this model, with the gradient vectors
+        /// and weights made on the fly (see [`on_the_fly_forces`]).
+        ///
+        /// # Safety
+        ///
+        /// As for [`on_the_fly_forces`].
+        #[unsafe(no_mangle)]
+        pub unsafe extern "ptx-kernel" fn $on_the_fly(
+            items: u32,
+            reference_coordinates: *const f64,
+            derivatives: *const f64,
+            weights: *const f64,
+            connectivity: *const u32,
+            coordinates: *const f64,
+            forces: *mut f64,
+            failure: *mut u32,
+            shear_modulus: f64,
+            bulk_modulus: f64,
+        ) {
+            // SAFETY: as for the function that this calls.
+            unsafe {
+                on_the_fly_forces(
+                    items,
+                    reference_coordinates,
+                    derivatives,
+                    weights,
+                    connectivity,
+                    coordinates,
+                    forces,
+                    failure,
+                    &$model {
+                        bulk_modulus: Stress::pascals(bulk_modulus),
+                        shear_modulus: Stress::pascals(shear_modulus),
+                    },
+                )
+            }
+        }
+    };
+}
+
+block_kernels!(block_forces, block_forces_on_the_fly, NeoHookean);
+block_kernels!(
+    block_forces_saint_venant_kirchhoff,
+    block_forces_on_the_fly_saint_venant_kirchhoff,
+    SaintVenantKirchhoff
+);
 
 /// The forces on `nodes` nodes, each the sum of the forces of the elements that have it, in the
 /// order of the elements, added to the forces that it has.

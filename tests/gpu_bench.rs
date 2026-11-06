@@ -21,7 +21,7 @@
 //! default.
 
 use conspire::{
-    constitutive::solid::hyperelastic::NeoHookean,
+    constitutive::solid::hyperelastic::{NeoHookean, SaintVenantKirchhoff},
     fem::{
         Blocks, Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::{Block, element::linear::Hexahedron},
@@ -37,6 +37,7 @@ use conspire::{
 use std::{thread::available_parallelism, time::Instant};
 
 type Grid = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
+type Elastic = Block<SaintVenantKirchhoff, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
 
 const STEP: f64 = 1e-8;
 
@@ -384,9 +385,9 @@ fn single_block_steps() {
     }
 }
 
-/// Two grids of `cells` cells on a side, of different materials, side by side along one axis and
-/// sharing the plane of nodes between them.
-fn two_grids(cells: usize) -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
+/// The lattice of two grids of `cells` cells on a side, side by side along one axis, and the cells
+/// of each, which share the plane of nodes between them.
+fn two_lattices(cells: usize) -> (Vec<[f64; 3]>, Vec<[usize; 8]>, Vec<[usize; 8]>) {
     let nodes_x = 2 * cells + 1;
     let index = move |i: usize, j: usize, k: usize| (k * (cells + 1) + j) * nodes_x + i;
     let coordinates = (0..=cells)
@@ -422,6 +423,12 @@ fn two_grids(cells: usize) -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
             })
             .collect::<Vec<_>>()
     };
+    (coordinates, block(0), block(cells))
+}
+
+/// Two grids of `cells` cells on a side, of different Neo-Hookean materials.
+fn two_grids(cells: usize) -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
+    let (coordinates, first_cells, second_cells) = two_lattices(cells);
     let reference = NodalReferenceCoordinates::from(coordinates.clone());
     let first = Grid::from((
         NeoHookean {
@@ -429,7 +436,7 @@ fn two_grids(cells: usize) -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
             bulk_modulus: Stress::pascals(13.0e9),
         },
         Density::kilograms_per_cubic_meter(7.8e3),
-        block(0),
+        first_cells,
         &reference,
     ));
     let second = Grid::from((
@@ -438,17 +445,47 @@ fn two_grids(cells: usize) -> (Model<Blocks<Grid, Grid>, 3>, Vec<[f64; 3]>) {
             bulk_modulus: Stress::pascals(5.0e9),
         },
         Density::kilograms_per_cubic_meter(2.7e3),
-        block(cells),
+        second_cells,
         &reference,
     ));
     ((Blocks(first, second), reference).into(), coordinates)
 }
 
+/// Two grids of `cells` cells on a side, one Neo-Hookean and one Saint Venant-Kirchhoff.
+fn mixed_grids(cells: usize) -> (Model<Blocks<Grid, Elastic>, 3>, Vec<[f64; 3]>) {
+    let (coordinates, first_cells, second_cells) = two_lattices(cells);
+    let reference = NodalReferenceCoordinates::from(coordinates.clone());
+    let first = Grid::from((
+        NeoHookean {
+            shear_modulus: Stress::pascals(3.0e9),
+            bulk_modulus: Stress::pascals(13.0e9),
+        },
+        Density::kilograms_per_cubic_meter(7.8e3),
+        first_cells,
+        &reference,
+    ));
+    let second = Elastic::from((
+        SaintVenantKirchhoff {
+            shear_modulus: Stress::pascals(1.0e9),
+            bulk_modulus: Stress::pascals(5.0e9),
+        },
+        Density::kilograms_per_cubic_meter(2.7e3),
+        second_cells,
+        &reference,
+    ));
+    ((Blocks(first, second), reference).into(), coordinates)
+}
+
+/// Defines the comparison of a model of two blocks, built by `$build` from the cells on a side
+/// of each, with every way that the device has to take it, which for `$handwritten` includes the
+/// kernels that are written for it and otherwise is the library alone.
+macro_rules! compare_two_blocks {
+    ($name:ident, $build:ident, $title:expr, $handwritten:expr) => {
 /// As [`compare`], for a model of two blocks of `cells^3` elements each: whether the device gives
 /// the state of the calling thread, and the cost of a step, to compare per element with that of
 /// one block.
-fn compare_two_blocks(cells: usize) -> bool {
-    let (model, reference) = two_grids(cells);
+fn $name(cells: usize) -> bool {
+    let (model, reference) = $build(cells);
     let current = deformed(&reference);
     let nodes = current.len();
     let elements = 2 * cells.pow(3);
@@ -486,12 +523,15 @@ fn compare_two_blocks(cells: usize) -> bool {
         moved > 0.0 && fastest > 0.0,
         "the run on the calling thread did not move"
     );
-    for (gradients, kernels) in [
-        (GpuGradients::Stored, GpuKernels::Handwritten),
-        (GpuGradients::OnTheFly, GpuKernels::Handwritten),
+    let mut ways = vec![
         (GpuGradients::Stored, GpuKernels::Library),
         (GpuGradients::OnTheFly, GpuKernels::Library),
-    ] {
+    ];
+    if $handwritten {
+        ways.push((GpuGradients::Stored, GpuKernels::Handwritten));
+        ways.push((GpuGradients::OnTheFly, GpuKernels::Handwritten));
+    }
+    for (gradients, kernels) in ways {
         let run = model.integrate_on_device(
             options(GpuPrecision::F64, gradients, kernels),
             Time::seconds(STEP),
@@ -550,8 +590,8 @@ fn compare_two_blocks(cells: usize) -> bool {
         })
     };
     let hand = GpuKernels::Handwritten;
-    let (double, double_setup) = timed(GpuPrecision::F64, GpuGradients::Stored, hand);
-    let (double_fly, double_fly_setup) = timed(GpuPrecision::F64, GpuGradients::OnTheFly, hand);
+    let double = $handwritten.then(|| timed(GpuPrecision::F64, GpuGradients::Stored, hand));
+    let double_fly = $handwritten.then(|| timed(GpuPrecision::F64, GpuGradients::OnTheFly, hand));
     let (library, library_setup) =
         timed(GpuPrecision::F64, GpuGradients::Stored, GpuKernels::Library);
     let (library_fly, library_fly_setup) = timed(
@@ -561,7 +601,8 @@ fn compare_two_blocks(cells: usize) -> bool {
     );
     let rate = |step: f64| elements as f64 / step / 1e3;
     println!(
-        "\n2 blocks of {} elements, {nodes} nodes, {} threads",
+        "\n{} ({} elements per block, {nodes} nodes), {} threads",
+        $title,
         cells.pow(3),
         threads()
     );
@@ -569,14 +610,17 @@ fn compare_two_blocks(cells: usize) -> bool {
         "{:>16} {:>11} {:>14} {:>10} {:>12}",
         "", "ms/step", "Melement/s", "vs threads", "setup ms"
     );
-    for (label, step, setup) in [
+    let mut rows = vec![
         ("calling thread", serial, serial_setup),
         ("threads", threaded, threaded_setup),
-        ("device f64", double, double_setup),
-        ("device f64 fly", double_fly, double_fly_setup),
-        ("library f64", library, library_setup),
-        ("library f64 fly", library_fly, library_fly_setup),
-    ] {
+    ];
+    if let (Some(double), Some(double_fly)) = (double, double_fly) {
+        rows.push(("device f64", double.0, double.1));
+        rows.push(("device f64 fly", double_fly.0, double_fly.1));
+    }
+    rows.push(("library f64", library, library_setup));
+    rows.push(("library f64 fly", library_fly, library_fly_setup));
+    for (label, step, setup) in rows {
         println!(
             "{label:>16} {step:>11.3} {:>14.1} {:>9.2}x {setup:>12.1}",
             rate(step),
@@ -585,6 +629,21 @@ fn compare_two_blocks(cells: usize) -> bool {
     }
     true
 }
+    };
+}
+
+compare_two_blocks!(
+    compare_two_blocks,
+    two_grids,
+    "two Neo-Hookean blocks",
+    true
+);
+compare_two_blocks!(
+    compare_mixed_blocks,
+    mixed_grids,
+    "a Neo-Hookean and a Saint Venant-Kirchhoff block",
+    false
+);
 
 /// A model of two blocks, which has twice the elements of one block of the same `CELLS`, so that
 /// the Melement/s are to be compared with those of `single_block_steps`.
@@ -593,6 +652,18 @@ fn compare_two_blocks(cells: usize) -> bool {
 fn two_block_steps() {
     for cells in cells() {
         if !compare_two_blocks(cells) {
+            return;
+        }
+    }
+}
+
+/// A model of a Neo-Hookean block and a Saint Venant-Kirchhoff block, each of `CELLS` cells on a
+/// side, with the code of the library, which is the only way for the second model.
+#[test]
+#[ignore]
+fn mixed_model_steps() {
+    for cells in cells() {
+        if !compare_mixed_blocks(cells) {
             return;
         }
     }
