@@ -13,8 +13,8 @@ use conspire::{
         block::{Block, element::linear::Hexahedron},
         boundary::{BoundaryConditions, Solid},
         solid::{
-            DeviceExplicitDynamics, ElasticExplicitDynamics, Execution, GpuKernels, GpuOptions,
-            GpuPrecision, Lumped, Unchecked,
+            DeviceExplicitDynamics, ElasticExplicitDynamics, Execution, GpuGradients, GpuKernels,
+            GpuOptions, GpuPrecision, Lumped, Unchecked,
         },
     },
     math::{Quantity, Tensor, integrate::VelocityVerlet},
