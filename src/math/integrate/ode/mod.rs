@@ -1,6 +1,6 @@
 use crate::math::{Norm, Quantity, Scalar, Tensor, TensorVec};
 use crate::units::Time;
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 pub(super) mod dynamics;
 pub(super) mod explicit;

@@ -5,7 +5,7 @@ use crate::math::{
         FreeInterpolant, IntegrationError, Times,
     },
 };
-use std::ops::{Div, Mul, Sub};
+use core::ops::{Div, Mul, Sub};
 
 impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T> for BogackiShampine
 where

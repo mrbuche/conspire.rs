@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use std::num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroUsize};
+use core::num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroUsize};
 
 pub trait Slot: Copy {
     fn at(slot: usize) -> Option<Self>;

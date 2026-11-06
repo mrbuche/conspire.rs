@@ -26,7 +26,7 @@ use crate::{
     mechanics::DeformationGradient,
     units::Time,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 pub use crate::domain::block::solid::viscoplastic::{
     ViscoplasticEvolution, ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,

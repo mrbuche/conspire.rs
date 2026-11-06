@@ -8,7 +8,8 @@ use crate::{
     math::{Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::{array::from_fn, collections::HashMap};
+use core::array::from_fn;
+use std::collections::HashMap;
 
 fn curvature(tolerance: Quantity<Length>) -> CurvatureSizing {
     CurvatureSizing {
@@ -264,7 +265,7 @@ fn a_leaner_index_builds_the_same_tree() {
 
 #[test]
 fn a_niched_index_builds_the_same_tree() {
-    use std::num::NonZeroU32;
+    use core::num::NonZeroU32;
     let tessellation = sphere(4, 8, 2.0);
     let sizing = Sizing::new(&tessellation, 4.0, CurvatureSizing::default(), 0);
     let mut wide = Octree::<u16, usize>::refine(&sizing).unwrap();

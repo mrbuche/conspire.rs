@@ -10,7 +10,7 @@ use crate::{
     },
     units::Time,
 };
-use std::{
+use core::{
     fmt::Debug,
     ops::{Div, Sub},
 };

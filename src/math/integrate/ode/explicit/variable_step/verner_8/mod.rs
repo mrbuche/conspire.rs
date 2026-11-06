@@ -11,7 +11,7 @@ use crate::math::{
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 pub(crate) const C_2: Scalar = 0.05;
 pub(crate) const C_3: Scalar = 0.1065625;

@@ -15,7 +15,7 @@ use crate::{
     math::{Quantity, Scalar, Tensor, TensorVec},
     units::Length,
 };
-use std::{array::from_fn, f64::consts::FRAC_PI_4};
+use core::{array::from_fn, f64::consts::FRAC_PI_4};
 
 const D: usize = 3;
 

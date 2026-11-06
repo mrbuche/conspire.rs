@@ -3,10 +3,8 @@ use crate::io::netcdf::{
     format::{self, Storage, decode_be, decode_le, hdf5},
     nc_lock, reject_nul,
 };
-use std::{
-    ffi::NulError,
-    io::{Seek, SeekFrom, Write},
-};
+use alloc::ffi::NulError;
+use std::io::{Seek, SeekFrom, Write};
 
 impl DefineVariable for NetCDF {
     fn define_variable<T: NcType>(
@@ -40,7 +38,7 @@ impl PutVariable for NetCDF {
             State::Read(_) => panic!("put_variable on a NetCDF opened for reading"),
         };
         let netcdf4 = writer.netcdf4.is_some();
-        let dims = std::mem::take(&mut writer.dims);
+        let dims = core::mem::take(&mut writer.dims);
         let output = writer
             .output
             .as_mut()

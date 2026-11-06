@@ -8,7 +8,7 @@ use crate::{
     },
     units::Length,
 };
-use std::{array::from_fn, f64::consts::TAU};
+use core::{array::from_fn, f64::consts::TAU};
 
 /// Points on a grid across a box, with a margin around it so that points inside, outside and near
 /// the surface are all there.

@@ -4,7 +4,8 @@
 mod test;
 
 use super::super::{Feature, Key};
-use std::{collections::HashMap, hash::Hash, iter::once};
+use core::{hash::Hash, iter::once};
+use std::collections::HashMap;
 
 /// Where a solid's numbers start in those of all the solids together.
 pub(super) struct Offsets {

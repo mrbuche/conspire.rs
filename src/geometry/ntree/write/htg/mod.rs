@@ -8,8 +8,8 @@ use crate::{
     io::write::{data_array as payload, data_array_compressed as payload_compressed},
     math::Scalar,
 };
+use core::array::from_fn;
 use std::{
-    array::from_fn,
     fs::File,
     io::{BufWriter, Error, ErrorKind, Result, Write},
     path::Path,

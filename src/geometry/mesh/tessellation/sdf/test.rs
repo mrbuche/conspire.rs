@@ -1,4 +1,4 @@
-use std::f64::consts::{FRAC_PI_3, FRAC_PI_4};
+use core::f64::consts::{FRAC_PI_3, FRAC_PI_4};
 
 use crate::{
     geometry::{

@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::Scalar;
-use std::ops::Add;
+use core::ops::Add;
 
 pub trait Cell: Add<Output = Self> + Copy + PartialOrd + Sized {
     const ONE: Self;

@@ -50,7 +50,7 @@ use crate::{
     geometry::Coordinates,
     math::{Incidence, Labels},
 };
-use std::cell::OnceCell;
+use core::cell::OnceCell;
 
 pub struct Mesh<const D: usize> {
     connectivities: Connectivities,

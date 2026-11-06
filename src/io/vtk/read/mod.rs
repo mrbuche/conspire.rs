@@ -252,7 +252,7 @@ fn le_i32(b: &[u8]) -> i64 {
     i32::from_le_bytes(b.try_into().unwrap()) as i64
 }
 
-pub fn parse<T: std::str::FromStr>(token: &str) -> Result<T> {
+pub fn parse<T: core::str::FromStr>(token: &str) -> Result<T> {
     token
         .parse()
         .map_err(|_| invalid(format!("could not parse '{token}'")))

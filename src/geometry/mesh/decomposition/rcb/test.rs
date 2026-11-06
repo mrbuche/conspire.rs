@@ -6,7 +6,7 @@ use crate::{
     },
     math::Tensor,
 };
-use std::f64::consts::FRAC_PI_6;
+use core::f64::consts::FRAC_PI_6;
 
 fn rotated(mesh: &Mesh<3>, angle: f64) -> Mesh<3> {
     let (sin, cos) = angle.sin_cos();

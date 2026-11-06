@@ -12,7 +12,7 @@ use crate::{
     math::Quantity,
     units::{Area, Power, PowerPerArea, Time},
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 /// A flux per unit reference area.
 pub type TimedFlux<G> = TimedSource<Area, G>;

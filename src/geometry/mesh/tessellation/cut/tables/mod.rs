@@ -16,7 +16,8 @@ use crate::{
     math::{Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::{array::from_fn, collections::HashMap, collections::HashSet};
+use core::array::from_fn;
+use std::collections::{HashMap, HashSet};
 
 pub(super) struct GenericTables {
     signs: HashMap<usize, Sign>,

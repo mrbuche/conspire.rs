@@ -9,10 +9,8 @@ use crate::{
     },
     math::{Tensor, TensorVec},
 };
-use std::{
-    array::from_fn,
-    collections::{HashMap, HashSet},
-};
+use core::array::from_fn;
+use std::collections::{HashMap, HashSet};
 
 const DELTAS: [[isize; 3]; 6] = [
     [1, 0, 0],

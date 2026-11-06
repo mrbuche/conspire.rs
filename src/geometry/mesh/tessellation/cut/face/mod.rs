@@ -3,7 +3,8 @@ mod test;
 
 use super::{Sign, Vertex};
 use crate::geometry::{Coordinate, mesh::tessellation::D};
-use std::{collections::HashMap, mem::take};
+use core::mem::take;
+use std::collections::HashMap;
 
 pub(super) struct FaceCut {
     pub(super) endpoints: Vec<Vertex>,

@@ -13,7 +13,7 @@ use crate::{
     },
     units::{Force, ForcePerLength},
 };
-use std::ops::Index;
+use core::ops::Index;
 
 const ITEMS_PER_CHUNK: usize = 64;
 

@@ -10,7 +10,7 @@ use crate::{
     },
     units::Time,
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// A component of some nodes held fixed at its initial value.
 ///

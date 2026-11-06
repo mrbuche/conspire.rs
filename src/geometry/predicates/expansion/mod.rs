@@ -5,7 +5,7 @@
 #[cfg(test)]
 mod test;
 
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 /// A real number as non-overlapping components, no zeros, in order of increasing magnitude.
 ///

@@ -16,7 +16,7 @@ use crate::{
     },
     math::{Quantity, Scalar},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 type Pyramid<const D: usize, V> = Vec<([usize; D], Vec<Option<V>>)>;
 

@@ -6,7 +6,7 @@ use crate::geometry::{
     Coordinate,
     predicates::{orient2d, orient2d_estimate},
 };
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 /// An end of the part of a segment that lies inside a triangle.
 pub(super) struct Cut {

@@ -1,5 +1,5 @@
 use crate::units::{Dimensionless, UnitDiv};
-use std::ops::{Div, Mul};
+use core::ops::{Div, Mul};
 
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::internal_variables::HyperelasticIV},

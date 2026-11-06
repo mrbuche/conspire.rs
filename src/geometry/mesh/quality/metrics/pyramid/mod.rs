@@ -6,7 +6,7 @@ use crate::{
     math::{Quantity, Scalar},
     units::Volume,
 };
-use std::f64::consts::SQRT_2;
+use core::f64::consts::SQRT_2;
 
 pub(crate) const CORNERS: [(usize, [usize; 3]); 8] = [
     (0, [1, 3, 4]),

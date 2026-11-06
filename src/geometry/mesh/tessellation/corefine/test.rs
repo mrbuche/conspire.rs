@@ -15,7 +15,7 @@ use crate::{
     },
     units::Length,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 fn crossing(first: Triangle, second: Triangle) -> Result<Option<[Coordinate<3>; 2]>, &'static str> {
     Ok(match crossing_ends(first, second)? {

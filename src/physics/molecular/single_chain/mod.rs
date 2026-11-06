@@ -25,7 +25,7 @@ pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 
 use crate::math::{Quantity, Scalar, Style, StyledError, assert::AssertionError, styled_error};
 use crate::units::Length;
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 pub trait SingleChain
 where

@@ -7,7 +7,7 @@ use crate::math::Quantity;
 use std::collections::{HashMap, HashSet};
 
 fn hex_vol6(hex: &[usize; 8], coordinates: &Coordinates<3>) -> f64 {
-    let p: [[f64; 3]; 8] = std::array::from_fn(|k| {
+    let p: [[f64; 3]; 8] = core::array::from_fn(|k| {
         let v = &coordinates[hex[k]];
         [v[0].value(), v[1].value(), v[2].value()]
     });
@@ -44,7 +44,7 @@ pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
         if distinct.len() != 8 {
             return Err(format!("hex {e} has repeated nodes: {element:?}"));
         }
-        let hex: [usize; 8] = std::array::from_fn(|k| element[k]);
+        let hex: [usize; 8] = core::array::from_fn(|k| element[k]);
         let six_v = hex_vol6(&hex, coordinates);
         if six_v <= 1e-9 {
             return Err(format!(

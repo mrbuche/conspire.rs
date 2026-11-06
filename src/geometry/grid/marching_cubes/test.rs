@@ -3,7 +3,7 @@ use crate::{
     geometry::{Coordinate, grid::Voxels},
     math::Tensor,
 };
-use std::{array::from_fn, str::Lines};
+use core::{array::from_fn, str::Lines};
 
 fn f32s(line: &str) -> Vec<f32> {
     line.split_whitespace()

@@ -8,7 +8,7 @@
 mod test;
 
 use super::{HALF_EPSILON, expansion::Expansion};
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 /// The operations that predicates are built from, with the sign of the result when it is certain.
 pub(super) trait Arithmetic: Clone {

@@ -13,10 +13,9 @@ pub use self::{
     write::Output,
 };
 
-use std::{
-    array,
-    borrow::Cow,
-    iter,
+use alloc::borrow::Cow;
+use core::{
+    array, iter,
     ops::{Index, IndexMut, Range},
 };
 

@@ -6,10 +6,8 @@ use crate::{
     },
     math::Tensor,
 };
-use std::{
-    array::from_fn,
-    collections::{HashMap, HashSet},
-};
+use core::array::from_fn;
+use std::collections::{HashMap, HashSet};
 
 fn polytopal<const D: usize>(mesh: &Mesh<D>) -> (&[Vec<usize>], &[Vec<usize>]) {
     match &mesh.connectivities()[0] {

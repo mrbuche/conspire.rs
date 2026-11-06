@@ -18,11 +18,11 @@ use crate::{
     geometry::mesh::Decomposition,
     math::{Quantity, SquareMatrix, Tensor, Vector},
 };
+use core::time::Duration;
 use std::{
     collections::HashSet,
     sync::Mutex,
     thread::{available_parallelism, current, sleep},
-    time::Duration,
 };
 
 fn stiffness(entries: [[f64; 2]; 2]) -> SquareMatrix {

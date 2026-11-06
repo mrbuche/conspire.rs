@@ -1099,7 +1099,7 @@ mod block {
         optimize::{RootFindingBlock, SolveStrategy},
         sparse::{CscMatrix, SparseSolver},
     };
-    use std::collections::BTreeSet;
+    use alloc::collections::BTreeSet;
     const GLOBAL: usize = 6;
     const BLOCKS: usize = 3;
     const SIZE: usize = 2;

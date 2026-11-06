@@ -17,7 +17,9 @@ use crate::{
     },
     math::{Quantity, Scalar},
 };
-use std::{array::from_fn, collections::VecDeque, fs::read_to_string, io::Result, path::Path};
+use alloc::collections::VecDeque;
+use core::array::from_fn;
+use std::{fs::read_to_string, io::Result, path::Path};
 
 pub(crate) trait ReadHtg<P>
 where

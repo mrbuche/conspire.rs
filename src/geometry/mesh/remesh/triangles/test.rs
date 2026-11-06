@@ -52,11 +52,11 @@ fn three_split_makes_four_faces() {
 fn flip_reduces_overvalent_hub() {
     let mut connectivity: Vec<[usize; 3]> = (1..8)
         .map(|i| [0, i, i + 1])
-        .chain(std::iter::once([0, 8, 1]))
+        .chain(core::iter::once([0, 8, 1]))
         .collect();
     let mut points = vec![[0.0, 0.0, 0.0]];
     points.extend((0..8).map(|i| {
-        let angle = i as f64 * std::f64::consts::FRAC_PI_4;
+        let angle = i as f64 * core::f64::consts::FRAC_PI_4;
         [angle.cos(), angle.sin(), 0.0]
     }));
     let coordinates = Coordinates::from(points);

@@ -5,11 +5,10 @@ use crate::{
     geometry::grid::Grid,
     io::{Npy, NpyType},
 };
+use core::{fmt::Display, str::FromStr};
 use std::{
-    fmt::Display,
     io::{Error as ErrorIO, ErrorKind},
     path::Path,
-    str::FromStr,
 };
 
 pub enum Input<P>

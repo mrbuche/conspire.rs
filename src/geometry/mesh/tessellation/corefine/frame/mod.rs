@@ -18,10 +18,8 @@ use crate::{
     },
     math::Quantity,
 };
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, BTreeSet},
-};
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::cmp::Ordering;
 
 /// Edge points are placed at multiples of this on the edge from `(1, 0)` to `(0, 1)`, so that
 /// both of their coordinates, which sum to one, are exact.

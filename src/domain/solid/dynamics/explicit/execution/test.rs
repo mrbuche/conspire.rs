@@ -8,7 +8,7 @@ use crate::{
     math::{Quantity, Tensor, integrate::VelocityVerlet},
     units::{Density, Stress, Time},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const LAYERS: usize = 40;
 

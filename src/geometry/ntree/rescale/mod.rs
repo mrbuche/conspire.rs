@@ -3,7 +3,7 @@ use crate::{
     math::{Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 pub struct Rescaling<const D: usize> {
     pub(crate) center: Coordinate<D>,

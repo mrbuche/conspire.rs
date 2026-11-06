@@ -5,11 +5,11 @@ use crate::{
     geometry::mesh::{Connectivity, Mesh},
     math::Scalar,
 };
+use core::str::FromStr;
 use std::{
     fs::read_to_string,
     io::{Error, ErrorKind, Result},
     path::Path,
-    str::FromStr,
 };
 
 pub(crate) trait ReadMedit<P>

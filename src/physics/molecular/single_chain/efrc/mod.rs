@@ -14,7 +14,7 @@ use crate::{
     },
     units::{BOLTZMANN_CONSTANT, ForcePerLength, Length},
 };
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 /// The extensible freely-rotating chain model.
 #[derive(Clone, Debug)]

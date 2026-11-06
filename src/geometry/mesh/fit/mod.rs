@@ -16,10 +16,10 @@ use crate::{
     },
     units::{Area, Dimensionless, Length, ReciprocalLength},
 };
+use alloc::collections::VecDeque;
+use core::{array::from_fn, mem::replace};
 use std::{
-    array::from_fn,
-    collections::{HashSet, VecDeque},
-    mem::replace,
+    collections::HashSet,
     thread::{available_parallelism, scope},
 };
 

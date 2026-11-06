@@ -4,7 +4,7 @@ pub mod conduction;
 pub mod convection;
 pub mod radiation;
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Required methods for thermal constitutive models.
 pub trait Thermal

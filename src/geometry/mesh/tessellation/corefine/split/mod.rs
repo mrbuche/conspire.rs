@@ -8,7 +8,8 @@ use crate::{
     geometry::{Coordinate, mesh::Tessellation, predicates::Cutter},
     math::Tensor,
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use alloc::collections::BTreeMap;
+use std::collections::{HashMap, HashSet};
 
 /// What meets one triangle: points, each with a rounded position, and the segments between them.
 pub(super) struct Piece<K> {

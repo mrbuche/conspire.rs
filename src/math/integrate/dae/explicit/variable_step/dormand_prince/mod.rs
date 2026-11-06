@@ -5,7 +5,7 @@ use crate::math::{
         Times, ode::explicit::variable_step::dormand_prince::*,
     },
 };
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T> for DormandPrince
 where

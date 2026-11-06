@@ -13,7 +13,8 @@ use crate::{
     },
     math::{Scalar, TensorVec},
 };
-use std::{array::from_fn, collections::HashMap};
+use core::array::from_fn;
+use std::collections::HashMap;
 
 type NodeMap<const D: usize> = HashMap<[usize; D], usize>;
 

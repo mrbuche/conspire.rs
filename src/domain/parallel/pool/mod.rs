@@ -7,10 +7,12 @@
 #[cfg(test)]
 mod test;
 
+use alloc::sync::Arc;
+use core::mem::transmute;
+use core::panic::AssertUnwindSafe;
 use std::{
-    mem::transmute,
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError},
+    panic::catch_unwind,
+    sync::{Condvar, Mutex, MutexGuard, PoisonError},
     thread::{Builder, JoinHandle},
 };
 

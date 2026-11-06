@@ -6,7 +6,7 @@ use crate::math::{
     Derivative, Differentiable, Quantity, TensorVec,
     integrate::{IntegrationError, Times},
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 /// Explicit Euler for a single [`Integrable`], one step per interval of `time`.
 ///

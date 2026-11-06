@@ -87,7 +87,8 @@ macro_rules! elastic_tests {
             #[test]
             #[ignore]
             fn bench() {
-                use std::{hint::black_box, time::Instant};
+                use core::hint::black_box;
+                use std::time::Instant;
                 let (element, coordinates, autodiff, hand) = setup();
                 let time = |label: &str, iterations: u32, mut f: Box<dyn FnMut() + '_>| {
                     f();

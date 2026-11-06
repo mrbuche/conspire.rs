@@ -17,7 +17,7 @@ use crate::{
     mechanics::ReferenceCoordinate,
     units::{Acceleration, Energy, Force, Power, StressPerLength, Time, UnitMul, Volume},
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// A layout whose degrees of freedom begin with the coordinates of a solid in three dimensions.
 pub trait SolidLayout: Layout {}

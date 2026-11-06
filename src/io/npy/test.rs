@@ -328,7 +328,7 @@ fn dtype_mismatch_errors() {
     assert!(Npy::<u16>::read(path).is_err());
 }
 
-fn round_trip<T: NpyType + Copy + PartialEq + std::fmt::Debug>(tag: &str, data: Vec<T>) {
+fn round_trip<T: NpyType + Copy + PartialEq + core::fmt::Debug>(tag: &str, data: Vec<T>) {
     let path = format!("target/npy_generic_{tag}.npy");
     Npy {
         data: data.clone(),

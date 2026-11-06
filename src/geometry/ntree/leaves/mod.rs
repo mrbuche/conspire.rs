@@ -5,7 +5,7 @@ use crate::geometry::ntree::{
     node::{Kind, Node},
     subdivide::insert_bit,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
     Orthotree<D, L, M, N, T, U>

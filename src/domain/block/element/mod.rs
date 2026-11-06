@@ -6,7 +6,7 @@ use crate::{
     domain::block::add_node_neighbors,
     math::{Style, StyledError, assert::AssertionError, defeat_message},
 };
-use std::{
+use core::{
     fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
 };
@@ -100,4 +100,4 @@ impl<K: ElementKind> Display for ElementError<K> {
     }
 }
 
-impl<K: ElementKind> std::error::Error for ElementError<K> {}
+impl<K: ElementKind> core::error::Error for ElementError<K> {}

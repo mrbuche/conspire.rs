@@ -11,7 +11,7 @@ use crate::{
     },
     math::{Scalar, TensorVec},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const LL: usize = L * L;
 const SCALE_1: Scalar = 0.5;

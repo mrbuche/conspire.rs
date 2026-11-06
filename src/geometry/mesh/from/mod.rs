@@ -16,7 +16,7 @@ use crate::{
     },
     math::{CrossProduct, Labels, Tensor},
 };
-use std::cell::OnceCell;
+use core::cell::OnceCell;
 
 /// The axis orders of the Kuhn/Freudenthal split: each a path of unit steps
 /// from a cell's all-low corner to its all-high one.

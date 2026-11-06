@@ -14,10 +14,9 @@ use crate::geometry::{
     Coordinate,
     predicates::{Derived, orient3d, side},
 };
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet},
-};
+use alloc::collections::BTreeMap;
+use core::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 
 /// Where a point is on a triangle: inside it, on an edge, or on a corner. The edge `e` runs from
 /// corner `e` to corner `e + 1`.

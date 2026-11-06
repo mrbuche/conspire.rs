@@ -7,7 +7,7 @@ use crate::math::{
     tensor::vec::TensorVector,
 };
 use crate::units::{Dimensionless, UnitMul};
-use std::ops::Mul;
+use core::ops::Mul;
 
 use super::sparse_vec::TensorRank2SparseVec;
 

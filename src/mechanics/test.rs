@@ -237,10 +237,10 @@ fn rotation_rate_current_configuration() -> Result<(), AssertionError> {
 
 #[test]
 fn size() {
-    assert_eq!(std::mem::size_of::<Scalar>(), std::mem::size_of::<f64>());
+    assert_eq!(core::mem::size_of::<Scalar>(), core::mem::size_of::<f64>());
     assert_eq!(
-        std::mem::size_of::<DeformationGradient>(),
-        std::mem::size_of::<[[f64; 3]; 3]>()
+        core::mem::size_of::<DeformationGradient>(),
+        core::mem::size_of::<[[f64; 3]; 3]>()
     );
 }
 

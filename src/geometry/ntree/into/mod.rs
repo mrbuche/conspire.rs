@@ -3,7 +3,8 @@ use crate::{
     geometry::{Coordinates, grid::Grid, mesh::Connectivity, ntree::Orthotree},
     math::{Tensor, TensorVec},
 };
-use std::{array::from_fn, collections::HashMap};
+use core::array::from_fn;
+use std::collections::HashMap;
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, U>
     From<Orthotree<D, L, M, N, u16, U>> for (Vec<[usize; N]>, Coordinates<D>)

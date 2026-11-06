@@ -3,7 +3,8 @@ use crate::io::netcdf::{
     format::{self, AttValue, Attribute, DimSpec},
     nc_lock, reject_nul,
 };
-use std::{collections::HashMap, ffi::NulError, fs::File, io::Write};
+use alloc::ffi::NulError;
+use std::{collections::HashMap, fs::File, io::Write};
 
 impl NetCDF {
     pub fn close(&mut self) {
@@ -17,7 +18,7 @@ impl NetCDF {
                     &writer.dims,
                     &writer.global_attributes,
                     &output.variables,
-                    std::mem::take(&mut output.data),
+                    core::mem::take(&mut output.data),
                     threads,
                     &mut file,
                 );
@@ -140,7 +141,7 @@ impl NetCDF {
                         })
                     })
                     .collect(),
-                atts: std::mem::take(&mut build.attributes),
+                atts: core::mem::take(&mut build.attributes),
                 begin: 0,
                 vsize: 0,
                 storage: format::Storage::Classic,

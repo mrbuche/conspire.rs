@@ -9,7 +9,7 @@ use crate::{
     },
     units::Time,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// Implicit integrators for dynamics.
 /// ```math

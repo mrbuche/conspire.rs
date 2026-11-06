@@ -9,7 +9,7 @@ pub(crate) mod list_2d;
 pub(crate) mod vec;
 pub(crate) mod vec_2d;
 
-use std::{
+use core::{
     array::from_fn,
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,
@@ -383,7 +383,7 @@ impl<const D: usize, I, U> Tensor for TensorRank1<D, I, U> {
 
 impl<const D: usize, I, U> IntoIterator for TensorRank1<D, I, U> {
     type Item = Quantity<U>;
-    type IntoIter = std::array::IntoIter<Self::Item, D>;
+    type IntoIter = core::array::IntoIter<Self::Item, D>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }

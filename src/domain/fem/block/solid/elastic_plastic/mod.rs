@@ -23,7 +23,7 @@ use crate::{
         sparse::CscMatrix,
     },
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 pub use crate::domain::block::solid::plastic::PlasticStateVariablesField;
 

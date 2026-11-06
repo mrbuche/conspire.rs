@@ -9,7 +9,8 @@ use crate::{
     },
     math::{Scalar, Tensor, TensorVec},
 };
-use std::{array::from_fn, collections::HashMap};
+use core::array::from_fn;
+use std::collections::HashMap;
 
 #[cfg(test)]
 mod test;

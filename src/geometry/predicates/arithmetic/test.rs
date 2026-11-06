@@ -1,6 +1,6 @@
 use super::{Arithmetic, Estimate};
 use crate::geometry::predicates::{HALF_EPSILON, expansion::Expansion, test::Lcg};
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 /// A float of any size from about 2⁻¹⁶ to 2¹⁶, of either sign.
 fn float(random: &mut Lcg) -> f64 {

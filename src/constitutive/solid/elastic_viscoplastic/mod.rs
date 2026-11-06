@@ -33,7 +33,7 @@ use crate::{
     },
     units::{Dimensionless, Dissipation, Rate, Time},
 };
-use std::ops::{Add, Mul};
+use core::ops::{Add, Mul};
 
 use crate::constitutive::solid::elastic_plastic::bcs;
 pub use crate::constitutive::solid::elastic_plastic::{AppliedLoad, ElasticPlasticOrViscoplastic};

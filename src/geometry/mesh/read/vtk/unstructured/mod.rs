@@ -93,7 +93,7 @@ where
         let coordinates: Coordinates<D> = points
             .chunks(components)
             .map(|point| {
-                std::array::from_fn::<_, D, _>(|i| match scale {
+                core::array::from_fn::<_, D, _>(|i| match scale {
                     Some(scale) => scale(point[i]).value(),
                     None => point[i],
                 })
@@ -226,7 +226,7 @@ fn arrays<const N: usize>(cells: &[(i64, &[i64])]) -> Result<Vec<[usize; N]>> {
                     nodes.len()
                 )));
             }
-            Ok(std::array::from_fn(|i| nodes[i] as usize))
+            Ok(core::array::from_fn(|i| nodes[i] as usize))
         })
         .collect()
 }

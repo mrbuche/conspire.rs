@@ -400,7 +400,7 @@ fn rotated_box(minimum: [f64; 3], maximum: [f64; 3], angle: f64) -> Tessellation
             axis[2] * p[0] - axis[0] * p[2],
             axis[0] * p[1] - axis[1] * p[0],
         ];
-        std::array::from_fn(|d| p[d] * cos + cross[d] * sin + axis[d] * dot * (1.0 - cos))
+        core::array::from_fn(|d| p[d] * cos + cross[d] * sin + axis[d] * dot * (1.0 - cos))
     };
     let triangles = match &plain.mesh().connectivities()[0] {
         Connectivity::Triangular(triangles) => triangles.iter().copied().collect::<Vec<_>>(),
@@ -581,14 +581,14 @@ fn classify_agrees_between_the_hex_and_tet_lattices() {
         .iter()
         .zip(found.chunks(6))
         .for_each(|(&cell, tets)| assert!(tets.iter().all(|&class| class == cell)));
-    let cells_differing: std::collections::BTreeSet<usize> = classes
+    let cells_differing: alloc::collections::BTreeSet<usize> = classes
         .iter()
         .zip(&found)
         .enumerate()
         .filter(|&(_, (&rasterized, &found))| rasterized != found)
         .map(|(element, _)| element / 6)
         .collect();
-    let hexes_differing: std::collections::BTreeSet<usize> = cells
+    let hexes_differing: alloc::collections::BTreeSet<usize> = cells
         .iter()
         .zip(&hex_found)
         .enumerate()

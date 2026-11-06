@@ -12,7 +12,7 @@ use crate::math::{
     sparse::SparseSolver,
 };
 use crate::units::{UnitDiv, UnitMul};
-use std::{
+use core::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
 };

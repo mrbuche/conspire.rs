@@ -112,8 +112,8 @@ fn random_cuboids_on_a_coarse_grid_split_into_closed_surfaces() -> Result<(), As
     };
     let (mut done, mut failed) = (0, 0);
     for _ in 0..300 {
-        let low: [f64; 3] = std::array::from_fn(|_| next(5) as f64 * 0.25 - 0.5);
-        let high: [f64; 3] = std::array::from_fn(|axis| low[axis] + (next(4) + 1) as f64 * 0.25);
+        let low: [f64; 3] = core::array::from_fn(|_| next(5) as f64 * 0.25 - 0.5);
+        let high: [f64; 3] = core::array::from_fn(|axis| low[axis] + (next(4) + 1) as f64 * 0.25);
         let (first, second) = (cuboid([0.0; 3], [1.0; 3]), cuboid(low, high));
         match first.corefine(&second) {
             Ok([a, b]) => {

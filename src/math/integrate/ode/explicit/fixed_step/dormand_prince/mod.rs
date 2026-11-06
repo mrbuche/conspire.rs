@@ -8,7 +8,7 @@ use crate::math::{
         ode::explicit::variable_step::dormand_prince::Tableau as DormandPrinceTableau,
     },
 };
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug, Default)]

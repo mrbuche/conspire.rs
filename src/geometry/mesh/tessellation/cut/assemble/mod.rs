@@ -19,7 +19,8 @@ use crate::{
     math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec},
     units::{Length, Volume},
 };
-use std::{array::from_fn, collections::HashMap, collections::HashSet};
+use core::array::from_fn;
+use std::collections::{HashMap, HashSet};
 
 #[expect(clippy::type_complexity)]
 fn build_cut_cells(

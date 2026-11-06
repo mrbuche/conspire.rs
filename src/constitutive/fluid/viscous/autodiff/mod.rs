@@ -22,7 +22,7 @@ use crate::{
     },
     units::{Stress, Viscosity},
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// A viscous model given as `#[autodiff]`-differentiable scalar kernels over a
 /// row-major deformation gradient and its rate: three viscous stress measures,

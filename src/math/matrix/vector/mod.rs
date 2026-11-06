@@ -9,7 +9,8 @@ use crate::math::{
     SquareMatrix, Tensor, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, TensorVector,
     write_tensor_rank_0,
 };
-use std::{
+use alloc::vec;
+use core::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
     mem::forget,
@@ -17,7 +18,7 @@ use std::{
         Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, RangeFrom, RangeTo, Sub,
         SubAssign,
     },
-    slice, vec,
+    slice,
 };
 
 /// A vector.

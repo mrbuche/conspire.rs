@@ -1,10 +1,10 @@
 use crate::io::netcdf::NetCDF;
-use std::{
+use alloc::ffi::NulError;
+use core::{
     error::Error,
-    ffi::NulError,
     fmt::{self, Debug, Display},
-    path::Path,
 };
+use std::path::Path;
 
 pub enum NetCdfError {
     InvalidPath,

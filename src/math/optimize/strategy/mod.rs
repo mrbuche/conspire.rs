@@ -1,5 +1,5 @@
 use super::{Direct, NewtonRaphson, NoSearch};
-use std::fmt::Display;
+use core::fmt::Display;
 
 /// Possible strategies for problems split into global and local variables.
 #[derive(Clone, Debug)]

@@ -7,7 +7,7 @@ use crate::{
     },
     math::Quantity,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 fn report(name: &str, mesh: &Mesh<3>) -> (usize, f64, usize) {
     let scaled = &mesh.minimum_scaled_jacobians()[0];
@@ -178,7 +178,8 @@ mod field {
         },
         math::Tensor,
     };
-    use std::{array::from_fn, collections::HashMap, f64::consts::PI};
+    use core::{array::from_fn, f64::consts::PI};
+    use std::collections::HashMap;
     fn volume_of(mesh: &Mesh<3>) -> f64 {
         mesh.volumes().into_iter().flatten().sum()
     }

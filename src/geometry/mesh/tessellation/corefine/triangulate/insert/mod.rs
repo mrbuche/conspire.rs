@@ -1,7 +1,7 @@
 //! Inserting a point into the triangulation, inside a triangle or on an edge.
 
 use super::{Across, Face, Triangulation};
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 /// Where a point is among the triangles.
 enum Place {

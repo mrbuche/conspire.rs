@@ -5,10 +5,8 @@ use crate::{
     },
     math::assert::AssertionError,
 };
-use std::{
-    collections::HashMap,
-    f64::consts::{PI, TAU},
-};
+use core::f64::consts::{PI, TAU};
+use std::collections::HashMap;
 
 pub const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],
@@ -46,7 +44,7 @@ pub fn cuboid(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
     let coordinates: Coordinates<3> = COORDINATES
         .iter()
         .map(|corner| {
-            std::array::from_fn(|axis| {
+            core::array::from_fn(|axis| {
                 minimum[axis] + (maximum[axis] - minimum[axis]) * corner[axis].value()
             })
             .into()

@@ -11,7 +11,7 @@ use crate::{
     },
     math::Scalar,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const M: usize = 6;
 

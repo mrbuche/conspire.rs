@@ -12,13 +12,12 @@ use crate::{
     io::invalid,
     math::{Tensor, TensorVec},
 };
+use core::{cell::OnceCell, str::SplitWhitespace};
 use std::{
-    cell::OnceCell,
     collections::HashMap,
     fs::File,
     io::{BufReader, Error as ErrorIO, Read, Seek, SeekFrom},
     path::Path,
-    str::SplitWhitespace,
 };
 
 impl TryFrom<&Path> for Tessellation {

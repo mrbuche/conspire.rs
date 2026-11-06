@@ -8,7 +8,7 @@ use crate::{
     },
     math::{CrossProduct, FxHashMap, FxHashSet, Scalar, Tensor},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const ASCENT_ITERATIONS: usize = 64;
 const PASSES: usize = 64;

@@ -14,7 +14,8 @@ use crate::{
     math::{Quantity, Scalar, Tensor, TensorVec},
     units::Length,
 };
-use std::{array::from_fn, cell::OnceCell, collections::HashMap};
+use core::{array::from_fn, cell::OnceCell};
+use std::collections::HashMap;
 
 const WELD_TOLERANCE: Scalar = 1e-6;
 

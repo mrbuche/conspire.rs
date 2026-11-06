@@ -3,7 +3,8 @@ use crate::{
     geometry::mesh::Decomposition,
     math::{Scalar, SquareMatrix, Tensor, Vector},
 };
-use std::{array::from_fn, collections::HashMap};
+use core::array::from_fn;
+use std::collections::HashMap;
 
 /// The tangent of a Newton step left unassembled.
 ///

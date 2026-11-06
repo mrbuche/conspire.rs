@@ -3,7 +3,7 @@ mod test;
 
 use super::{SurfaceField, SurfaceFlux, SurfaceFluxPerArea, SurfacePotential, SurfaceTangent};
 use crate::{constitutive::diffusion::Diffusive, math::Quantity, units::Area};
-use std::ops::Mul;
+use core::ops::Mul;
 
 /// A linear law, where the flux is proportional to the difference between the field and its
 /// ambient value.

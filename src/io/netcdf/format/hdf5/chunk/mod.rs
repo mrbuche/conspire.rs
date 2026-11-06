@@ -2,7 +2,7 @@
 mod test;
 
 use super::{Filter, Layout, TREE, shuffle, u16, u32, u64, uint};
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 // Bytes for `out_elems` unwritten elements: the dataset's fill value tiled if
 // one is known (`fill.len() == elem`), otherwise zero.

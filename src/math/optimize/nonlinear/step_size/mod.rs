@@ -6,7 +6,7 @@ mod barzilai_borwein;
 pub use barzilai_borwein::{BarzilaiBorwein, Step as BarzilaiBorweinStep};
 
 use crate::math::{ContractWith, Quantity, Tensor};
-use std::{
+use core::{
     fmt::{Debug, Display},
     ops::Div,
 };

@@ -1,5 +1,5 @@
 use crate::geometry::mesh::Connectivity;
-use std::slice::Iter;
+use core::slice::Iter;
 
 pub enum ElementIter<'a> {
     Hexahedral(Iter<'a, [usize; 8]>),

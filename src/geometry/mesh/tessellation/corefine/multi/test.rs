@@ -13,7 +13,7 @@ use crate::{
         assert::{Assert, AssertionError},
     },
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 type Box3 = ([i64; 3], [i64; 3]);
 
@@ -206,8 +206,8 @@ fn random_boxes_on_a_coarse_grid_give_closed_materials_or_an_error() -> Result<(
     for _ in 0..300 {
         let boxes: Vec<Box3> = (0..3)
             .map(|_| {
-                let low: [i64; 3] = std::array::from_fn(|_| next(8) as i64);
-                let high = std::array::from_fn(|axis| low[axis] + 1 + next(5) as i64);
+                let low: [i64; 3] = core::array::from_fn(|_| next(8) as i64);
+                let high = core::array::from_fn(|axis| low[axis] + 1 + next(5) as i64);
                 (low, high)
             })
             .collect();

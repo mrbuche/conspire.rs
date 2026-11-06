@@ -10,7 +10,7 @@ use crate::{
     },
     units::{Dimensionless, UnitDiv},
 };
-use std::{mem::replace, ops::Mul};
+use core::{mem::replace, ops::Mul};
 
 const PATIENCE: usize = 30;
 const PROGRESS: Quantity = Quantity::new(0.9);

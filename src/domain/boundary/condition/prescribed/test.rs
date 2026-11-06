@@ -13,7 +13,7 @@ use crate::{
         Temperature as TemperatureUnit,
     },
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 fn entries(constraints: EqualityConstraints) -> Vec<(usize, Prescription)> {
     constraints

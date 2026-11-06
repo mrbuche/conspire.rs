@@ -5,7 +5,7 @@ use crate::{
     math::{Quantity, Tensor},
     units::Length,
 };
-use std::cmp::Ordering::Greater;
+use core::cmp::Ordering::Greater;
 
 /// A line through `origin` along a unit `direction`.
 pub(super) struct Axis {

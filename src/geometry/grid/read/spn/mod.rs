@@ -1,11 +1,9 @@
 use crate::geometry::grid::Grid;
+use core::{array::from_fn, fmt::Display, str::FromStr};
 use std::{
-    array::from_fn,
-    fmt::Display,
     fs::read_to_string,
     io::{Error, ErrorKind, Result},
     path::Path,
-    str::FromStr,
 };
 
 pub(super) fn read<const D: usize, T, P>(path: P, nel: Vec<usize>) -> Result<Grid<D, T>>

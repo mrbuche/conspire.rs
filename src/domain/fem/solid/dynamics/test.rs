@@ -977,7 +977,7 @@ mod bar_wave {
                 },
                 DENSITY,
                 (0..ELEMENTS)
-                    .map(|k| std::array::from_fn(|i| 4 * k + i))
+                    .map(|k| core::array::from_fn(|i| 4 * k + i))
                     .collect::<Vec<[usize; 8]>>(),
                 &reference,
             )),

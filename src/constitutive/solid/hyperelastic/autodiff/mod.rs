@@ -23,7 +23,7 @@ use crate::{
     mechanics::DeformationGradient,
     units::EnergyDensity,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// An [`AutodiffElastic`] model that also exposes its Helmholtz free energy
 /// density as a scalar kernel (its first-Piola stress kernel being reverse mode

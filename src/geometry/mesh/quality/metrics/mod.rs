@@ -16,9 +16,9 @@ use crate::{
     math::{Quantity, Reference, Scalar, Tensor, TensorRank1List, TensorRank2},
     units::{Area, Length, Volume},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
-const EQUIANGLE: Scalar = std::f64::consts::FRAC_PI_3;
+const EQUIANGLE: Scalar = core::f64::consts::FRAC_PI_3;
 
 pub trait Verdict {
     fn edge_ratios(&self) -> Vec<Vec<Scalar>>;

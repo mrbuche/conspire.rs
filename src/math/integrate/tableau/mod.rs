@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::Scalar;
-use std::f64::consts::FRAC_PI_2;
+use core::f64::consts::FRAC_PI_2;
 
 /// Butcher tableau for an explicit Runge–Kutta method.
 pub trait ButcherTableau {

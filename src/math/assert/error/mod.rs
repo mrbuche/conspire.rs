@@ -2,10 +2,8 @@
 mod test;
 
 use crate::math::{TensorError, defeat_message};
-use std::{
-    fmt::{self, Debug, Formatter},
-    io::Error as ErrorIO,
-};
+use core::fmt::{self, Debug, Formatter};
+use std::io::Error as ErrorIO;
 
 /// An error produced by a failed assertion, comparing two values.
 pub struct AssertionError {

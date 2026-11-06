@@ -23,10 +23,9 @@ use crate::{
     },
     math::Tensor,
 };
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-};
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 
 /// The surfaces that separate any number of solids, each triangle labelled with the solid on
 /// either side of it.
@@ -480,7 +479,7 @@ fn build(solids: &[Watertight]) -> Result<Interfaces, &'static str> {
         refined.push(refine(
             own,
             |node| &coordinates[node],
-            std::mem::take(&mut pieces[volume]),
+            core::mem::take(&mut pieces[volume]),
             |spot| &spot.own,
             |spot| spot.others.iter().map(cutter).collect(),
             |spot, position| {

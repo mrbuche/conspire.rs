@@ -3,7 +3,7 @@ use crate::math::{
     optimize::{OptimizationError, StepSize},
 };
 use crate::units::UnitRatio;
-use std::{fmt::Display, ops::Mul};
+use core::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
 use super::backtrack::{Backtrack, Gradient, half_square_norm, residual_step, searched};

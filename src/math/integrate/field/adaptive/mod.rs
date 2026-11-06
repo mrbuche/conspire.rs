@@ -13,7 +13,7 @@ use crate::math::{
     optimize::{EqualityConstraints, Optimization, RootFinding},
     sparse::SparseSolver,
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 const DT_CUT: Scalar = 0.2;
 

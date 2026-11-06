@@ -2,5 +2,5 @@ use super::Scalar;
 
 #[test]
 fn size() {
-    assert_eq!(std::mem::size_of::<&[Scalar]>(), 16)
+    assert_eq!(core::mem::size_of::<&[Scalar]>(), 16)
 }

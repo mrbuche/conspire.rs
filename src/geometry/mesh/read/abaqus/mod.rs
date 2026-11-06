@@ -8,13 +8,15 @@ use crate::{
     },
     math::Scalar,
 };
+use core::{
+    iter::Peekable,
+    str::{FromStr, Lines},
+};
 use std::{
     collections::HashMap,
     fs::read_to_string,
     io::{Error, ErrorKind, Result},
-    iter::Peekable,
     path::Path,
-    str::{FromStr, Lines},
 };
 
 pub(crate) trait ReadAbaqus<P>

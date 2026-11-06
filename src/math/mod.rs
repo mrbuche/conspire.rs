@@ -80,7 +80,7 @@ pub use tensor::{
     vec::{TensorRank1RefVec, TensorVector},
 };
 
-use std::fmt;
+use core::fmt;
 
 fn write_tensor_rank_0(f: &mut fmt::Formatter, tensor_rank_0: &TensorRank0) -> fmt::Result {
     let num = if tensor_rank_0.abs() > 1e-1 {

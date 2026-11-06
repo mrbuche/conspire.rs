@@ -4,7 +4,7 @@ use crate::math::{
     sparse::SparseSolver,
 };
 use crate::units::UnitRatio;
-use std::{
+use core::{
     fmt::Display,
     ops::{Div, Mul},
 };

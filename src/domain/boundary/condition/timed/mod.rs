@@ -10,7 +10,7 @@ use crate::{
     },
     units::Time,
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// A component of some nodes held at a value that is a function of time.
 pub struct Timed<'m, L, G> {

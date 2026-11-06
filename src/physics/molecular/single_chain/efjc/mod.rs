@@ -21,7 +21,7 @@ use crate::{
     },
     units::{BOLTZMANN_CONSTANT, ForcePerLength, Length},
 };
-use std::f64::consts::{PI, TAU};
+use core::f64::consts::{PI, TAU};
 
 /// The extensible freely-jointed chain model.[^1]<sup>,</sup>[^2]
 /// [^1]: N. Balabaev and T. Khazanovich, [Russian Journal of Physical Chemistry B  **3**, 242 (2009)](https://doi.org/10.1134/S1990793109020109).

@@ -20,7 +20,7 @@ use crate::{
     mechanics::Times,
     units::{Energy, Time},
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 pub trait HyperelasticViscoplasticElements<S, const D: usize>
 where

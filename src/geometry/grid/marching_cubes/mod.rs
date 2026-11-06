@@ -14,7 +14,7 @@ use crate::{
     math::TensorVec,
     units::Length,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const EDGES_X: [[usize; 2]; 12] = [
     [0, 1],

@@ -4,11 +4,9 @@ use crate::geometry::ntree::node::slot::Slot;
 mod test;
 
 use crate::geometry::ntree::{Orthotree, node::Kind, subdivide::insert_bit};
-use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap, HashSet},
-    hash::Hash,
-};
+use alloc::collections::BinaryHeap;
+use core::{cmp::Reverse, hash::Hash};
+use std::collections::{HashMap, HashSet};
 
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>

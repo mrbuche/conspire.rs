@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use core::num::NonZeroU32;
 #[cfg(test)]
 mod test;
 
@@ -6,7 +6,7 @@ use crate::geometry::{
     grid::{Pixels, Voxels},
     ntree::{Octree, Quadtree},
 };
-use std::hash::Hash;
+use core::hash::Hash;
 
 impl<V: Copy + Eq + Hash> Pixels<V> {
     pub fn defeature(self, minimum: usize) -> Result<Self, &'static str> {

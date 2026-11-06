@@ -1,13 +1,11 @@
 use super::Pool;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use core::{panic::AssertUnwindSafe, time::Duration};
 use std::{
     collections::HashSet,
-    panic::{AssertUnwindSafe, catch_unwind},
-    sync::{
-        Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    panic::catch_unwind,
+    sync::Mutex,
     thread::{current, sleep, yield_now},
-    time::Duration,
 };
 
 #[test]

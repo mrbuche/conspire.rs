@@ -8,7 +8,9 @@ use crate::{
     },
     io::{GetVariable, NetCDF},
 };
-use std::{array::from_fn, collections::HashMap, ffi::NulError, path::Path};
+use alloc::ffi::NulError;
+use core::array::from_fn;
+use std::{collections::HashMap, path::Path};
 
 pub(crate) trait ReadExodus<P>
 where

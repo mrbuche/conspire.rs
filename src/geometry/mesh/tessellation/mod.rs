@@ -18,8 +18,8 @@ use crate::{
     math::{Reference, TensorRank1Vec2D},
     units::Dimensionless,
 };
+use core::cell::OnceCell;
 use features::Features;
-use std::cell::OnceCell;
 
 const D: usize = 3;
 

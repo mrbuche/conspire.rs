@@ -59,7 +59,7 @@ use crate::{
     },
     units::{Acceleration, Length, Velocity},
 };
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 pub(crate) fn nodal_coordinates<const D: usize>(
     coordinates: Coordinates<D>,

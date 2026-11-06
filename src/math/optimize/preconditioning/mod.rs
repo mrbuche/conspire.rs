@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{Quantity, QuantityVector, Tensor, TensorVector, Vector};
-use std::ops::{Div, Mul};
+use core::ops::{Div, Mul};
 
 /// Residual modification to improve solver conditioning.
 pub trait Precondition<F = Vector, X = Vector> {

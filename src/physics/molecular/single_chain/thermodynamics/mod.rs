@@ -7,7 +7,8 @@ use crate::{
     physics::molecular::single_chain::{Extensible, Inextensible, SingleChain, SingleChainError},
     units::Temperature,
 };
-use std::{f64::consts::PI, thread::scope};
+use core::f64::consts::PI;
+use std::thread::scope;
 
 pub type Configuration = Vectors<Current>;
 

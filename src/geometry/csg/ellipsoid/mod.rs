@@ -9,7 +9,7 @@ use crate::{
     math::{Quantity, Tensor},
     units::Length,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 /// How far from orthonormal the axes of an ellipsoid may be.
 const ORTHONORMAL: f64 = 1e-9;

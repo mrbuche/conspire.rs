@@ -17,7 +17,7 @@ use crate::{
         },
     },
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 impl<C, F, R, Y> ElasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C, F, R>
 where

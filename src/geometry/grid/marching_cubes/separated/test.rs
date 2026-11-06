@@ -6,7 +6,8 @@ use crate::{
     math::Tensor,
     units::Length,
 };
-use std::{array::from_fn, collections::HashMap, f64::consts::PI};
+use core::{array::from_fn, f64::consts::PI};
+use std::collections::HashMap;
 
 pub(crate) fn sample(nel: [usize; 3], mut field: impl FnMut([usize; 3]) -> f64) -> Voxels<f64> {
     let mut data = Vec::with_capacity(nel.iter().product());

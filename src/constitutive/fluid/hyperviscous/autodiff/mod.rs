@@ -20,7 +20,7 @@ use crate::{
     mechanics::{DeformationGradient, DeformationGradientRate},
     units::Dissipation,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// An [`AutodiffViscous`] model that also exposes its viscous dissipation
 /// potential as a scalar kernel (its first-Piola viscous stress kernel being

@@ -17,7 +17,8 @@ use crate::{
     },
     units::Time,
 };
-use std::{cell::RefCell, collections::BTreeMap};
+use alloc::collections::BTreeMap;
+use core::cell::RefCell;
 
 /// The assembled residuals and tangent blocks of the monolithic system. The unknowns
 /// are the nodal coordinates, then the local unknowns of every integration point of

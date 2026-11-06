@@ -19,7 +19,7 @@ use crate::{
     math::{Quantity, Scalar, Style, StyledError, styled_error},
     units::{Dimensionless, UnitMul},
 };
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 /// Line searches that judge a step by a merit built from the objective.
 ///

@@ -19,7 +19,7 @@ use crate::{
     mechanics::ReferenceCoordinate,
     units::{Area, Power, PowerDensity, Time, UnitMul, Volume},
 };
-use std::ops::Mul;
+use core::ops::Mul;
 
 /// Sources that do not change with the field, one on each node, such as heat or charge.
 #[derive(Clone, Debug)]

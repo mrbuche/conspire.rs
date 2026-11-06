@@ -1,7 +1,7 @@
 use super::super::{AssertEq, eq_impl, eq_within_tols_impl};
 use crate::math::assert::{Assert, AssertionError};
 use crate::math::{Tensor, TensorList, TensorTuple, TensorVector};
-use std::fmt::Display;
+use core::fmt::Display;
 
 impl<T, const N: usize> AssertEq<TensorList<T, N>> for TensorList<T, N>
 where

@@ -5,10 +5,9 @@ use crate::{
     geometry::Coordinate,
     math::{Tensor, assert::Assert},
 };
-use std::{
-    array::from_fn,
-    collections::{BTreeMap, HashMap, HashSet},
-};
+use alloc::collections::BTreeMap;
+use core::array::from_fn;
+use std::collections::{HashMap, HashSet};
 
 type Triangle = [Coordinate<3>; 3];
 

@@ -9,7 +9,7 @@ use crate::geometry::{
         node::{Kind, cell::Cell},
     },
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const L2: usize = 4;
 

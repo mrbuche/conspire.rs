@@ -16,7 +16,7 @@ use crate::{
     },
     units::ReciprocalLength,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 fn gradient<const N: usize>(
     corners: &[(usize, [usize; 3]); N],

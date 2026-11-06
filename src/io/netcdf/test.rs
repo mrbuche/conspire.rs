@@ -88,7 +88,7 @@ fn non_utf8_path_errors() {
 #[test]
 fn try_from_nul_path_errors() {
     let error = NetCDF::try_from(Path::new("bad\0.nc")).err().unwrap();
-    let nul = std::ffi::CString::new("bad\0.nc").unwrap_err();
+    let nul = alloc::ffi::CString::new("bad\0.nc").unwrap_err();
     assert_eq!(error.to_string(), nul.to_string());
     assert_eq!(format!("{error:?}"), nul.to_string());
 }
@@ -144,7 +144,8 @@ fn interior_nul_attribute_of_existing_variable_errors() {
 
 #[test]
 fn poisoned_lock_recovers() {
-    use std::panic::{AssertUnwindSafe, catch_unwind};
+    use core::panic::AssertUnwindSafe;
+    use std::panic::catch_unwind;
     let _ = catch_unwind(AssertUnwindSafe(|| {
         let _guard = super::nc_lock();
         panic!("poison the lock");

@@ -5,7 +5,10 @@ use crate::math::{
     Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, TensorRank1, TensorTuple, TensorVector,
     Vector,
 };
-use std::{array::from_fn, ops::Mul, ops::Sub};
+use core::{
+    array::from_fn,
+    ops::{Mul, Sub},
+};
 
 /// A vector of tensor tuples.
 pub type TensorTupleVec<T1, T2> = TensorVector<TensorTuple<T1, T2>>;

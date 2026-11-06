@@ -18,7 +18,7 @@ fn model() -> Fick {
 
 #[test]
 fn size() {
-    assert_eq!(std::mem::size_of::<Fick>(), std::mem::size_of::<Scalar>())
+    assert_eq!(core::mem::size_of::<Fick>(), core::mem::size_of::<Scalar>())
 }
 
 #[test]

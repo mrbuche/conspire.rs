@@ -17,10 +17,9 @@ use crate::{
     math::{CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1},
     units::{Area, Length},
 };
-use std::{
-    cmp::Ordering,
-    collections::{BTreeSet, HashMap, HashSet},
-};
+use alloc::collections::BTreeSet;
+use core::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 
 /// How far a point can be from a surface, as a fraction of `reach`, before it cannot be told to be
 /// off it. It is a few thousand times the rounding of the coordinates it is found from.

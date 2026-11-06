@@ -2,7 +2,7 @@ use crate::{
     geometry::mesh::connectivity::{Connectivities, Connectivity, iter::ElementIter},
     math::{Graph, Incidence},
 };
-use std::{fmt::Debug, num::TryFromIntError};
+use core::{fmt::Debug, num::TryFromIntError};
 
 pub(crate) trait ConnectivityImpl {
     fn is_empty(&self) -> bool;

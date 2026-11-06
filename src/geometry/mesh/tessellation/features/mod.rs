@@ -12,7 +12,7 @@ use crate::{
     math::{CrossProduct, FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::{Area, Dimensionless, Length},
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 /// Cosine of the dihedral deviation past which an edge is a crease.
 const CREASE_COSINE: Scalar = 0.866_025_403_784_438_6;

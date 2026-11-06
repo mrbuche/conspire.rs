@@ -1,10 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use std::{
-    sync::atomic::{AtomicUsize, Ordering},
-    thread::{available_parallelism, scope},
-};
+use core::sync::atomic::{AtomicUsize, Ordering};
+use std::thread::{available_parallelism, scope};
 
 pub(crate) fn thread_count(max_threads: usize) -> usize {
     max_threads.min(available_parallelism().map_or(1, |threads| threads.get()))

@@ -6,7 +6,7 @@ use crate::{
     math::Quantity,
     units::Length,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 const TETS_4: [[usize; 4]; 1] = [[0, 1, 2, 3]];
 const TETS_5: [[usize; 4]; 2] = [[0, 1, 2, 4], [0, 2, 3, 4]];

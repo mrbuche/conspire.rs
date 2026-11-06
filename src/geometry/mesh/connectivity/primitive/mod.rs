@@ -2,7 +2,8 @@ mod graph;
 
 use crate::geometry::mesh::connectivity::base::FlatConnectivity;
 use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Labels};
-use std::{fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
+use alloc::vec::IntoIter;
+use core::{fmt::Debug, num::TryFromIntError, slice::Iter};
 
 pub struct PrimitiveConnectivity<const M: usize, const N: usize>(Vec<[usize; N]>, Option<Labels>);
 

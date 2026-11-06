@@ -4,7 +4,7 @@ use crate::math::{
     optimize::{Direct, OptimizationError, ResidualMerit, SolveStrategy, TrustRegion},
     sparse::{CscMatrix, SparseSolver},
 };
-use std::{fmt::Display, ops::Mul};
+use core::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
 use super::adaptive::adaptive_step_blocked;

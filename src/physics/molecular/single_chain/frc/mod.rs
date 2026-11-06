@@ -11,7 +11,7 @@ use crate::{
     },
     units::Length,
 };
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 /// The freely-rotating chain model.
 #[derive(Clone, Debug)]

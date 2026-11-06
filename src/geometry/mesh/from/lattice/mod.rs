@@ -11,7 +11,8 @@ use crate::{
     },
     math::{FxHashMap, TensorVec},
 };
-use std::{array::from_fn, collections::BTreeMap};
+use alloc::collections::BTreeMap;
+use core::array::from_fn;
 
 fn remap<const N: usize>(
     connectivity: &mut [[usize; N]],

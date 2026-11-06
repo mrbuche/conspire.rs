@@ -9,10 +9,8 @@ use crate::{
     geometry::Coordinates,
     math::{Tensor, TensorVec},
 };
-use std::{
-    array::from_fn,
-    collections::{HashMap, HashSet, hash_map::Entry},
-};
+use core::array::from_fn;
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 /// The four faces of a tetrahedron, as triples of local node indices.
 const TET_FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 1, 3], [1, 2, 3], [2, 0, 3]];

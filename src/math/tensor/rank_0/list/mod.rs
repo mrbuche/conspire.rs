@@ -4,7 +4,7 @@ pub(crate) mod vec;
 mod test;
 
 use crate::math::{Tensor, TensorRank0, tensor::list::TensorList};
-use std::ops::Mul;
+use core::ops::Mul;
 
 use crate::math::assert::FiniteDifference;
 

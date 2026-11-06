@@ -27,7 +27,8 @@ use crate::{
     math::{Quantity, Scalar},
     units::Length,
 };
-use std::{collections::HashMap, num::NonZeroU32};
+use core::num::NonZeroU32;
+use std::collections::HashMap;
 
 const COLLAPSE_FRACTION: Scalar = 0.2;
 const CROSSING_TOLERANCE: Quantity<Length> = Length::meters(1.0e-8);

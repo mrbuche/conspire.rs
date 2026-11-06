@@ -10,7 +10,7 @@ use crate::math::{
     optimize::{EqualityConstraints, RootFinding},
     sparse::SparseSolver,
 };
-use std::ops::{Div, Mul, Sub};
+use core::ops::{Div, Mul, Sub};
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]

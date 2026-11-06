@@ -1,6 +1,6 @@
 use super::{estimate, exact, filtered, orient2d};
 use crate::geometry::predicates::test::Lcg;
-use std::{array::from_fn, cmp::Ordering};
+use core::{array::from_fn, cmp::Ordering};
 
 #[test]
 fn counterclockwise_is_positive_in_the_plane_left_after_dropping_an_axis() {

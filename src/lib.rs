@@ -1,6 +1,15 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(feature = "autodiff", feature(autodiff))]
 #![cfg_attr(feature = "nightly", feature(portable_simd))]
+// Paths come from `core` or `alloc` when they have the item, and from `std` only for what they
+// do not, so that the code that does not need an operating system does not depend on one.
+#![warn(
+    clippy::alloc_instead_of_core,
+    clippy::std_instead_of_alloc,
+    clippy::std_instead_of_core
+)]
+
+extern crate alloc;
 
 #[cfg(feature = "cbm")]
 #[doc(hidden)]

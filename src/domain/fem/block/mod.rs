@@ -26,7 +26,7 @@ use crate::{
     math::{Quantity, TensorRank1List, TensorRank1Vec},
     units::Volume,
 };
-use std::fmt::{self, Debug, Formatter};
+use core::fmt::{self, Debug, Formatter};
 
 pub use density::{Densities, DensityField, ElementDensities, NoDensity};
 pub use thermal::capacity::{ElementHeatCapacities, HeatCapacities, NoHeatCapacity};

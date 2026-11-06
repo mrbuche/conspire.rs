@@ -12,7 +12,7 @@ use crate::{
         FirstPiolaKirchhoffTangentStiffness, Scalar,
     },
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 /// The plastic deformation gradient of a monolithic trial state: the local unknowns
 /// are $`(\mathbf{E},\Delta\gamma)`$ and $`\mathbf{F}_\mathrm{p}=\exp(\mathbf{E})\mathbf{F}_\mathrm{p}^n`$.

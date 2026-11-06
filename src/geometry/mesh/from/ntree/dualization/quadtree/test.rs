@@ -19,7 +19,7 @@ fn min_scaled_jacobian(mesh: &Mesh<D>) -> f64 {
             (0..N)
                 .map(|k| {
                     let e = |j: usize| {
-                        std::array::from_fn::<f64, D, _>(|i| {
+                        core::array::from_fn::<f64, D, _>(|i| {
                             (coordinates[quad[j]][i] - coordinates[quad[k]][i]).value()
                         })
                     };

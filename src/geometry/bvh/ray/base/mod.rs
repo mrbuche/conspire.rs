@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use std::mem::swap;
+use core::mem::swap;
 
 use crate::{
     REL_TOL,

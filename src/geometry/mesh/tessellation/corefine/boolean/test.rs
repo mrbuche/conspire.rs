@@ -9,7 +9,7 @@ use crate::{
     },
     units::Volume,
 };
-use std::array::from_fn;
+use core::array::from_fn;
 
 fn volume(surface: Result<Tessellation, &'static str>, touching: bool) -> Quantity<Volume> {
     match surface {

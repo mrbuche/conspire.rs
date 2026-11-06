@@ -237,7 +237,7 @@ mod integrate_temperatures {
         let dt = step(&model);
         let rate = 2.0;
         let capacities = model.nodal_lumped_heat_capacities();
-        let heating = NodalForcesThermal::from(std::array::from_fn::<_, NODES, _>(|node| {
+        let heating = NodalForcesThermal::from(core::array::from_fn::<_, NODES, _>(|node| {
             crate::units::Energy::joules(capacities[node].value() * rate) / Time::seconds(1.0)
         }));
         let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with(
@@ -415,7 +415,7 @@ mod integrate_implicit {
         let dt = 50.0 * limit(&model);
         let rate = 2.0;
         let capacities = model.nodal_lumped_heat_capacities();
-        let heating = NodalForcesThermal::from(std::array::from_fn::<_, NODES, _>(|node| {
+        let heating = NodalForcesThermal::from(core::array::from_fn::<_, NODES, _>(|node| {
             crate::units::Energy::joules(capacities[node].value() * rate) / Time::seconds(1.0)
         }));
         let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with(
@@ -449,7 +449,7 @@ mod integrate_implicit {
         let dt = 50.0 * limit(&model);
         let rate = 2.0;
         let capacities = model.nodal_lumped_heat_capacities();
-        let heating = NodalForcesThermal::from(std::array::from_fn::<_, NODES, _>(|node| {
+        let heating = NodalForcesThermal::from(core::array::from_fn::<_, NODES, _>(|node| {
             crate::units::Energy::joules(capacities[node].value() * rate) / Time::seconds(1.0)
         }));
         let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with_by(
