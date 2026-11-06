@@ -196,18 +196,31 @@ pub unsafe extern "ptx-kernel" fn neo_hookean_hexahedron_forces(
 //   connectivity[position * items + item]
 //   forces[(component * 8 + position) * items + item]
 
+/// The words of a hexahedron, which are its numbers one after another as they are on the host.
+const WORDS: usize = core::mem::size_of::<Hexahedron>() / 8;
+const _: () = assert!(
+    core::mem::size_of::<Hexahedron>() % 8 == 0 && core::mem::align_of::<Hexahedron>() == 8
+);
+
 /// The nodal forces of each of `items` hexahedra of a block, by the code of the library, one to a
 /// thread. The first element whose Jacobian is not positive is put in `failure`, which is
 /// all ones when none is, and its forces are zeros.
 ///
+/// The elements are the words of each, with the element last, `elements[word * items + item]`,
+/// so that consecutive threads read consecutive addresses, and a thread puts its words back into
+/// the hexahedron that the library takes. The host says how many words an element has, and the
+/// thread stops if that is not what this was built for.
+///
 /// # Safety
 ///
-/// `elements` must be `items` hexahedra, `connectivity` must be `8 * items` nodes that
-/// `coordinates` has, `forces` must have `24 * items` values, and `failure` must be one.
+/// `elements` must be `words * items` words of hexahedra, `connectivity` must be `8 * items`
+/// nodes that `coordinates` has, `forces` must have `24 * items` values, and `failure` must be
+/// one.
 #[unsafe(no_mangle)]
 pub unsafe extern "ptx-kernel" fn block_forces(
     items: u32,
-    elements: *const Hexahedron,
+    words: u32,
+    elements: *const u64,
     connectivity: *const u32,
     coordinates: *const f64,
     forces: *mut f64,
@@ -218,8 +231,19 @@ pub unsafe extern "ptx-kernel" fn block_forces(
     let item = thread();
     let items = items as usize;
     if item < items {
-        // SAFETY: the item is within the elements that there are.
-        let element = unsafe { &*elements.add(item) };
+        if words as usize != WORDS {
+            // SAFETY: stops the thread.
+            unsafe { nvptx::trap() }
+        }
+        let mut stored = core::mem::MaybeUninit::<Hexahedron>::uninit();
+        let target = stored.as_mut_ptr().cast::<u64>();
+        (0..WORDS).for_each(|word| {
+            // SAFETY: the word is one of the words of the element, which is as many as the
+            // hexahedron has, and it is a plain number.
+            unsafe { *target.add(word) = *elements.add(word * items + item) }
+        });
+        // SAFETY: every word of the hexahedron was put there, and its numbers are plain.
+        let element = unsafe { stored.assume_init_ref() };
         let mut positions = [[0.0; 3]; 8];
         positions.iter_mut().enumerate().for_each(|(a, position)| {
             // SAFETY: the node is one that `coordinates` has.

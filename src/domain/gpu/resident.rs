@@ -3,6 +3,7 @@
 use super::{
     GpuError, GpuGradients, GpuItems, GpuKernels, GpuOptions, GpuPrecision,
     cuda::{Argument, Buffer, Device, Function, Module},
+    transpose,
 };
 use crate::{
     constitutive::solid::elastic::GpuModel,
@@ -149,8 +150,9 @@ enum Geometry<R> {
         derivatives: Buffer<R>,
         weights: Buffer<R>,
     },
-    /// The elements themselves, as the bytes that the kernels of the library take them in.
-    Library { elements: Buffer<u8> },
+    /// The elements themselves, as the words that the kernels of the library take them in, the
+    /// words of each in turn and the element last, and how many words an element has.
+    Library { elements: Buffer<u64>, words: u32 },
 }
 
 /// The fields are dropped in order, so the buffers go before the kernels and the device.
@@ -199,10 +201,24 @@ impl<R: Real> State<R> {
                         "the library has no kernels for this model and element".to_string(),
                     )
                 })?;
+                let words = blocks_kernels.elements.len() / (8 * items.max(1));
+                if blocks_kernels.elements.len() != 8 * words * items {
+                    return Err(GpuError::Unsupported(
+                        "the elements are not a whole number of words".to_string(),
+                    ));
+                }
+                let words_of_elements = blocks_kernels
+                    .elements
+                    .as_chunks::<8>()
+                    .0
+                    .iter()
+                    .map(|&bytes| u64::from_ne_bytes(bytes))
+                    .collect::<Vec<_>>();
                 (
                     device.module_from_ptx(LIBRARY)?,
                     Geometry::Library {
-                        elements: device.buffer_of(&blocks_kernels.elements)?,
+                        elements: device.buffer_of(&transpose(&words_of_elements, words, items))?,
+                        words: words as u32,
                     },
                     blocks_kernels.forces_kernel,
                 )
@@ -318,12 +334,13 @@ impl<R: Real> State<R> {
                         &block.bulk_modulus,
                     ],
                 ),
-                (Geometry::Library { elements }, _) => self.device.launch(
+                (Geometry::Library { elements, words }, _) => self.device.launch(
                     &block.forces_kernel,
                     block.items as usize,
                     THREADS_PER_BLOCK,
                     &[
                         &block.items,
+                        words,
                         elements,
                         &block.connectivity,
                         &self.coordinates,
