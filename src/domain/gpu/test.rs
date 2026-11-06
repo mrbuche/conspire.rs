@@ -333,6 +333,80 @@ fn device_layout_puts_the_element_last() {
         });
 }
 
+/// The forces that the library makes of an element are the same whether it takes the gradient
+/// vectors and weights from the element, or from the arrays with the element last that the device
+/// has: the same view as the kernel of the library reads, on the host.
+#[test]
+fn integration_data_in_the_layout_of_the_device_gives_the_forces_of_the_element() {
+    use crate::{
+        constitutive::solid::hyperelastic::NeoHookean as Model,
+        domain::solid::elastic::ElasticItems,
+        fem::block::element::{
+            ElementNodalCoordinates, IntegrationData, solid::elastic::nodal_forces_from,
+        },
+        math::{Reference, TensorRank1List},
+        units::{ReciprocalLength, Volume},
+    };
+    struct Coalesced<'a> {
+        reference: &'a [f64],
+        items: usize,
+        item: usize,
+    }
+    impl IntegrationData<8, 8> for Coalesced<'_> {
+        fn gradient_vectors_at(
+            &self,
+            point: usize,
+        ) -> TensorRank1List<3, Reference, 8, ReciprocalLength> {
+            let mut gradient_vectors = [[0.0; 3]; 8];
+            for (node, gradient_vector) in gradient_vectors.iter_mut().enumerate() {
+                for (component, value) in gradient_vector.iter_mut().enumerate() {
+                    *value = self.reference
+                        [((point * 8 + node) * 3 + component) * self.items + self.item];
+                }
+            }
+            gradient_vectors.into()
+        }
+        fn integration_weight_at(&self, point: usize) -> Quantity<Volume> {
+            Volume::cubic_meters(self.reference[(8 * 8 * 3 + point) * self.items + self.item])
+        }
+    }
+    let (model, coordinates) = grid(3);
+    let current = deformed(&coordinates);
+    let mut blocks = Vec::new();
+    model.gpu_blocks(&mut blocks).unwrap();
+    let layout = blocks[0].device_layout();
+    let items = blocks[0].number_of_items();
+    let neo_hookean = Model {
+        shear_modulus: Stress::pascals(3.0e9),
+        bulk_modulus: Stress::pascals(13.0e9),
+    };
+    for (item, nodes) in model.blocks.connectivity().iter().enumerate() {
+        let nodal_coordinates: ElementNodalCoordinates<8> =
+            Grid::element_coordinates(&current, nodes);
+        let found = nodal_forces_from::<_, _, 8, 8>(
+            &Coalesced {
+                reference: &layout.reference,
+                items,
+                item,
+            },
+            &(),
+            &neo_hookean,
+            &nodal_coordinates,
+        )
+        .unwrap();
+        let expected = model.blocks.forces_of(item, &current).unwrap();
+        for (found, expected) in found.iter().zip(expected.iter()) {
+            for (found, expected) in found.iter().zip(expected.iter()) {
+                assert_eq!(
+                    found.value().to_bits(),
+                    expected.value().to_bits(),
+                    "{item}"
+                );
+            }
+        }
+    }
+}
+
 /// Runs the kernels on the host as C++, from the blocks of the model, and returns whether an
 /// element failed and what the harness wrote: the forces if there are no steps, and otherwise
 /// the coordinates and then the velocities at the end.

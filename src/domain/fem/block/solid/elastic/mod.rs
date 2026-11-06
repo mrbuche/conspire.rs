@@ -123,22 +123,11 @@ where
             }
         });
         // The kernels of the library are for the elements that they were built for, which are
-        // known by their types, and their elements are the bytes that they are.
+        // known by their types.
         let library = (core::any::type_name::<F>() == core::any::type_name::<Hexahedron>()
             && matches!(model, GpuModel::NeoHookean { .. }))
-        .then(|| {
-            let elements = self.elements();
-            // SAFETY: the elements are plain numbers, which the device reads as bytes.
-            let bytes = unsafe {
-                core::slice::from_raw_parts(
-                    elements.as_ptr().cast::<u8>(),
-                    core::mem::size_of_val(elements),
-                )
-            };
-            LibraryBlock {
-                elements: bytes.to_vec(),
-                forces_kernel: "block_forces",
-            }
+        .then_some(LibraryBlock {
+            forces_kernel: "block_forces",
         });
         Some(GpuItems {
             library,

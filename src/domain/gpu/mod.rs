@@ -124,14 +124,13 @@ pub struct GpuItems {
     pub contributions: Vec<u32>,
     /// What makes the gradient vectors from the reference coordinates, if the elements can.
     pub shape: Option<ShapeTables>,
-    /// The elements as the bytes that they are, for the kernels of the library, if it has them.
+    /// The kernels of the library for the block, if it has them.
     pub library: Option<LibraryBlock>,
 }
 
-/// A block as the kernels of the library take it: its elements, as they are on the host.
+/// A block as the kernels of the library take it: with the same arrays as the kernels written for
+/// it, and the name of the kernel that makes the forces of its elements.
 pub struct LibraryBlock {
-    /// The elements, one after another.
-    pub elements: Vec<u8>,
     /// The name of the kernel that computes the forces of the elements.
     pub forces_kernel: &'static str,
 }

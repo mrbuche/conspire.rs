@@ -149,8 +149,9 @@ enum Geometry<R> {
         derivatives: Buffer<R>,
         weights: Buffer<R>,
     },
-    /// The elements themselves, as the bytes that the kernels of the library take them in.
-    Library { elements: Buffer<u8> },
+    /// The gradient vectors and weights of the elements, as the kernels of the library take them,
+    /// which is as the kernels written for it do.
+    Library { reference: Buffer<R> },
 }
 
 /// The fields are dropped in order, so the buffers go before the kernels and the device.
@@ -203,7 +204,7 @@ impl<R: Real> State<R> {
                 (
                     device.module_from_ptx(LIBRARY)?,
                     Geometry::Library {
-                        elements: device.buffer_of(&blocks_kernels.elements)?,
+                        reference: device.buffer_of(&to_device(&layout.reference))?,
                     },
                     blocks_kernels.forces_kernel,
                 )
@@ -326,14 +327,14 @@ impl<R: Real> State<R> {
                         &block.bulk_modulus,
                     ],
                 ),
-                (Geometry::Library { elements }, _) => self.device.launch(
+                (Geometry::Library { reference }, _) => self.device.launch(
                     &block.forces_kernel,
                     block.items as usize,
                     THREADS_PER_BLOCK,
                     &[
                         &block.items,
                         &self.element_stride,
-                        elements,
+                        reference,
                         &block.connectivity,
                         &self.coordinates,
                         &block.item_forces,

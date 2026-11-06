@@ -10,11 +10,13 @@
 use conspire::{
     constitutive::solid::{elastic::Elastic, hyperelastic::NeoHookean},
     fem::block::element::{
-        ElementNodalCoordinates, linear::Hexahedron, solid::elastic::ElasticElement,
+        ElementNodalCoordinates, IntegrationData,
+        linear::Hexahedron,
+        solid::elastic::{ElasticElement, nodal_forces_from},
     },
-    math::Tensor,
+    math::{Quantity, Reference, Tensor, TensorRank1List},
     mechanics::DeformationGradient,
-    units::Stress,
+    units::{ReciprocalLength, Stress, Volume},
 };
 use core::{
     alloc::{GlobalAlloc, Layout},
@@ -196,15 +198,62 @@ pub unsafe extern "ptx-kernel" fn neo_hookean_hexahedron_forces(
 //   connectivity[position * items + item]
 //   forces[(component * 8 + position) * items + item]
 
+/// The integration data of one element of a block, read from arrays that have the element last,
+///   reference[value * items + item],
+/// where the values of an element are the gradient vectors of its nodes at each integration point
+/// (point, then node, then component) and then the weights of the points. The threads of a warp
+/// are consecutive elements, so they read consecutive addresses.
+struct Coalesced {
+    reference: *const f64,
+    items: usize,
+    item: usize,
+}
+
+impl Coalesced {
+    fn value(&self, value: usize) -> f64 {
+        // SAFETY: the value is one of those of the element, which `reference` has for each
+        // of the `items` elements.
+        unsafe { *self.reference.add(value * self.items + self.item) }
+    }
+}
+
+impl IntegrationData<8, 8> for Coalesced {
+    fn gradient_vectors_at(
+        &self,
+        point: usize,
+    ) -> TensorRank1List<3, Reference, 8, ReciprocalLength> {
+        let mut gradient_vectors = [[0.0; 3]; 8];
+        gradient_vectors
+            .iter_mut()
+            .enumerate()
+            .for_each(|(node, gradient_vector)| {
+                gradient_vector
+                    .iter_mut()
+                    .enumerate()
+                    .for_each(|(component, value)| {
+                        *value = self.value((point * 8 + node) * 3 + component)
+                    })
+            });
+        gradient_vectors.into()
+    }
+    fn integration_weight_at(&self, point: usize) -> Quantity<Volume> {
+        Volume::cubic_meters(self.value(8 * 8 * 3 + point))
+    }
+}
+
 /// The nodal forces of each of `items` hexahedra of a block, by the code of the library, one to a
 /// thread. The first element whose Jacobian is not positive is put in `failure`, which is
 /// all ones when none is, and its forces are zeros.
 ///
+/// The gradient vectors and weights of the elements are those of the arrays that have the
+/// element last (see [`Coalesced`]), and the library takes them from there as it takes them from
+/// an element that keeps them.
+///
 /// # Safety
 ///
-/// `elements` must be `items` hexahedra, or one if `stride` is zero, `connectivity` must be
-/// `8 * items` nodes that `coordinates` has, `forces` must have `24 * items` values, and
-/// `failure` must be one.
+/// `reference` must have the values of each of `items` hexahedra, which is one element if
+/// `stride` is zero, `connectivity` must be `8 * items` nodes that `coordinates` has, `forces`
+/// must have `24 * items` values, and `failure` must be one.
 ///
 /// A `stride` of zero has every thread read the first element, which is for finding how much of
 /// the time is that of reading the elements, and is otherwise one.
@@ -212,7 +261,7 @@ pub unsafe extern "ptx-kernel" fn neo_hookean_hexahedron_forces(
 pub unsafe extern "ptx-kernel" fn block_forces(
     items: u32,
     stride: u32,
-    elements: *const Hexahedron,
+    reference: *const f64,
     connectivity: *const u32,
     coordinates: *const f64,
     forces: *mut f64,
@@ -223,8 +272,11 @@ pub unsafe extern "ptx-kernel" fn block_forces(
     let item = thread();
     let items = items as usize;
     if item < items {
-        // SAFETY: the item is within the elements that there are.
-        let element = unsafe { &*elements.add(item * stride as usize) };
+        let element = Coalesced {
+            reference,
+            items: if stride == 0 { 1 } else { items },
+            item: item * stride as usize,
+        };
         let mut positions = [[0.0; 3]; 8];
         positions.iter_mut().enumerate().for_each(|(a, position)| {
             // SAFETY: the node is one that `coordinates` has.
@@ -236,7 +288,12 @@ pub unsafe extern "ptx-kernel" fn block_forces(
             shear_modulus: Stress::pascals(shear_modulus),
         };
         let mut nodal_forces = [[0.0; 3]; 8];
-        match element.nodal_forces(&model, &ElementNodalCoordinates::<8>::from(positions)) {
+        match nodal_forces_from::<_, _, 8, 8>(
+            &element,
+            &(),
+            &model,
+            &ElementNodalCoordinates::<8>::from(positions),
+        ) {
             Ok(computed) => computed.iter().enumerate().for_each(|(a, force)| {
                 force
                     .iter()

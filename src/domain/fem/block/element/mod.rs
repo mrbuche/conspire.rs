@@ -79,6 +79,34 @@ where
     }
 }
 
+/// Where the gradient vectors of the shape functions and the weights of the integration points of
+/// an element come from, as the integration points are gone through one at a time.
+///
+/// An element keeps them. Something that has many elements, such as a device, may keep them in
+/// another order, one that the elements next to each other read from next to each other, or
+/// make them as it goes, and the forces of an element are the same whichever it is.
+pub trait IntegrationData<const G: usize, const N: usize> {
+    /// The gradient vectors of the nodes at an integration point.
+    fn gradient_vectors_at(
+        &self,
+        point: usize,
+    ) -> TensorRank1List<3, Reference, N, ReciprocalLength>;
+    /// The weight of an integration point.
+    fn integration_weight_at(&self, point: usize) -> Quantity<Volume>;
+}
+
+impl<const G: usize, const N: usize, const O: usize> IntegrationData<G, N> for Element<3, G, N, O> {
+    fn gradient_vectors_at(
+        &self,
+        point: usize,
+    ) -> TensorRank1List<3, Reference, N, ReciprocalLength> {
+        self.gradient_vectors[point].clone()
+    }
+    fn integration_weight_at(&self, point: usize) -> Quantity<Volume> {
+        self.integration_weights[point]
+    }
+}
+
 #[derive(Clone)]
 pub struct Element<const D: usize, const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<D, G, N>,
