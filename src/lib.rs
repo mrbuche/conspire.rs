@@ -13,6 +13,10 @@ extern crate alloc;
 #[doc(hidden)]
 pub use domain::cbm;
 
+#[cfg(any(feature = "io", feature = "math"))]
+#[cfg_attr(not(feature = "math"), allow(dead_code))]
+mod hash;
+
 #[cfg(feature = "constitutive")]
 pub mod constitutive;
 
