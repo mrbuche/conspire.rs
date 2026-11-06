@@ -81,16 +81,16 @@ fn an_inverted_element_is_not_certified() {
 #[test]
 fn certification_is_sound() {
     let mut seed = 0x5eed;
-    let mut certified = 0;
+    let mut sound = 0;
     (0..300).for_each(|_| {
         let coordinates = perturbed(&mut seed, 0.7);
         if certifies(&ELEMENT, &coordinates) {
-            certified += 1;
+            sound += 1;
             let sampled = sampled_minimum(&ELEMENT, &coordinates, 12);
             assert!(sampled > 0.0, "certified but sampled {sampled}");
         }
     });
-    assert!(certified > 20, "only {certified} certified");
+    assert!(sound > 20, "only {sound} of the elements were sound");
 }
 
 #[test]

@@ -89,9 +89,16 @@ impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
     fn canonical(
         &self,
     ) -> &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
         unsafe {
-            &*(self as *const Self
-                as *const TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>)
+            &*core::ptr::from_ref(self).cast::<TensorRank4<
+                D,
+                Reference,
+                Reference,
+                Reference,
+                Reference,
+                Dimensionless,
+            >>()
         }
     }
     fn canonical_mut(

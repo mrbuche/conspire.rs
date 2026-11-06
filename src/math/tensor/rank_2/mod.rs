@@ -408,8 +408,10 @@ impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
         relabel(self.into_canonical())
     }
     pub(super) fn canonical(&self) -> &TensorRank2<D, Reference, Reference, Dimensionless> {
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
         unsafe {
-            &*(self as *const Self as *const TensorRank2<D, Reference, Reference, Dimensionless>)
+            &*core::ptr::from_ref(self)
+                .cast::<TensorRank2<D, Reference, Reference, Dimensionless>>()
         }
     }
     fn canonical_mut(&mut self) -> &mut TensorRank2<D, Reference, Reference, Dimensionless> {

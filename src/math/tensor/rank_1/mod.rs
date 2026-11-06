@@ -62,7 +62,8 @@ impl<const D: usize, I, U> PartialEq for TensorRank1<D, I, U> {
 
 impl<const D: usize, I, U> TensorRank1<D, I, U> {
     pub(super) fn canonical(&self) -> &TensorRank1<D, Reference, Dimensionless> {
-        unsafe { &*(self as *const Self as *const TensorRank1<D, Reference, Dimensionless>) }
+        // SAFETY: only the labels differ, and they are zero-sized, so the layouts are the same.
+        unsafe { &*core::ptr::from_ref(self).cast::<TensorRank1<D, Reference, Dimensionless>>() }
     }
     /// Asserts that the tensor carries the given unit.
     pub fn with_unit<V>(self) -> TensorRank1<D, I, V> {

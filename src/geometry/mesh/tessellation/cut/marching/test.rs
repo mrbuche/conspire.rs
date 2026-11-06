@@ -13,7 +13,7 @@ fn report(name: &str, mesh: &Mesh<3>) -> (usize, f64, usize) {
     let scaled = &mesh.minimum_scaled_jacobians()[0];
     let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
     let negative = scaled.iter().filter(|&&value| value <= 0.0).count();
-    let certified = match &mesh.connectivities()[0] {
+    let sound = match &mesh.connectivities()[0] {
         Connectivity::Hexahedral(hexes) => hexes
             .iter()
             .filter(|hex| bernstein::certifies(hex.as_ref(), mesh.coordinates()))
@@ -23,7 +23,7 @@ fn report(name: &str, mesh: &Mesh<3>) -> (usize, f64, usize) {
     println!(
         "{name:>16}  {:>7} hexes  min SJ {minimum:>8.4}  {negative:>5} inverted  {:>5} uncertified",
         scaled.len(),
-        scaled.len() - certified
+        scaled.len() - sound
     );
     (scaled.len(), minimum, negative)
 }
