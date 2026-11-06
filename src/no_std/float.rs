@@ -42,18 +42,26 @@ impl FloatMath for f64 {
         core::f64::math::sqrt(self)
     }
     /// The cube root, to within a unit of the last place. The one of `core` is a call to a math
-    /// library that a device does not have, so this is by iteration.
+    /// library that a device does not have, so this is by iteration, and without a division,
+    /// which on a device takes a long sequence of instructions.
+    ///
+    /// The reciprocal of the cube root, `y`, is found by Newton's method on `x y^3 = 1`, which
+    /// is `y (4 - x y^3) / 3`, from a guess made of the exponent and part of the mantissa that
+    /// is within a few percent, so that each step squares the error. The cube root is `x y^2`,
+    /// and a step of Newton's method on that polishes it.
     fn cbrt(self) -> f64 {
         if self == 0.0 || !self.is_finite() {
             return self;
         }
         let magnitude = self.abs();
-        // The cube root of the exponent and a part of the mantissa, which is within a few
-        // percent, and then each step of Newton's method squares the error.
-        let mut root = f64::from_bits(magnitude.to_bits() / 3 + 0x2A9F_7893_782D_A1CE);
+        let mut reciprocal =
+            f64::from_bits(0x553E_F0FF_289D_D796_u64.wrapping_sub(magnitude.to_bits() / 3));
         for _ in 0..5 {
-            root -= (root * root * root - magnitude) / (3.0 * root * root);
+            reciprocal *= (4.0 - magnitude * reciprocal * reciprocal * reciprocal) * (1.0 / 3.0);
         }
+        let squared = reciprocal * reciprocal;
+        let root = magnitude * squared;
+        let root = root - (root * root * root - magnitude) * squared * (1.0 / 3.0);
         if self < 0.0 { -root } else { root }
     }
     fn round(self) -> f64 {

@@ -591,15 +591,28 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2<D, I, J, U> {
     }
 }
 
+/// The trace over minus the dimension, which is taken out of a tensor to make it deviatoric. It is
+/// a division, as it has been, with the standard library, and on a device, where a division takes
+/// a long sequence of instructions, it is a product with the reciprocal.
+#[cfg(feature = "std")]
+fn over_minus_dimension<const D: usize>(trace: TensorRank0) -> TensorRank0 {
+    trace / -(D as TensorRank0)
+}
+
+#[cfg(not(feature = "std"))]
+fn over_minus_dimension<const D: usize>(trace: TensorRank0) -> TensorRank0 {
+    trace * (-1.0 / D as TensorRank0)
+}
+
 impl<const D: usize, I, J, U> Rank2 for TensorRank2<D, I, J, U> {
     type Transpose = TensorRank2<D, J, I, U>;
     fn deviatoric(&self) -> Self {
-        Self::identity() * (self.trace().value() / -(D as TensorRank0)) + self
+        Self::identity() * over_minus_dimension::<D>(self.trace().value()) + self
     }
     fn deviatoric_and_trace(&self) -> (Self, Quantity<U>) {
         let trace = self.trace();
         (
-            Self::identity() * (trace.value() / -(D as TensorRank0)) + self,
+            Self::identity() * over_minus_dimension::<D>(trace.value()) + self,
             trace,
         )
     }
@@ -982,13 +995,27 @@ impl<const D: usize, I, J, U> Div<&TensorRank0> for &TensorRank2<D, I, J, U> {
 
 impl<const D: usize, I, J, U> DivAssign<TensorRank0> for TensorRank2<D, I, J, U> {
     fn div_assign(&mut self, tensor_rank_0: TensorRank0) {
+        #[cfg(feature = "std")]
         self.iter_mut().for_each(|self_i| *self_i /= &tensor_rank_0);
+        // A division takes a long sequence of instructions on a device, and a product does not,
+        // so a tensor is divided by a number by multiplying it by the reciprocal, once.
+        #[cfg(not(feature = "std"))]
+        {
+            let reciprocal = 1.0 / tensor_rank_0;
+            self.iter_mut().for_each(|self_i| *self_i *= &reciprocal);
+        }
     }
 }
 
 impl<const D: usize, I, J, U> DivAssign<&TensorRank0> for TensorRank2<D, I, J, U> {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
+        #[cfg(feature = "std")]
         self.iter_mut().for_each(|self_i| *self_i /= tensor_rank_0);
+        #[cfg(not(feature = "std"))]
+        {
+            let reciprocal = 1.0 / tensor_rank_0;
+            self.iter_mut().for_each(|self_i| *self_i *= &reciprocal);
+        }
     }
 }
 

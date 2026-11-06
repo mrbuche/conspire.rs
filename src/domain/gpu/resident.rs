@@ -162,6 +162,7 @@ pub(crate) struct State<R: Real> {
     host: Vec<R>,
     nodes: usize,
     library: bool,
+    element_stride: u32,
     _modules: Vec<Module>,
     device: Device,
 }
@@ -265,6 +266,13 @@ impl<R: Real> State<R> {
             host: vec![R::default(); 3 * number_of_nodes],
             nodes: number_of_nodes,
             library,
+            // Diagnostic: with `CONSPIRE_GPU_PROBE` set, every thread reads the first element, so
+            // that what is left of the time is not that of reading the elements.
+            element_stride: if std::env::var_os("CONSPIRE_GPU_PROBE").is_some() {
+                0
+            } else {
+                1
+            },
             _modules: modules,
             device,
         })
@@ -324,6 +332,7 @@ impl<R: Real> State<R> {
                     THREADS_PER_BLOCK,
                     &[
                         &block.items,
+                        &self.element_stride,
                         elements,
                         &block.connectivity,
                         &self.coordinates,

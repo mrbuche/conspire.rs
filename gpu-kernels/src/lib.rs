@@ -202,11 +202,16 @@ pub unsafe extern "ptx-kernel" fn neo_hookean_hexahedron_forces(
 ///
 /// # Safety
 ///
-/// `elements` must be `items` hexahedra, `connectivity` must be `8 * items` nodes that
-/// `coordinates` has, `forces` must have `24 * items` values, and `failure` must be one.
+/// `elements` must be `items` hexahedra, or one if `stride` is zero, `connectivity` must be
+/// `8 * items` nodes that `coordinates` has, `forces` must have `24 * items` values, and
+/// `failure` must be one.
+///
+/// A `stride` of zero has every thread read the first element, which is for finding how much of
+/// the time is that of reading the elements, and is otherwise one.
 #[unsafe(no_mangle)]
 pub unsafe extern "ptx-kernel" fn block_forces(
     items: u32,
+    stride: u32,
     elements: *const Hexahedron,
     connectivity: *const u32,
     coordinates: *const f64,
@@ -219,7 +224,7 @@ pub unsafe extern "ptx-kernel" fn block_forces(
     let items = items as usize;
     if item < items {
         // SAFETY: the item is within the elements that there are.
-        let element = unsafe { &*elements.add(item) };
+        let element = unsafe { &*elements.add(item * stride as usize) };
         let mut positions = [[0.0; 3]; 8];
         positions.iter_mut().enumerate().for_each(|(a, position)| {
             // SAFETY: the node is one that `coordinates` has.
